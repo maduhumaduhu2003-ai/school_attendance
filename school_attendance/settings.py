@@ -95,13 +95,14 @@ import os
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'school_attendance_db'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'NAME': os.environ.get('DB_NAME'),        # Render DB name
+        'USER': os.environ.get('DB_USER'),        # Render DB user
+        'PASSWORD': os.environ.get('DB_PASSWORD'),# Render DB password
+        'HOST': os.environ.get('DB_HOST'),        # Render DB host
+        'PORT': os.environ.get('DB_PORT', '5432'),# usually 5432
     }
 }
+
 
 
 
