@@ -1,0 +1,132 @@
+{% extends "attendance_app/teacher_base.html" %}
+{% block title %}Mark Attendance{% endblock %}
+
+{% block content %}
+
+<!-- Card wrapper -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">
+                Mark Attendance : {{ classroom.name }} ({{ classroom.year }})
+            </h4>
+            <!-- Optional: Add a button here if needed -->
+            <!-- <a href="#" class="btn btn-primary">Some Action</a> -->
+        </div>
+
+        <!-- Attendance Form -->
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover align-middle">
+                    <thead style="background-color: #4f46e5; color: #fff;">
+                        <tr>
+                            <th style="width: 5%">No</th>
+                            <th style="width: 20%">Admission No</th>
+                            <th style="width: 35%">Student Name</th>
+                            <th style="width: 40%">Attendance Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ student.admission_number }}</td>
+                            <td>{{ student.user.first_name }} {{ student.user.last_name }}</td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <label class="badge bg-success p-2 rounded">
+                                        <input type="radio"
+                                               name="attendance_{{ student.id }}"
+                                               value="present"
+                                               checked>
+                                        Present
+                                    </label>
+
+                                    <label class="badge bg-danger p-2 rounded">
+                                        <input type="radio"
+                                               name="attendance_{{ student.id }}"
+                                               value="absent">
+                                        Absent
+                                    </label>
+
+                                    <label class="badge bg-warning text-dark p-2 rounded">
+                                        <input type="radio"
+                                               name="attendance_{{ student.id }}"
+                                               value="sick">
+                                        Sick
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">
+                                No students found
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="submit" class="btn btn-primary mt-3">
+                Submit Attendance
+            </button>
+        </form>
+
+        <!-- Pagination -->
+        <div class="d-flex justify-content-center mt-4">
+            <nav>
+                <ul class="pagination">
+                    {% if students.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ students.previous_page_number }}">Previous</a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ students.number }} of {{ students.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if students.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ students.next_page_number }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+
+    </div> <!-- End card-body -->
+</div> <!-- End card -->
+
+<!-- Styles -->
+<style>
+/* Card shadow */
+.card {
+    border-radius: 0.5rem;
+}
+
+/* Table hover and badge adjustments */
+.table-hover tbody tr:hover {
+    background-color: rgba(79, 70, 229, 0.08); /* subtle blue hover */
+}
+
+input[type="radio"] {
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+/* Optional: style table borders to match sidebar */
+.table-bordered th, .table-bordered td {
+    border-color: #e5e7eb; /* light gray */
+}
+</style>
+
+{% endblock %}

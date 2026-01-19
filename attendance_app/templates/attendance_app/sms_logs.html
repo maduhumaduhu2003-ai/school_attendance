@@ -1,0 +1,55 @@
+{% extends "attendance_app/admin_base.html" %}
+
+{% block title %}SMS Logs{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Sent SMS</h4>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle mb-0">
+                    <thead class="bg-primary text-white text-center">
+                        <tr>
+                            <th>No</th>
+                            <th>Student</th>
+                            <th>Parent</th>
+                            <th>Message</th>
+                            <th>Status</th>
+                            <th>Sent At</th>
+                        </tr>
+                    </thead>
+                    <tbody style="background-color: #f8fafc;">
+                        {% for sms in sms_logs %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ sms.student.user.get_full_name }}</td>
+                            <td>{{ sms.parent.user.get_full_name }}</td>
+                            <td>{{ sms.message }}</td>
+                            <td>
+                                <span class="badge bg-success">{{ sms.status|capfirst }}</span>
+                            </td>
+                            <td>{{ sms.timestamp|date:"M d, Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No SMS sent yet</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+table.table tbody tr:hover {
+    background-color: rgba(79, 70, 229, 0.08);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,236 @@
+{% extends 'attendance_app/admin_base.html' %}
+
+{% block title %}Manage Teachers{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <!-- ================= TOAST MESSAGES ================= -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="toast align-items-center text-white 
+                            {% if message.tags == 'success' %}bg-success
+                            {% elif message.tags == 'error' %}bg-danger
+                            {% else %}bg-info{% endif %} 
+                            border-0 mb-2" 
+                     role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            {{ message }}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <!-- =================================================== -->
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <!-- PAGE TITLE & ADD BUTTON -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="mb-0">Manage Teachers</h2>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registerTeacherModal">
+                    Register New Teacher
+                </button>
+            </div>
+
+            <!-- TEACHERS TABLE -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle mb-0">
+                    <thead style="background-color: #4f46e5; color: white;" class="text-center">
+                        <tr>
+                            <th>No</th>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Classroom</th>
+                            <th>Stream</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody style="background-color: #f8fafc;" class="text-center">
+                        {% for teacher in teachers %}
+                        <tr style="transition: background 0.2s;">
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ teacher.user.username }}</td>
+                            <td>{{ teacher.user.get_full_name }}</td>
+                            <td>{% if teacher.classroom %}{{ teacher.classroom.name }}{% else %}<span class="text-danger">N/A</span>{% endif %}</td>
+                            <td>{% if teacher.stream %}{{ teacher.stream.name }}{% else %}<span class="text-danger">N/A</span>{% endif %}</td>
+                            <td>
+                                <a href="{% url 'edit_teacher' teacher.id %}" class="btn btn-sm btn-warning me-1">Edit</a>
+
+                                <!-- DELETE BUTTON TRIGGERS MODAL -->
+                                <button type="button" class="btn btn-sm btn-danger deleteBtn"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#deleteTeacherModal"
+                                        data-teacher-id="{{ teacher.id }}"
+                                        data-teacher-name="{{ teacher.user.get_full_name }}">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No teachers registered</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL: REGISTER TEACHER -->
+<div class="modal fade" id="registerTeacherModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="teacherForm" method="POST" action="{% url 'register_teacher' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Register New Teacher</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" name="username" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" class="form-control" name="phone_number" placeholder="e.g. +255712345678" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-control" name="first_name" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-control" name="last_name" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Classroom</label>
+                    <select class="form-select" id="classroom" name="classroom" required>
+                        <option value="" selected>Select Classroom</option>
+                        {% for c in classrooms %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.year }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Stream</label>
+                    <select class="form-select" id="stream" name="stream" required>
+                        <option value="" selected>Select Stream</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <small class="text-muted">Password will be set automatically: <strong>Teacher@123</strong></small>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Register Teacher</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DELETE TEACHER -->
+<div class="modal fade" id="deleteTeacherModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="deleteTeacherForm">
+        {% csrf_token %}
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title">&#9888; Confirm Delete</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete <strong id="teacherName"></strong>?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- STYLES -->
+<style>
+.card { border-radius: 1rem; }
+.card-body table th { font-weight: 600; text-align: center; }
+.card-body table td { vertical-align: middle; }
+table.table tbody tr:hover { background-color: rgba(79, 70, 229, 0.08); }
+.btn-primary { background-color: #4f46e5; color: white; border:none; }
+.btn-primary:hover { background-color: #4338ca; }
+.btn-secondary { background-color: #94a3b8; color:white; border:none; }
+.btn-secondary:hover { background-color: #6b7280; }
+.btn-danger { background-color: #ef4444; color:white; border:none; }
+.btn-danger:hover { background-color: #dc2626; }
+.btn-warning { background-color: #f59e0b; color:white; border:none; }
+.btn-warning:hover { background-color: #d97706; }
+</style>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ===== Bootstrap Toasts =====
+    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+    toastElList.forEach(function(toastEl) {
+        var toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    });
+
+    // ===== Dynamic Streams =====
+    const classroomSelect = document.getElementById('classroom');
+    const streamSelect = document.getElementById('stream');
+
+    classroomSelect.addEventListener('change', function() {
+        const classroomId = this.value;
+        streamSelect.innerHTML = '<option value="">Loading...</option>';
+        if (!classroomId) {
+            streamSelect.innerHTML = '<option value="">Select Stream</option>';
+            return;
+        }
+
+        fetch(`/get-streams/${classroomId}/`)
+        .then(res => res.json())
+        .then(data => {
+            let options = '<option value="">Select Stream</option>';
+            data.streams.forEach(s => {
+                options += `<option value="${s.id}">${s.name}</option>`;
+            });
+            streamSelect.innerHTML = options;
+        })
+        .catch(err => console.error(err));
+    });
+
+    // ===== DELETE MODAL LOGIC =====
+    const deleteBtns = document.querySelectorAll('.deleteBtn');
+    const deleteForm = document.getElementById('deleteTeacherForm');
+    const teacherNameEl = document.getElementById('teacherName');
+
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', function(){
+            const teacherId = this.getAttribute('data-teacher-id');
+            const teacherName = this.getAttribute('data-teacher-name');
+            teacherNameEl.textContent = teacherName;
+            deleteForm.action = `/delete-teacher/${teacherId}/`; // normal POST
+        });
+    });
+
+});
+</script>
+{% endblock %}
+{% endblock %}

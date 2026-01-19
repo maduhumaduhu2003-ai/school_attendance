@@ -1,0 +1,200 @@
+{% extends 'attendance_app/admin_base.html' %}
+
+{% block title %}Academic Years{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <!-- ================= TOAST MESSAGES (Popup Notifications) ================= -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="toast align-items-center text-white 
+                            {% if message.tags == 'success' %}bg-success{% elif message.tags == 'error' %}bg-danger{% else %}bg-info{% endif %} 
+                            border-0 mb-2" 
+                     role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            {{ message }}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <!-- ============================================================ -->
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <!-- PAGE TITLE -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">Academic Years</h3>
+                <!-- Generate Button -->
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#generateYearModal">
+                    Generate Academic Year
+                </button>
+            </div>
+
+            <!-- TABLE -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0">
+                    <thead class="text-center" style="background:#4f46e5;color:white;">
+                        <tr>
+                            <th>No</th>
+                            <th>Start Year</th>
+                            <th>End Year</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-center" style="background:#f8fafc;">
+                        {% for year in years %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ year.year_start }}</td>
+                            <td>{{ year.year_end }}</td>
+                            <td>
+                                {% if year.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% elif year.is_locked %}
+                                    <span class="badge bg-danger">Locked</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-warning"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editModal{{ year.id }}">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#deleteModal{{ year.id }}">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-muted">No academic years found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+{% for year in years %}
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal{{ year.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'delete_academic_year' year.id %}">
+                {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    Are you sure you want to delete <strong>{{ year.year_start }}/{{ year.year_end }}</strong>?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editModal{{ year.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'edit_academic_year' year.id %}">
+                {% csrf_token %}
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Edit Academic Year</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>Start Year</label>
+                        <input type="number" name="year_start" value="{{ year.year_start }}" class="form-control" required>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_active" {% if year.is_active %}checked{% endif %}>
+                        <label class="form-check-label">Set as Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-warning">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- GENERATE YEAR MODAL (BLUE) -->
+<div class="modal fade" id="generateYearModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Generate Academic Year</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <p>This will:</p>
+        <ul class="text-start">
+          <li>Lock the current academic year</li>
+          <li>Generate a new academic year automatically</li>
+          <li>Set it as ACTIVE</li>
+        </ul>
+        <strong>Are you sure you want to continue?</strong>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <a href="{% url 'generate_academic_year' %}" class="btn btn-primary">Yes, Generate</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= STYLES ================= -->
+<style>
+.card { border-radius: 1rem; }
+table.table tbody tr:hover { background-color: rgba(79,70,229,0.08); }
+
+.btn-primary { background:#4f46e5; border:none; color:white; }
+.btn-primary:hover { background:#4338ca; }
+
+.btn-warning { background:#f59e0b; border:none; color:white; }
+.btn-warning:hover { background:#d97706; }
+
+.btn-danger { background:#ef4444; border:none; color:white; }
+.btn-danger:hover { background:#dc2626; }
+</style>
+
+<!-- ================= JS ================= -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Activate all Bootstrap toast messages
+    var toastElList = [].slice.call(document.querySelectorAll('.toast'))
+    var toastList = toastElList.map(function(toastEl) {
+        var toast = new bootstrap.Toast(toastEl)
+        toast.show()
+        return toast
+    })
+})
+</script>
+
+{% endblock %}

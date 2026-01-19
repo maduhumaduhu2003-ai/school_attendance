@@ -1,0 +1,80 @@
+{% extends "attendance_app/teacher_base.html" %}
+
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Teacher Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h3 class="mb-4">My Profile</h3>
+
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-sm p-4">
+
+                <div class="text-center mb-4">
+                    {% if teacher.profile_picture %}
+                        <img src="{{ teacher.profile_picture.url }}" class="img-fluid rounded-circle" width="120" height="120" alt="Profile Picture">
+                    {% else %}
+                        <img src="https://via.placeholder.com/120" class="img-fluid rounded-circle" width="120" height="120" alt="Profile Picture">
+                    {% endif %}
+                </div>
+
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Profile Picture Upload -->
+                    <div class="mb-3 text-center">
+                        {{ profile_form.profile_picture.label_tag }}
+                        {{ profile_form.profile_picture|add_class:"form-control form-control-sm" }}
+                    </div>
+
+                    <!-- Username -->
+                    <div class="mb-3">
+                        {{ profile_form.username.label_tag }}
+                        {{ profile_form.username|add_class:"form-control form-control-sm" }}
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        {{ profile_form.email.label_tag }}
+                        {{ profile_form.email|add_class:"form-control form-control-sm" }}
+                    </div>
+
+                    <button type="submit" name="update_profile" class="btn btn-primary w-100">
+                        Update Profile
+                    </button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.card {
+    border-radius: 12px;
+}
+
+.card .form-control {
+    border-radius: 6px;
+}
+
+.btn-primary {
+    background-color: #4f46e5;
+    border: none;
+}
+
+.btn-primary:hover {
+    background-color: #4338ca;
+}
+
+img.rounded-circle {
+    object-fit: cover;
+}
+</style>
+
+{% endblock %}

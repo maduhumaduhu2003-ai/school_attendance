@@ -1,0 +1,142 @@
+{% extends 'attendance_app/admin_base.html' %}
+{% load static %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+.container { margin-top: 30px; margin-bottom: 30px; }
+.card {
+    max-width: 700px;
+    margin: 0 auto;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+.card-header {
+    background-color: #343a40;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 16px;
+}
+.form-control {
+    background-color: #f8f9fa;
+}
+.form-control:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 5px rgba(79, 70, 229, 0.3);
+}
+.btn-primary {
+    background-color: #4f46e5;
+    border: none;
+}
+.btn-primary:hover {
+    background-color: #4338ca;
+}
+.profile-img {
+    width: 120px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <!-- ================= TOAST MESSAGES ================= -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="toast align-items-center text-white 
+                            {% if message.tags == 'success' %}bg-success
+                            {% elif message.tags == 'error' %}bg-danger
+                            {% else %}bg-info{% endif %} 
+                            border-0 mb-2" 
+                     role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            {{ message }}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <!-- =================================================== -->
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">My Profile</h5>
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <!-- USER BASIC INFO -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label>First Name</label>
+                        {{ user_form.first_name }}
+                        {{ user_form.first_name.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label>Last Name</label>
+                        {{ user_form.last_name }}
+                        {{ user_form.last_name.errors }}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label>Email</label>
+                    {{ user_form.email }}
+                    {{ user_form.email.errors }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Username</label>
+                    {{ profile_form.username }}
+                    {{ profile_form.username.errors }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Profile Email</label>
+                    {{ profile_form.email }}
+                    {{ profile_form.email.errors }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Profile Picture</label><br>
+                    {% if profile_form.instance.profile_picture %}
+                        <img src="{{ profile_form.instance.profile_picture.url }}" class="profile-img">
+                    {% endif %}
+                    {{ profile_form.profile_picture }}
+                    {{ profile_form.profile_picture.errors }}
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    Save Changes
+                </button>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+    toastElList.forEach(function(toastEl) {
+        var toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'attendance_app/admin_base.html' %}
+{% block title %}Academic Year Summary{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Academic Year Summary</h3>
+
+    <form method="get" class="mb-4">
+        <label for="year">Select Academic Year:</label>
+        <select name="year" id="year" class="form-select w-auto d-inline-block">
+            {% for y in years %}
+                <option value="{{ y.id }}" {% if active_year and y.id == active_year.id %}selected{% endif %}>
+                    {{ y }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <label for="term" class="ms-3">Select Term:</label>
+        <select name="term" id="term" class="form-select w-auto d-inline-block">
+            <option value="">All Terms</option>
+            {% for t in terms %}
+                <option value="{{ t.0 }}" {% if selected_term == t.0 %}selected{% endif %}>{{ t.1 }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="btn btn-primary btn-sm ms-2">View</button>
+    </form>
+
+    {% if summary_data %}
+        {% for data in summary_data %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                {{ data.classroom.name }} - Students: {{ data.students_count }}
+            </div>
+            <div class="card-body">
+                <p><strong>Teachers:</strong>
+                    {% for teacher in data.teachers %}
+                        {{ teacher.user.get_full_name }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        No teachers assigned
+                    {% endfor %}
+                </p>
+
+                <p><strong>Attendance Summary:</strong></p>
+                <ul>
+                    <li>Present: {{ data.total_present }} ({{ data.present_percentage }}%)</li>
+                    <li>Absent: {{ data.total_absent }} ({{ data.absent_percentage }}%)</li>
+                    <li>Sick: {{ data.total_sick }} ({{ data.sick_percentage }}%)</li>
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>No data found for the selected academic year/term.</p>
+    {% endif %}
+</div>
+{% endblock %}

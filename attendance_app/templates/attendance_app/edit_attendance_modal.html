@@ -1,0 +1,27 @@
+<div class="modal-header">
+    <h5 class="modal-title">Edit Attendance</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+<div class="modal-body">
+    <form id="editAttendanceForm">
+        {% csrf_token %}
+        <div class="mb-2">
+            <label>Student</label>
+            <input type="text" class="form-control"
+                   value="{{ attendance.student.user.first_name }} {{ attendance.student.user.last_name }}"
+                   disabled>
+        </div>
+
+        <div class="mb-2">
+            <label>Status</label>
+            <select name="status" class="form-control">
+                <option value="present" {% if attendance.status == "present" %}selected{% endif %}>Present</option>
+                <option value="absent" {% if attendance.status == "absent" %}selected{% endif %}>Absent</option>
+                <option value="sick" {% if attendance.status == "sick" %}selected{% endif %}>Sick</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-2">Save Changes</button>
+    </form>
+</div>

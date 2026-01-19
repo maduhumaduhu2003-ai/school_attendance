@@ -1,0 +1,201 @@
+{% extends "attendance_app/teacher_base.html" %}
+{% block title %}Teacher Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+/* =========================
+   Dashboard Summary Cards
+========================= */
+.card-summary {
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+}
+
+.card-summary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+.card-summary h6 {
+    font-weight: 600;
+    color: #6b7280; /* muted gray for titles */
+}
+
+.card-summary h2, .card-summary h5 {
+    font-weight: 700;
+    color: #4f46e5; /* primary color */
+}
+
+/* =========================
+   Card Tables
+========================= */
+.card-table {
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.card-table table {
+    margin-bottom: 0;
+}
+
+.table thead {
+    background-color: #4f46e5;
+    color: #ffffff;
+}
+
+.table thead th {
+    font-weight: 600;
+    text-align: center;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(79, 70, 229, 0.05);
+}
+
+.table td, .table th {
+    vertical-align: middle;
+    padding: 0.65rem;
+}
+
+/* Badges */
+.badge-success {
+    background-color: #22c55e;
+    font-weight: 500;
+}
+
+/* Section Headers */
+h5 {
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #1e293b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-summary h2 {
+        font-size: 1.5rem;
+    }
+    .table td, .table th {
+        padding: 0.45rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Dashboard summary cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-summary text-center">
+            <div class="card-body">
+                <h6>Total Students</h6>
+                <h2>{{ total_students }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card card-summary text-center">
+            <div class="card-body">
+                <h6>Total Attendance Records</h6>
+                <h2>{{ total_attendance }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card card-summary text-center">
+            <div class="card-body">
+                <h6>Class</h6>
+                <h5>
+                    {% if classroom %}
+                        {{ classroom.name }} ({{ classroom.year }})
+                    {% else %}
+                        Not Assigned
+                    {% endif %}
+                </h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Students Table Card -->
+<div class="card card-table mb-4">
+    <div class="card-body">
+        <h5>My Students</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Admission No</th>
+                        <th>Student Name</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td class="text-center">{{ student.admission_number }}</td>
+                        <td>{{ student.user.first_name }} {{ student.user.last_name }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">No students found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- SMS Logs Table Card -->
+<div class="card card-table">
+    <div class="card-body">
+        <h5>Recent SMS Logs</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle text-center">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Student</th>
+                        <th>Parent</th>
+                        <th>Phone Number</th>
+                        <th>Message</th>
+                        <th>Status</th>
+                        <th>Sent At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in sms_logs %}
+                    <tr>
+                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td>{{ log.student.user.get_full_name }}</td>
+                        <td>{{ log.parent.user.get_full_name }}</td>
+                        <td>{{ log.parent.user.phone_number }}</td>
+                        <td class="text-start">{{ log.message }}</td>
+                        <td class="text-center">
+                            {% if log.status == 'sent' %}
+                                <span class="badge bg-success">{{ log.status|capfirst }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ log.status|capfirst }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.timestamp|date:"M d, Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">No SMS logs found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

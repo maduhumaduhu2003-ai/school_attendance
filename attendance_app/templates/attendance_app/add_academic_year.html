@@ -1,0 +1,30 @@
+{% extends 'attendance_app/admin_base.html' %}
+
+{% block title %}Add Academic Year{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h4 class="mb-3">Add Academic Year</h4>
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.year_start.label_tag }}
+                    {{ form.year_start }}
+                </div>
+                <div class="mb-3">
+                    {{ form.year_end.label_tag }}
+                    {{ form.year_end }}
+                </div>
+                <div class="mb-3 form-check">
+                    {{ form.is_active }}
+                    {{ form.is_active.label_tag }}
+                </div>
+                <button type="submit" class="btn btn-primary">Add Year</button>
+                <a href="{% url 'academic_years' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

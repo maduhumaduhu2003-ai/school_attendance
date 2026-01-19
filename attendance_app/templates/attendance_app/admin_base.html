@@ -1,0 +1,163 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{% block title %}Admin Dashboard{% endblock %}</title>
+
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+<style>
+:root {
+    --sidebar-width: 280px;
+    --primary-color: #4f46e5;
+    --sidebar-bg: #f8fafc;
+    --sidebar-text: #1e293b;
+    --sidebar-hover: rgba(79,70,229,0.08);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f4f6f9;
+    margin: 0;
+    min-height: 100vh;
+}
+
+/* SIDEBAR */
+.sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0; background: var(--sidebar-bg); color: var(--sidebar-text); display: flex; flex-direction: column; padding: 1.5rem 0; transition: all 0.3s ease; z-index: 1100; overflow-y: auto; box-shadow: 2px 0 6px rgba(0,0,0,0.05);}
+.sidebar-header { padding: 0 1.5rem 1rem; margin-bottom: 1rem;}
+.sidebar-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--sidebar-text); font-weight: 700; font-size: 1.15rem;}
+.nav-link { color: var(--sidebar-text); text-decoration: none; display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem; border-radius: 8px; transition: all 0.2s; font-weight: 500;}
+.nav-link i { font-size: 1.05rem; color: #6b7280; }
+.nav-link:hover { background: var(--sidebar-hover); color: var(--primary-color); }
+.nav-link.active { background: rgba(79,70,229,0.15); color: var(--primary-color); border-left: 3px solid var(--primary-color);}
+
+.sidebar .btn-primary { background-color: var(--primary-color); border: none; color: white; padding: 0.65rem 1rem; border-radius: 8px; font-weight: 500; width: 100%; margin-top: 10px; transition: all 0.2s ease;}
+.sidebar .btn-primary:hover { background-color: #4338ca; }
+
+.logout-section { padding: 1rem; margin-top: auto; }
+.logout-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem; background: rgba(220,53,69,0.1); color: #b91c1c; border-radius: 8px; font-weight: 500; text-decoration: none; transition: all 0.2s ease;}
+.logout-link:hover { background: rgba(220,53,69,0.2); color: #f87171; transform: translateX(5px);}
+
+/* CONTENT */
+.content { margin-left: var(--sidebar-width); transition: margin-left 0.3s; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+
+/* TOPBAR */
+.topbar { background: #ffffff; padding: 0.8rem 1.2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.12); position: sticky; top: 0; z-index: 100; border-radius: 8px; margin-bottom: 20px; }
+.school-info { display: flex; align-items: center; gap: 0.5rem; }
+.school-logo { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+.school-name { font-weight: 600; color: #1e293b; font-size: 1.05rem; }
+
+.profile-section { display: flex; align-items: center; gap: 0.5rem; }
+.profile-name { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
+.profile-img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: none; }
+
+.sidebar-toggle { display: none; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--primary-color); }
+
+@media (max-width: 992px){
+    .sidebar { transform: translateX(-100%); position: fixed; z-index: 1200; }
+    .sidebar.show { transform: translateX(0); }
+    .content { margin-left: 0 !important; padding: 15px !important; }
+    .sidebar-toggle { display: block; position: fixed; top: 10px; left: 10px; z-index: 1300; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR TOGGLE BUTTON -->
+<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <a href="{% url 'admin_dashboard' %}" class="sidebar-logo">
+            <span class="sidebar-logo-text">Admin Panel</span>
+        </a>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a href="{% url 'admin_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+        <a href="{% url 'register_teacher' %}" class="nav-link {% if request.resolver_match.url_name == 'register_teacher' %}active{% endif %}"><i class="bi bi-person-badge"></i>Teachers</a>
+        <a href="{% url 'register_student' %}" class="nav-link {% if request.resolver_match.url_name == 'register_student' %}active{% endif %}"><i class="bi bi-people"></i>Students</a>
+        <a href="{% url 'manage_classrooms' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_classrooms' %}active{% endif %}"><i class="bi bi-door-open"></i>Classrooms</a>
+        <a href="{% url 'academic_years' %}" class="nav-link {% if request.resolver_match.url_name == 'academic_years' %}active{% endif %}"><i class="bi bi-calendar-week"></i>Academic Years</a>
+        <!-- NEW LINK: Academic Year Summary -->
+        <a href="{% url 'academic_year_summary' %}" class="nav-link {% if request.resolver_match.url_name == 'academic_year_summary' %}active{% endif %}"><i class="bi bi-card-list"></i>Academic Year Summary</a>
+        <a href="{% url 'attendance_report' %}" class="nav-link {% if request.resolver_match.url_name == 'attendance_report' %}active{% endif %}"><i class="bi bi-clipboard-data"></i>Attendance</a>
+        <a href="{% url 'sms_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'sms_logs' %}active{% endif %}"><i class="bi bi-chat-dots"></i>SMS Logs</a>
+        <a href="{% url 'admin_profile' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_profile' %}active{% endif %}"><i class="bi bi-person-circle"></i>My Profile</a>
+        <a href="{% url 'school_settings' %}" class="nav-link {% if request.resolver_match.url_name == 'school_settings' %}active{% endif %}"><i class="bi bi-gear"></i>School Settings</a>
+    </nav>
+
+    <div class="logout-section">
+        <a href="#" class="logout-link" data-bs-toggle="modal" data-bs-target="#logoutModal">
+            <i class="bi bi-box-arrow-right"></i><span>Logout</span>
+        </a>
+    </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="content">
+    <div class="topbar">
+        <div class="school-info">
+            {% if school_settings.logo %}
+                <img src="{{ school_settings.logo.url }}" class="school-logo">
+            {% else %}
+                <img src="{% static 'img/default-logo.png' %}" class="school-logo">
+            {% endif %}
+            <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
+        </div>
+
+        <div class="profile-section dropdown">
+            <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+            <a class="dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                {% if request.user.teacherprofile.profile_picture %}
+                    <img src="{{ request.user.teacherprofile.profile_picture.url }}" class="profile-img">
+                {% else %}
+                    <img src="{% static 'img/default-avatar.png' %}" class="profile-img">
+                {% endif %}
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
+                <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<!-- Logout Modal -->
+<div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to logout?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('show');
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

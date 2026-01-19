@@ -1,0 +1,16 @@
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Django
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+staticfiles/
+.env
+
+# OS
+Thumbs.db
+.DS_Store
