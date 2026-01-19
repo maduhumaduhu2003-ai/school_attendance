@@ -24,9 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-qq2s%x+g*5lua8p4q-vzgmmlxpg5icm-1#rnumnmdshb-^u_7p'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['school-attendance-1.onrender.com','localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['school-attendance-1.onrender.com']
 
 #EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
@@ -91,17 +91,31 @@ WSGI_APPLICATION = 'school_attendance.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 import os
+from pathlib import Path
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),        # Render DB name
-        'USER': os.environ.get('DB_USER'),        # Render DB user
-        'PASSWORD': os.environ.get('DB_PASSWORD'),# Render DB password
-        'HOST': os.environ.get('DB_HOST'),        # Render DB host
-        'PORT': os.environ.get('DB_PORT', '5432'),# usually 5432
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Detect if Render environment variables exist
+if os.environ.get("DB_NAME"):
+    # Use PostgreSQL on Render
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME'),
+            'USER': os.environ.get('DB_USER'),
+            'PASSWORD': os.environ.get('DB_PASSWORD'),
+            'HOST': os.environ.get('DB_HOST'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    # Local fallback to SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 
