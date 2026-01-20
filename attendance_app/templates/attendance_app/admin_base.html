@@ -26,17 +26,30 @@ body {
 }
 
 /* SIDEBAR */
-.sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0; background: var(--sidebar-bg); color: var(--sidebar-text); display: flex; flex-direction: column; padding: 1.5rem 0; transition: all 0.3s ease; z-index: 1100; overflow-y: auto; box-shadow: 2px 0 6px rgba(0,0,0,0.05);}
+.sidebar { 
+    width: var(--sidebar-width); 
+    height: 100vh; 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    background: var(--sidebar-bg); 
+    color: var(--sidebar-text); 
+    display: flex; 
+    flex-direction: column; 
+    padding: 1.5rem 0; 
+    transition: all 0.3s ease; 
+    z-index: 1100; 
+    overflow-y: auto; 
+    box-shadow: 2px 0 6px rgba(0,0,0,0.05);
+}
 .sidebar-header { padding: 0 1.5rem 1rem; margin-bottom: 1rem;}
 .sidebar-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--sidebar-text); font-weight: 700; font-size: 1.15rem;}
 .nav-link { color: var(--sidebar-text); text-decoration: none; display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem; border-radius: 8px; transition: all 0.2s; font-weight: 500;}
 .nav-link i { font-size: 1.05rem; color: #6b7280; }
 .nav-link:hover { background: var(--sidebar-hover); color: var(--primary-color); }
 .nav-link.active { background: rgba(79,70,229,0.15); color: var(--primary-color); border-left: 3px solid var(--primary-color);}
-
 .sidebar .btn-primary { background-color: var(--primary-color); border: none; color: white; padding: 0.65rem 1rem; border-radius: 8px; font-weight: 500; width: 100%; margin-top: 10px; transition: all 0.2s ease;}
 .sidebar .btn-primary:hover { background-color: #4338ca; }
-
 .logout-section { padding: 1rem; margin-top: auto; }
 .logout-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem; background: rgba(220,53,69,0.1); color: #b91c1c; border-radius: 8px; font-weight: 500; text-decoration: none; transition: all 0.2s ease;}
 .logout-link:hover { background: rgba(220,53,69,0.2); color: #f87171; transform: translateX(5px);}
@@ -49,13 +62,13 @@ body {
 .school-info { display: flex; align-items: center; gap: 0.5rem; }
 .school-logo { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
 .school-name { font-weight: 600; color: #1e293b; font-size: 1.05rem; }
-
 .profile-section { display: flex; align-items: center; gap: 0.5rem; }
 .profile-name { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
 .profile-img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: none; }
 
 .sidebar-toggle { display: none; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--primary-color); }
 
+/* RESPONSIVE */
 @media (max-width: 992px){
     .sidebar { transform: translateX(-100%); position: fixed; z-index: 1200; }
     .sidebar.show { transform: translateX(0); }
@@ -83,7 +96,6 @@ body {
         <a href="{% url 'register_student' %}" class="nav-link {% if request.resolver_match.url_name == 'register_student' %}active{% endif %}"><i class="bi bi-people"></i>Students</a>
         <a href="{% url 'manage_classrooms' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_classrooms' %}active{% endif %}"><i class="bi bi-door-open"></i>Classrooms</a>
         <a href="{% url 'academic_years' %}" class="nav-link {% if request.resolver_match.url_name == 'academic_years' %}active{% endif %}"><i class="bi bi-calendar-week"></i>Academic Years</a>
-        <!-- NEW LINK: Academic Year Summary -->
         <a href="{% url 'academic_year_summary' %}" class="nav-link {% if request.resolver_match.url_name == 'academic_year_summary' %}active{% endif %}"><i class="bi bi-card-list"></i>Academic Year Summary</a>
         <a href="{% url 'attendance_report' %}" class="nav-link {% if request.resolver_match.url_name == 'attendance_report' %}active{% endif %}"><i class="bi bi-clipboard-data"></i>Attendance</a>
         <a href="{% url 'sms_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'sms_logs' %}active{% endif %}"><i class="bi bi-chat-dots"></i>SMS Logs</a>

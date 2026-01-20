@@ -8,8 +8,8 @@
     <h3 class="mb-4">Headmaster Dashboard</h3>
 
     <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 mb-4">
+        <div class="col">
             <div class="card shadow-sm text-center">
                 <div class="card-body">
                     <h6>Total Teachers</h6>
@@ -18,7 +18,7 @@
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col">
             <div class="card shadow-sm text-center">
                 <div class="card-body">
                     <h6>Total Students</h6>
@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col">
             <div class="card shadow-sm text-center">
                 <div class="card-body">
                     <h6>Total Classrooms</h6>
@@ -36,7 +36,7 @@
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col">
             <div class="card shadow-sm text-center">
                 <div class="card-body">
                     <h6>Active Academic Year</h6>
@@ -48,12 +48,12 @@
 
     <!-- Teachers Table -->
     <div class="card shadow-sm">
-        <div class="card-header" style="background-color: #4f46e5; color: white;">
+        <div class="card-header text-white" style="background-color: #4f46e5;">
             All Teachers
         </div>
-        <div class="card-body">
-            <table class="table table-bordered table-striped align-middle">
-                <thead style="background-color: #4f46e5; color: white;">
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead class="text-white" style="background-color: #4f46e5;">
                     <tr>
                         <th>No</th>
                         <th>Username</th>
@@ -64,7 +64,7 @@
                 </thead>
                 <tbody style="background-color: #f8fafc;">
                     {% for teacher in teachers %}
-                    <tr style="transition: background 0.2s;">
+                    <tr class="table-row-hover">
                         <td>{{ forloop.counter }}</td>
                         <td>{{ teacher.user.username }}</td>
                         <td>{{ teacher.user.get_full_name }}</td>
@@ -97,7 +97,7 @@
 
 <!-- Additional CSS for hover effect and table consistency -->
 <style>
-table.table tbody tr:hover {
+table.table tbody tr.table-row-hover:hover {
     background-color: rgba(79, 70, 229, 0.08); /* subtle brand color hover */
 }
 
@@ -108,6 +108,23 @@ table.table th {
 
 table.table td {
     vertical-align: middle;
+    text-align: center;
+}
+
+/* Make images responsive on small screens */
+table.table img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Responsive cards for summary on mobile */
+@media (max-width: 767px) {
+    .card h3 {
+        font-size: 1.5rem;
+    }
+    .card h6 {
+        font-size: 0.9rem;
+    }
 }
 </style>
 

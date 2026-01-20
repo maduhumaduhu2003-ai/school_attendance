@@ -73,12 +73,19 @@ h5 {
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+@media (max-width: 992px) {
     .card-summary h2 {
         font-size: 1.5rem;
     }
+    .card-summary h5 {
+        font-size: 1.15rem;
+    }
     .table td, .table th {
         padding: 0.45rem;
+        font-size: 0.85rem;
+    }
+    .card-summary {
+        margin-bottom: 1rem;
     }
 }
 </style>
@@ -88,7 +95,7 @@ h5 {
 
 <!-- Dashboard summary cards -->
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-4 col-12">
         <div class="card card-summary text-center">
             <div class="card-body">
                 <h6>Total Students</h6>
@@ -97,7 +104,7 @@ h5 {
         </div>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-4 col-12">
         <div class="card card-summary text-center">
             <div class="card-body">
                 <h6>Total Attendance Records</h6>
@@ -106,7 +113,7 @@ h5 {
         </div>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-4 col-12">
         <div class="card card-summary text-center">
             <div class="card-body">
                 <h6>Class</h6>

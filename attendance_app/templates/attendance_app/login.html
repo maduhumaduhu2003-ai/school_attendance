@@ -20,7 +20,6 @@
     --border-color: #e5e7eb;
     --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.1);
     --gradient-primary: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-    --gradient-accent: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
 }
 
 /* Reset */
@@ -79,7 +78,7 @@ body::after {
 }
 
 /* Login container */
-.login-container { width:100%; max-width:360px; animation:slideUp 0.6s ease-out; }
+.login-container { width:100%; max-width:360px; padding: 0 15px; animation:slideUp 0.6s ease-out; }
 
 /* Login card */
 .login-card {
@@ -150,6 +149,7 @@ body::after {
 
 @keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
 
+/* Responsive adjustments */
 @media(max-width:480px) {
     .login-container { max-width:95%; }
     .card-header { padding:1.25rem 1rem 0.75rem; }
@@ -157,6 +157,8 @@ body::after {
     .card-footer { padding:0.75rem 1rem; }
     .school-logo { width:60px; height:60px; }
     .school-name { font-size:1.2rem; }
+    .form-control { font-size:0.9rem; }
+    .login-btn { font-size:0.95rem; padding:0.7rem; }
 }
 </style>
 </head>
@@ -221,7 +223,6 @@ body::after {
                             <i class="bi bi-person-plus-fill"></i> Register Admin
                         </a>
                     </div>
-                   
                 {% endif %}
             </form>
         </div>
