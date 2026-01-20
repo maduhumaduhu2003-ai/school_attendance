@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-qq2s%x+g*5lua8p4q-vzgmmlxpg5icm-1#rnumnmdshb-^u_7p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['school-attendance-1.onrender.com']
+ALLOWED_HOSTS = ['school-attendance-1.onrender.com', "localhost","127.0.0.1",]
 
 #EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
@@ -95,9 +95,9 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Detect if Render environment variables exist
+PORT = int(os.environ.get("PORT", 8000))
+
 if os.environ.get("DB_NAME"):
-    # Use PostgreSQL on Render
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -109,13 +109,13 @@ if os.environ.get("DB_NAME"):
         }
     }
 else:
-    # Local fallback to SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
 
 
 
@@ -156,6 +156,13 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+
 AUTH_USER_MODEL = 'attendance_app.User'  # Custom user model
 
 
@@ -176,3 +183,5 @@ LOGOUT_REDIRECT_URL = '/login/'
 #AFRICASTALKING_API_KEY ="atsk_e370416ec7ef98e908e3ef94d6860118502be30d9f2811d03d65fdede9d863697994a477"
 AFRICASTALKING_USERNAME = 'demoApp2025'
 AFRICASTALKING_API_KEY = 'atsk_c9a09ce73cf457041b9b02fde189d097ff4e903054cb9f46d89f4d5555377517dc6dada6'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
