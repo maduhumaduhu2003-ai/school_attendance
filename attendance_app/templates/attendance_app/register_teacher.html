@@ -39,7 +39,7 @@
             </div>
 
             <!-- TEACHERS TABLE -->
-            <div class="table-responsive" style="overflow-x:auto; overflow-y:auto; max-height:75vh;">
+            <div class="table-responsive touch-scroll" style="overflow-x:auto; overflow-y:auto; max-height:75vh;">
                 <table class="table table-bordered table-striped align-middle mb-0" style="min-width:900px;">
                     <thead class="text-center" style="background-color: #f8f8f8; color: #1e293b;">
                         <tr>
@@ -89,7 +89,7 @@
 
 <!-- MODAL: REGISTER TEACHER -->
 <div class="modal fade" id="registerTeacherModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-md">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-lg">
     <div class="modal-content p-3">
       <form id="teacherForm" method="POST" action="{% url 'register_teacher' %}">
         {% csrf_token %}
@@ -146,7 +146,7 @@
 
 <!-- MODAL: DELETE TEACHER -->
 <div class="modal fade" id="deleteTeacherModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-md">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-md">
     <div class="modal-content p-3">
       <form method="POST" id="deleteTeacherForm">
         {% csrf_token %}
@@ -185,13 +185,15 @@ table.table tbody tr:hover { background-color: rgba(79, 70, 229, 0.08); }
 .btn-warning { background-color: #f59e0b; color:white; border:none; }
 .btn-warning:hover { background-color: #d97706; }
 
-/* Full width table + scroll both axes */
-.table-responsive {
+/* Full width table + scroll both axes + touch */
+.table-responsive.touch-scroll {
+    -webkit-overflow-scrolling: touch;
     overflow-x: auto;
     overflow-y: auto;
     max-height: 80vh;
-    -webkit-overflow-scrolling: touch;
 }
+
+/* Table minimum width */
 table.table { min-width: 900px; }
 
 /* Container no side padding on mobile */
