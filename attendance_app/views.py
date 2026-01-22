@@ -82,13 +82,6 @@ def login_view(request):
 
 
 def format_phone_number(phone):
-    """
-    Normalize Tanzanian phone numbers to:
-    +2557XXXXXXXX or +2556XXXXXXXX
-    Accepts:
-    07XXXXXXXX, 06XXXXXXXX, 7XXXXXXXX, 6XXXXXXXX,
-    2557XXXXXXXX, +2557XXXXXXXX, with or without spaces
-    """
 
     if not phone:
         return None
@@ -499,8 +492,7 @@ def register_student(request):
 
 
 
-
-@never_cache  # Hii inahakikisha page hii haicachiwi
+@never_cache  
 def logout_view(request):
     logout(request)
     messages.success(request, "Logged out successfully.")
@@ -813,7 +805,6 @@ def delete_student(request, student_id):
 
 
 
-
 def forgot_password(request):
     if request.method == "POST":
         identifier = request.POST.get("identifier")
@@ -843,23 +834,30 @@ def forgot_password(request):
                 fail_silently=True
             )
 
-        # SEND SMS if phone exists
+        # SEND SMS code if phone exists
         if user.phone_number:
-            phone_number = user.phone_number
+            phone_number = user.phone_number.strip()  # remove any leading/trailing spaces
+
+            # Format Tanzanian number
             if phone_number.startswith("0"):
                 phone_number = "+255" + phone_number[1:]
             elif not phone_number.startswith("+"):
                 phone_number = "+255" + phone_number
 
-            africastalking.initialize('YOUR_PROD_USERNAME', 'YOUR_PROD_API_KEY')
+            # Initialize Africastalking
+            africastalking.initialize(
+                username=settings.AFRICASTALKING_USERNAME,
+                api_key=settings.AFRICASTALKING_API_KEY
+            )
             sms = africastalking.SMS
+
             try:
                 response = sms.send(
                     message=f"Your reset code is {code}",
                     recipients=[phone_number],
-                    sender=None  # use None if sender not registered
+                    sender_id='School_SMS',
                 )
-                print(response)
+                print("SMS sent:", response)
             except Exception as e:
                 print("SMS failed:", e)
         else:
@@ -868,7 +866,9 @@ def forgot_password(request):
         messages.success(request, "Reset code sent via Email & SMS (if available)")
         return redirect("verify_reset")
 
+    # GET request
     return render(request, "attendance_app/forgot_password.html")
+
 
 
 
@@ -1515,6 +1515,8 @@ def admin_profile(request):
         'user_form': user_form,
         'profile_form': profile_form,
         'settings_form': settings_form,
+        'profile': profile,
+
     }
     return render(request, 'attendance_app/admin_profile.html', context)
 
@@ -1542,7 +1544,7 @@ def school_settings(request):
 
     return render(request, 'attendance_app/admin_settings.html', {
         'form': form,
-        'school_settings': school_settings
+        'school_settings': school_settings,
     })
 
 

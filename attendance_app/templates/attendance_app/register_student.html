@@ -270,6 +270,137 @@ table.table td { vertical-align: middle; }
 .btn-danger:hover { background-color: #e22323; }
 .btn-warning { background-color: #f59e0b; border: none; color: white; }
 .btn-warning:hover { background-color: #d97706; }
+
+
+/* ================= ADDITIONS ONLY ================= */
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+}
+
+body {
+    font-size: 15px;
+}
+
+.table th {
+    font-size: 14.5px;
+}
+
+.table td {
+    font-size: 14px;
+}
+
+.btn {
+    white-space: nowrap;
+}
+
+/* ================= MOBILE OPTIMIZATION ================= */
+@media (max-width: 768px) {
+
+    /* Container ichukue screen yote */
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    /* Heading readability */
+    h2 {
+        font-size: 20px;
+        text-align: center;
+    }
+
+    /* Filters ziwe stacked vizuri */
+    form.row.g-3 > div {
+        margin-bottom: 8px;
+    }
+
+    /* Table readable kwenye phone */
+    .table th {
+        font-size: 13px;
+        padding: 8px;
+    }
+
+    .table td {
+        font-size: 13px;
+        padding: 8px;
+    }
+
+    /* Buttons ndani ya table */
+    .table td .btn {
+        font-size: 12px;
+        padding: 4px 8px;
+        margin-bottom: 4px;
+    }
+
+    /* Modal text readable */
+    .modal-title {
+        font-size: 16px;
+    }
+
+    .modal-body label {
+        font-size: 13px;
+    }
+}
+
+/* ================= VERY SMALL PHONES ================= */
+@media (max-width: 480px) {
+
+    body {
+        font-size: 14px;
+    }
+
+    h2 {
+        font-size: 18px;
+    }
+
+    .btn {
+        font-size: 13px;
+    }
+}
+/* ================= FULL WINDOW TABLE FIX ================= */
+
+/* Panua container mpaka screen nzima */
+.container {
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Card ichukue width yote */
+.card {
+    border-radius: 0;
+}
+
+/* Card body iwe na padding ndogo lakini isibane table */
+.card-body {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* Table ichukue full width */
+.table {
+    width: 100% !important;
+}
+
+/* Table responsive scroll vizuri bila kukata content */
+.table-responsive {
+    overflow-x: auto;
+    width: 100%;
+}
+@media (max-width: 768px) {
+    .card-body {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+
+    .table th,
+    .table td {
+        white-space: nowrap;
+    }
+}
+
+
 </style>
 
 <script>

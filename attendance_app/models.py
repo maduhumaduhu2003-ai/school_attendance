@@ -60,9 +60,8 @@ class Stream(models.Model):
         return f"{self.name} ({self.classroom.name})"
 
 
-
 class TeacherProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacherprofile')
     classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True)
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
     profile_picture = models.ImageField(upload_to='teacher_profiles/', null=True, blank=True)

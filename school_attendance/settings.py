@@ -36,7 +36,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
 EMAIL_HOST_USER = 'maduhumaduhu2003@gmail.com'
-EMAIL_HOST_PASSWORD = 'tjzp nsmu bpri lxcp'
+EMAIL_HOST_PASSWORD = 'ibqe ktfg qyra wgqa'
 DEFAULT_FROM_EMAIL = 'School System <maduhumaduhu2003@gmail.com>'
 
 
@@ -78,7 +78,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'attendance_app.context_processors.school_settings_processor',
+                'attendance_app.context_processors.school_and_profile',
             ],
         },
     },

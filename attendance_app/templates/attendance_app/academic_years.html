@@ -29,7 +29,7 @@
         <div class="card-body">
 
             <!-- PAGE TITLE -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h3 class="mb-0">Academic Years</h3>
                 <!-- Generate Button -->
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#generateYearModal">
@@ -39,7 +39,7 @@
 
             <!-- TABLE -->
             <div class="table-responsive">
-                <table class="table table-bordered table-hover align-middle mb-0">
+                <table class="table table-bordered table-hover align-middle mb-0 text-nowrap">
                     <thead class="text-center" style="background:#4f46e5;color:white;">
                         <tr>
                             <th>No</th>
@@ -144,7 +144,7 @@
 </div>
 {% endfor %}
 
-<!-- GENERATE YEAR MODAL (BLUE) -->
+<!-- GENERATE YEAR MODAL -->
 <div class="modal fade" id="generateYearModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -171,9 +171,27 @@
 
 <!-- ================= STYLES ================= -->
 <style>
-.card { border-radius: 1rem; }
-table.table tbody tr:hover { background-color: rgba(79,70,229,0.08); }
+/* ===== FULL WIDTH FIX ===== */
+.container {
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
 
+.card {
+    border-radius: 1rem;
+}
+
+/* ===== TABLE ===== */
+table.table tbody tr:hover {
+    background-color: rgba(79,70,229,0.08);
+}
+
+.table {
+    width: 100% !important;
+}
+
+/* ===== BUTTON COLORS ===== */
 .btn-primary { background:#4f46e5; border:none; color:white; }
 .btn-primary:hover { background:#4338ca; }
 
@@ -182,14 +200,31 @@ table.table tbody tr:hover { background-color: rgba(79,70,229,0.08); }
 
 .btn-danger { background:#ef4444; border:none; color:white; }
 .btn-danger:hover { background:#dc2626; }
+
+/* ===== MOBILE FONT OPTIMIZATION ===== */
+@media (max-width: 768px) {
+    table th,
+    table td {
+        font-size: 12px;
+        padding: 6px;
+    }
+
+    h3 {
+        font-size: 18px;
+    }
+
+    .btn {
+        font-size: 12px;
+        padding: 5px 8px;
+    }
+}
 </style>
 
 <!-- ================= JS ================= -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Activate all Bootstrap toast messages
     var toastElList = [].slice.call(document.querySelectorAll('.toast'))
-    var toastList = toastElList.map(function(toastEl) {
+    toastElList.map(function(toastEl) {
         var toast = new bootstrap.Toast(toastEl)
         toast.show()
         return toast

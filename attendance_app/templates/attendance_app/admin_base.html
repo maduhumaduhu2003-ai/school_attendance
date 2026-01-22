@@ -226,22 +226,23 @@ body {
             <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
         </div>
 
-        <div class="profile-section dropdown">
-            <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-            <a class="dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                {% if request.user.teacherprofile.profile_picture %}
-                    <img src="{{ request.user.teacherprofile.profile_picture.url }}" class="profile-img">
-                {% else %}
-                    <img src="{% static 'img/default-avatar.png' %}" class="profile-img">
-                {% endif %}
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
-                <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
-            </ul>
-        </div>
+    <div class="profile-section dropdown">
+    <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+    <a class="dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        {% if profile and profile.profile_picture %}
+            <img src="{{ profile.profile_picture.url }}" class="profile-img">
+        {% else %}
+            <img src="{% static 'img/default-avatar.png' %}" class="profile-img">
+        {% endif %}
+    </a>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
+        <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
+    </ul>
+</div>
+
     </div>
 
     <div class="main-content">
