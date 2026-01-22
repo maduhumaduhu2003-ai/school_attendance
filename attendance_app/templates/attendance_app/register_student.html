@@ -121,7 +121,8 @@
     </div>
 </div>
 
-<!-- REGISTER STUDENT MODAL (unchanged) -->
+<!-- ================= MODALS ================= -->
+<!-- Register Student Modal -->
 <div class="modal fade" id="registerStudentModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -132,8 +133,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <!-- Student and parent fields -->
-          <h6 class="text-primary mb-3">Student Information</h6>
+          <!-- Student Info -->
           <div class="row g-3">
             <div class="col-md-6">
               <label for="first_name" class="form-label">First Name</label>
@@ -177,7 +177,7 @@
             </div>
           </div>
           <hr>
-          <h6 class="text-primary mb-3">Parent / Guardian Information</h6>
+          <!-- Parent Info -->
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Parent Full Name</label>
@@ -198,7 +198,7 @@
   </div>
 </div>
 
-<!-- EDIT STUDENT MODAL -->
+<!-- Edit Student Modal -->
 <div class="modal fade" id="editStudentModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -237,7 +237,7 @@
   </div>
 </div>
 
-<!-- DELETE CONFIRMATION MODAL -->
+<!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
   <div class="modal-dialog modal-md modal-dialog-centered">
     <div class="modal-content">
@@ -256,7 +256,12 @@
   </div>
 </div>
 
+<!-- ================= STYLES ================= -->
 <style>
+body { font-size: 18px; line-height: 1.7; }
+h2 { font-size: 28px; font-weight: 600; }
+table th, table td { font-size: 16px; padding: 12px 8px; }
+.btn { font-size: 16px; padding: 10px 14px; }
 table.table tbody tr:hover { background-color: rgba(79, 70, 229, 0.08); }
 table.table th { font-weight: 600; text-align: center; }
 table.table td { vertical-align: middle; }
@@ -271,146 +276,43 @@ table.table td { vertical-align: middle; }
 .btn-warning { background-color: #f59e0b; border: none; color: white; }
 .btn-warning:hover { background-color: #d97706; }
 
-
-/* ================= ADDITIONS ONLY ================= */
-
-.table-responsive {
-    width: 100%;
-    overflow-x: auto;
-}
-
-body {
-    font-size: 15px;
-}
-
-.table th {
-    font-size: 14.5px;
-}
-
-.table td {
-    font-size: 14px;
-}
-
-.btn {
-    white-space: nowrap;
-}
-
-/* ================= MOBILE OPTIMIZATION ================= */
+/* Mobile */
 @media (max-width: 768px) {
-
-    /* Container ichukue screen yote */
-    .container {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    /* Heading readability */
-    h2 {
-        font-size: 20px;
-        text-align: center;
-    }
-
-    /* Filters ziwe stacked vizuri */
-    form.row.g-3 > div {
-        margin-bottom: 8px;
-    }
-
-    /* Table readable kwenye phone */
-    .table th {
-        font-size: 13px;
-        padding: 8px;
-    }
-
-    .table td {
-        font-size: 13px;
-        padding: 8px;
-    }
-
-    /* Buttons ndani ya table */
-    .table td .btn {
-        font-size: 12px;
-        padding: 4px 8px;
-        margin-bottom: 4px;
-    }
-
-    /* Modal text readable */
-    .modal-title {
-        font-size: 16px;
-    }
-
-    .modal-body label {
-        font-size: 13px;
-    }
+    body { font-size: 18px; }
+    h2 { font-size: 26px; }
+    .table th, .table td { font-size: 16px; padding: 12px 10px; }
+    .btn { font-size: 15px; padding: 8px 12px; }
+    .modal-title { font-size: 20px; }
+    .modal-body label, .modal-body input, .modal-body select { font-size: 16px; padding: 6px 8px; }
+    form.row.g-3 > div { margin-bottom: 12px; }
 }
-
-/* ================= VERY SMALL PHONES ================= */
 @media (max-width: 480px) {
-
-    body {
-        font-size: 14px;
-    }
-
-    h2 {
-        font-size: 18px;
-    }
-
-    .btn {
-        font-size: 13px;
-    }
-}
-/* ================= FULL WINDOW TABLE FIX ================= */
-
-/* Panua container mpaka screen nzima */
-.container {
-    max-width: 100% !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    body { font-size: 19px; }
+    h2 { font-size: 24px; }
+    .table th, .table td { font-size: 17px; padding: 14px 10px; }
+    .btn { font-size: 16px; padding: 10px 12px; }
+    .modal-title { font-size: 19px; }
+    .modal-body label, .modal-body input, .modal-body select { font-size: 17px; padding: 8px 10px; }
 }
 
-/* Card ichukue width yote */
-.card {
-    border-radius: 0;
-}
-
-/* Card body iwe na padding ndogo lakini isibane table */
-.card-body {
-    padding-left: 10px;
-    padding-right: 10px;
-}
-
-/* Table ichukue full width */
-.table {
-    width: 100% !important;
-}
-
-/* Table responsive scroll vizuri bila kukata content */
-.table-responsive {
-    overflow-x: auto;
-    width: 100%;
-}
-@media (max-width: 768px) {
-    .card-body {
-        padding-left: 5px;
-        padding-right: 5px;
-    }
-
-    .table th,
-    .table td {
-        white-space: nowrap;
-    }
-}
-
-
+/* Full width fixes */
+.container { max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
+.card { border-radius: 0; }
+.card-body { padding-left: 10px; padding-right: 10px; }
+.table { width: 100% !important; }
+.table-responsive { overflow-x: auto; width: 100%; }
+@media (max-width: 768px) { .card-body { padding-left: 5px; padding-right: 5px; } .table th, .table td { white-space: nowrap; } }
 </style>
 
+<!-- ================= JS ================= -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // ===== TOAST =====
+    // TOAST
     document.querySelectorAll('.toast').forEach(function(toastEl){
         new bootstrap.Toast(toastEl).show();
     });
 
-    // ===== DYNAMIC STREAM =====
+    // DYNAMIC STREAM
     const classroomSelect = document.getElementById('classroom');
     const streamSelect = document.getElementById('stream');
     if (classroomSelect && streamSelect) {
@@ -432,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // ===== EDIT STUDENT =====
+    // EDIT STUDENT
     const editButtons = document.querySelectorAll('.editStudentBtn');
     const editModalEl = document.getElementById('editStudentModal');
     const editForm = document.getElementById('editStudentForm');
@@ -458,38 +360,30 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(res => res.json())
             .then(data => {
                 if(data.success){
-                    // Show toast notification above modal
                     const toastContainer = document.createElement('div');
                     toastContainer.className = 'toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 p-3';
                     toastContainer.setAttribute('role','alert');
                     toastContainer.setAttribute('aria-live','assertive');
                     toastContainer.setAttribute('aria-atomic','true');
                     toastContainer.setAttribute('data-bs-delay','4000');
-                    toastContainer.style.zIndex = 20000; // high z-index
-                    toastContainer.innerHTML = `
-                        <div class="d-flex">
-                            <div class="toast-body">${data.message || 'Student updated successfully!'}</div>
-                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                        </div>`;
+                    toastContainer.style.zIndex = 20000;
+                    toastContainer.innerHTML = `<div class="d-flex"><div class="toast-body">${data.message || 'Student updated successfully!'}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
                     document.body.appendChild(toastContainer);
                     new bootstrap.Toast(toastContainer).show();
                     setTimeout(()=>location.reload(), 1000);
-                } else {
-                    alert('Update failed');
-                }
+                } else { alert('Update failed'); }
             })
             .catch(err => console.error(err));
         });
     }
 
-    // ===== DELETE STUDENT =====
+    // DELETE STUDENT
     const deleteButtons = document.querySelectorAll('.deleteStudentBtn');
     const deleteModalEl = document.getElementById('deleteConfirmModal');
     const deleteStudentBtn = document.getElementById('deleteStudentBtn');
     deleteButtons.forEach(btn => {
         btn.addEventListener('click', function(){
-            const href = this.dataset.href;
-            deleteStudentBtn.setAttribute('href', href);
+            deleteStudentBtn.href = this.dataset.href;
             new bootstrap.Modal(deleteModalEl).show();
         });
     });
