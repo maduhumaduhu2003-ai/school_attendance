@@ -3,274 +3,236 @@
 {% block title %}Manage Classrooms{% endblock %}
 
 {% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
 
-<div class="card shadow-sm">
-    <div class="card-body">
+            <!-- PAGE TITLE -->
+            <h4 class="mb-4">Manage Classrooms</h4>
 
-        <!-- PAGE TITLE -->
-        <h4 class="mb-4">Manage Classrooms</h4>
+            <!-- ADD CLASSROOM BUTTON -->
+            <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addClassroomModal">
+                Add Classroom
+            </button>
 
-        <!-- ADD CLASSROOM BUTTON -->
-        <button type="button"
-                class="btn btn-primary mb-3"
-                data-bs-toggle="modal"
-                data-bs-target="#addClassroomModal">
-            Add Classroom
-        </button>
-
-        <!-- ADD CLASSROOM MODAL -->
-        <div class="modal fade" id="addClassroomModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form id="addClassroomForm" method="POST" action="{% url 'manage_classrooms' %}">
-                        {% csrf_token %}
-                        <div class="modal-header">
-                            <h5 class="modal-title">Add Classroom</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label class="form-label">Classroom Name</label>
-                                <input type="text" name="name" class="form-control" required>
+            <!-- ADD CLASSROOM MODAL -->
+            <div class="modal fade" id="addClassroomModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST" action="{% url 'manage_classrooms' %}">
+                            {% csrf_token %}
+                            <div class="modal-header">
+                                <h5 class="modal-title">Add Classroom</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Academic Year</label>
-                                <select name="year" class="form-control" required>
-                                    {% for ay in academic_years %}
-                                        <option value="{{ ay.id }}">
-                                            {{ ay.year_start }}/{{ ay.year_end }} {% if ay.is_active %}(Active){% endif %}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-primary">Add Classroom</button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- CLASSROOM TABLE -->
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped table-hover align-middle">
-                <thead style="background-color:#4f46e5; color:#fff;">
-                    <tr>
-                        <th>No</th>
-                        <th>Classroom</th>
-                        <th>Academic Year</th>
-                        <th style="width:260px;" class="text-center">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in classrooms %}
-                    <tr>
-                        <td>{{ forloop.counter }}</td>
-                        <td>
-                            <strong>{{ c.name }}</strong>
-                            <ul class="mt-2 mb-0">
-                                {% for stream in c.streams.all %}
-                                    <li>{{ stream.name }}</li>
-                                {% empty %}
-                                    <li class="text-muted">No streams yet</li>
-                                {% endfor %}
-                            </ul>
-                        </td>
-                        <td>
-                            {{ c.year.year_start }}/{{ c.year.year_end }}
-                            {% if c.year.is_active %}(Active){% endif %}
-                        </td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-warning"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#editClassroomModal{{ c.id }}">
-                                Edit
-                            </button>
-                            <button class="btn btn-sm btn-info"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#addStreamModal{{ c.id }}">
-                                Add Stream
-                            </button>
-
-                            <!-- DELETE BUTTON triggers modal -->
-                            <button type="button"
-                                    class="btn btn-sm btn-danger"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#deleteClassroomModal{{ c.id }}">
-                                Delete
-                            </button>
-
-                            <!-- DELETE CONFIRM MODAL -->
-                            <div class="modal fade" id="deleteClassroomModal{{ c.id }}" tabindex="-1">
-                                <div class="modal-dialog modal-dialog-centered">
-                                    <div class="modal-content">
-                                        <form method="POST" action="{% url 'delete_classroom' c.id %}">
-                                            {% csrf_token %}
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Confirm Delete</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                Are you sure you want to delete classroom "<strong>{{ c.name }}</strong>"?
-                                                {% if c.streams.exists %} <br>
-                                                    <small class="text-danger">Note: This classroom has streams attached.</small>
-                                                {% endif %}
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="submit" class="btn btn-danger">Yes, Delete</button>
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                            </div>
-                                        </form>
-                                    </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Classroom Name</label>
+                                    <input type="text" name="name" class="form-control" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Academic Year</label>
+                                    <select name="year" class="form-select" required>
+                                        {% for ay in academic_years %}
+                                            <option value="{{ ay.id }}">
+                                                {{ ay.year_start }}/{{ ay.year_end }} {% if ay.is_active %}(Active){% endif %}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                             </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-primary">Add Classroom</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
-                        </td>
-                    </tr>
+            <!-- CLASSROOM TABLE -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle classroom-table">
+                    <thead style="background-color:#4f46e5; color:#fff;">
+                        <tr>
+                            <th>No</th>
+                            <th>Classroom</th>
+                            <th>Academic Year</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in classrooms %}
+                        <tr class="slide-row" style="--delay: {{ forloop.counter0|add:'0' }}00ms;">
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <strong>{{ c.name }}</strong>
+                                <ul class="mt-2 mb-0">
+                                    {% for stream in c.streams.all %}
+                                        <li>{{ stream.name }}</li>
+                                    {% empty %}
+                                        <li class="text-muted">No streams yet</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                            <td>
+                                {{ c.year.year_start }}/{{ c.year.year_end }}
+                                {% if c.year.is_active %}(Active){% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editClassroomModal{{ c.id }}">Edit</button>
+                                <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#addStreamModal{{ c.id }}">Add Stream</button>
+                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteClassroomModal{{ c.id }}">Delete</button>
+                            </td>
+                        </tr>
 
-                    <!-- EDIT CLASSROOM MODAL -->
-                    <div class="modal fade" id="editClassroomModal{{ c.id }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <form method="POST" action="{% url 'edit_classroom' c.id %}">
-                                    {% csrf_token %}
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Edit Classroom</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div class="mb-3">
-                                            <label class="form-label">Classroom Name</label>
-                                            <input type="text"
-                                                   name="name"
-                                                   value="{{ c.name }}"
-                                                   class="form-control"
-                                                   required>
+                        <!-- EDIT MODAL -->
+                        <div class="modal fade" id="editClassroomModal{{ c.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form method="POST" action="{% url 'edit_classroom' c.id %}">
+                                        {% csrf_token %}
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Edit Classroom</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Academic Year</label>
-                                            <select name="year" class="form-select" required>
-                                                {% for ay in academic_years %}
-                                                    <option value="{{ ay.id }}"
-                                                        {% if ay.id == c.year.id %}selected{% endif %}>
-                                                        {{ ay.year_start }}/{{ ay.year_end }} {% if ay.is_active %}(Active){% endif %}
-                                                    </option>
-                                                {% endfor %}
-                                            </select>
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Classroom Name</label>
+                                                <input type="text" name="name" value="{{ c.name }}" class="form-control" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Academic Year</label>
+                                                <select name="year" class="form-select" required>
+                                                    {% for ay in academic_years %}
+                                                        <option value="{{ ay.id }}" {% if ay.id == c.year.id %}selected{% endif %}>
+                                                            {{ ay.year_start }}/{{ ay.year_end }} {% if ay.is_active %}(Active){% endif %}
+                                                        </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button class="btn btn-primary">Save Changes</button>
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
+                                        <div class="modal-footer">
+                                            <button class="btn btn-primary">Save Changes</button>
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- ADD STREAM MODAL -->
-                    <div class="modal fade" id="addStreamModal{{ c.id }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <form method="POST" action="{% url 'add_stream' c.id %}">
-                                    {% csrf_token %}
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Add Stream to {{ c.name }}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div class="mb-3">
-                                            <label class="form-label">Stream Name</label>
-                                            <input type="text" name="stream_name" class="form-control" required>
+                        <!-- ADD STREAM MODAL -->
+                        <div class="modal fade" id="addStreamModal{{ c.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form method="POST" action="{% url 'add_stream' c.id %}">
+                                        {% csrf_token %}
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Add Stream to {{ c.name }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button class="btn btn-primary">Add Stream</button>
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Stream Name</label>
+                                                <input type="text" name="stream_name" class="form-control" required>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button class="btn btn-primary">Add Stream</button>
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">
-                            No classrooms found
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        <!-- DELETE MODAL -->
+                        <div class="modal fade" id="deleteClassroomModal{{ c.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <form method="POST" action="{% url 'delete_classroom' c.id %}">
+                                        {% csrf_token %}
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Confirm Delete</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center">
+                                            Are you sure you want to delete "<strong>{{ c.name }}</strong>"?
+                                            {% if c.streams.exists %}<br><small class="text-danger">This classroom has streams attached.</small>{% endif %}
+                                        </div>
+                                        <div class="modal-footer justify-content-center">
+                                            <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No classrooms found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-
     </div>
 </div>
 
 <!-- TOAST CONTAINER -->
 <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
 
-<!-- OPTIONAL STYLING -->
+<!-- STYLING -->
 <style>
-.table-hover tbody tr:hover {
-    background-color: rgba(79,70,229,0.08);
+.table-hover tbody tr:hover { background-color: rgba(79,70,229,0.08); }
+.table-bordered th, .table-bordered td { border-color: #e5e7eb; }
+.btn-primary { background-color:#4f46e5; border:none; color:white; }
+.btn-warning { background-color:#f59e0b; border:none; color:white; }
+.btn-info { background-color:#0ea5e9; border:none; color:white; }
+.btn-danger { background-color:#e92b2b; border:none; color:white; }
+.btn-secondary { background-color:#94a3b8; border:none; color:white; }
+
+/* SLIDE-IN ROW ANIMATION */
+.slide-row { 
+    transform: translateX(-100%); 
+    opacity: 0; 
+    transition: all 0.5s ease-out; 
 }
-.table-bordered th,
-.table-bordered td {
-    border-color: #e5e7eb;
-}
+.slide-row.show { transform: translateX(0); opacity: 1; }
+
+@media (max-width:768px){ .table th,.table td{ font-size:13px; padding:6px; } }
 </style>
 
-<!-- TOAST SCRIPT -->
+<!-- JS FOR TOASTS & SLIDE-IN -->
 <script>
 function showToast(message, type='success'){
     const toastContainer = document.getElementById('toastContainer');
     const toastEl = document.createElement('div');
-
-    // Rangi: success=green, error=red
-     let colorClass = 'bg-success text-white'; // green by default
-    if(type === 'error'){
-        colorClass = 'bg-danger text-white'; // red
-    }
-
+    let colorClass = type==='error' ? 'bg-danger text-white' : 'bg-success text-white';
     toastEl.className = `toast align-items-center border-0 ${colorClass}`;
-    toastEl.role = 'alert';
-    toastEl.setAttribute('aria-live', 'assertive');
-    toastEl.setAttribute('aria-atomic', 'true');
-    toastEl.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-
+    toastEl.role='alert'; toastEl.setAttribute('aria-live','assertive'); toastEl.setAttribute('aria-atomic','true');
+    toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
     toastContainer.appendChild(toastEl);
-    const bsToast = new bootstrap.Toast(toastEl, { delay: 5000 });
-    bsToast.show();
-
-    toastEl.addEventListener('hidden.bs.toast', function(){
-        toastEl.remove();
-    });
+    new bootstrap.Toast(toastEl, { delay: 5000 }).show();
+    toastEl.addEventListener('hidden.bs.toast', ()=>toastEl.remove());
 }
 
-// Show Django messages as toast
+// Slide in rows and show Django messages
 document.addEventListener('DOMContentLoaded', function(){
+    const rows = document.querySelectorAll('.slide-row');
+    rows.forEach((row, index) => {
+        setTimeout(()=> row.classList.add('show'), index*100);
+    });
+
     {% for message in messages %}
         {% if "error" in message.tags %}
-            showToast("{{ message|escapejs }}", "error");
+            showToast("{{ message|escapejs }}","error");
         {% else %}
-            showToast("{{ message|escapejs }}", "success");
+            showToast("{{ message|escapejs }}","success");
         {% endif %}
     {% endfor %}
 });
 </script>
-
 {% endblock %}

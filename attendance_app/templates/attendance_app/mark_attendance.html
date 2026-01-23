@@ -8,12 +8,10 @@
     <div class="card-body">
 
         <!-- Page Header -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+            <h4 class="mb-2 mb-md-0">
                 Mark Attendance : {{ classroom.name }} ({{ classroom.year }})
             </h4>
-            <!-- Optional: Add a button here if needed -->
-            <!-- <a href="#" class="btn btn-primary">Some Action</a> -->
         </div>
 
         <!-- Attendance Form -->
@@ -33,11 +31,11 @@
                     <tbody>
                         {% for student in students %}
                         <tr>
-                            <td>{{ forloop.counter }}</td>
-                            <td>{{ student.admission_number }}</td>
+                            <td class="text-center">{{ forloop.counter }}</td>
+                            <td class="text-center">{{ student.admission_number }}</td>
                             <td>{{ student.user.first_name }} {{ student.user.last_name }}</td>
                             <td>
-                                <div class="d-flex gap-2">
+                                <div class="attendance-options">
                                     <label class="badge bg-success p-2 rounded">
                                         <input type="radio"
                                                name="attendance_{{ student.id }}"
@@ -73,7 +71,7 @@
                 </table>
             </div>
 
-            <button type="submit" class="btn btn-primary mt-3">
+            <button type="submit" class="btn btn-primary mt-3 submit-btn">
                 Submit Attendance
             </button>
         </form>
@@ -81,7 +79,7 @@
         <!-- Pagination -->
         <div class="d-flex justify-content-center mt-4">
             <nav>
-                <ul class="pagination">
+                <ul class="pagination flex-wrap">
                     {% if students.has_previous %}
                     <li class="page-item">
                         <a class="page-link" href="?page={{ students.previous_page_number }}">Previous</a>
@@ -103,29 +101,72 @@
             </nav>
         </div>
 
-    </div> <!-- End card-body -->
-</div> <!-- End card -->
+    </div>
+</div>
 
 <!-- Styles -->
 <style>
-/* Card shadow */
+/* Card */
 .card {
-    border-radius: 0.5rem;
+    border-radius: 0.6rem;
 }
 
-/* Table hover and badge adjustments */
+/* Table hover */
 .table-hover tbody tr:hover {
-    background-color: rgba(79, 70, 229, 0.08); /* subtle blue hover */
+    background-color: rgba(79, 70, 229, 0.08);
 }
 
+/* Radio inputs */
 input[type="radio"] {
-    margin-right: 5px;
+    margin-right: 6px;
     cursor: pointer;
 }
 
-/* Optional: style table borders to match sidebar */
-.table-bordered th, .table-bordered td {
-    border-color: #e5e7eb; /* light gray */
+/* Attendance options layout */
+.attendance-options {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Table borders */
+.table-bordered th,
+.table-bordered td {
+    border-color: #e5e7eb;
+}
+
+/* ================= MOBILE OPTIMIZATION ================= */
+@media (max-width: 768px) {
+
+    h4 {
+        font-size: 1.1rem;
+    }
+
+    .table th,
+    .table td {
+        font-size: 0.85rem;
+        padding: 0.5rem;
+    }
+
+    .attendance-options {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4rem;
+    }
+
+    .attendance-options label {
+        width: 100%;
+        text-align: left;
+    }
+
+    .submit-btn {
+        width: 100%;
+        font-size: 0.95rem;
+    }
+
+    .pagination {
+        justify-content: center;
+    }
 }
 </style>
 

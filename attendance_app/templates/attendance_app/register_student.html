@@ -25,12 +25,12 @@
 
     <div class="card shadow-sm">
         <div class="card-body">
-            <h2 class="mb-4">Manage Students</h2>
+            <h2 class="mb-4 text-center">Manage Students</h2>
 
-            <!-- Filters -->
+            <!-- FILTERS -->
             <form method="GET" class="row g-3 mb-3">
                 <div class="col-md-3">
-                    <select class="form-select" name="classroom">
+                    <select class="form-select" name="classroom" id="filter_classroom">
                         <option value="">All Classrooms</option>
                         {% for classroom in classrooms %}
                         <option value="{{ classroom.id }}" {% if request.GET.classroom == classroom.id|stringformat:"s" %}selected{% endif %}>
@@ -40,7 +40,7 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <select class="form-select" name="stream">
+                    <select class="form-select" name="stream" id="filter_stream">
                         <option value="">All Streams</option>
                         {% for stream in streams %}
                         <option value="{{ stream.id }}" {% if request.GET.stream == stream.id|stringformat:"s" %}selected{% endif %}>
@@ -53,24 +53,24 @@
                     <select name="academic_year" class="form-select">
                         <option value="">All Academic Years</option>
                         {% for year in academic_years %}
-                          <option value="{{ year.id }}" {% if request.GET.academic_year == year.id|stringformat:"s" %}selected{% endif %}>
-                              {{ year.year_start }}/{{ year.year_end }}
-                          </option>
+                        <option value="{{ year.id }}" {% if request.GET.academic_year == year.id|stringformat:"s" %}selected{% endif %}>
+                            {{ year.year_start }}/{{ year.year_end }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">Filter</button>
                     <a href="{% url 'register_student' %}" class="btn btn-secondary">Reset</a>
                 </div>
             </form>
 
-            <!-- Add Student Button -->
+            <!-- ADD STUDENT BUTTON -->
             <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#registerStudentModal">
                 Register New Student
             </button>
 
-            <!-- Students Table -->
+            <!-- STUDENTS TABLE -->
             <div class="table-responsive">
                 <table class="table table-bordered table-hover table-striped align-middle">
                     <thead class="text-center" style="background-color: #4f46e5; color: white;">
@@ -121,8 +121,7 @@
     </div>
 </div>
 
-<!-- ================= MODALS ================= -->
-<!-- Register Student Modal -->
+<!-- REGISTER STUDENT MODAL -->
 <div class="modal fade" id="registerStudentModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -133,64 +132,44 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <!-- Student Info -->
+          <h6 class="text-primary mb-3">Student Information</h6>
           <div class="row g-3">
-            <div class="col-md-6">
-              <label for="first_name" class="form-label">First Name</label>
-              <input type="text" class="form-control" id="first_name" name="first_name" required>
-            </div>
-            <div class="col-md-6">
-              <label for="last_name" class="form-label">Last Name</label>
-              <input type="text" class="form-control" id="last_name" name="last_name" required>
-            </div>
-            <div class="col-md-6">
-              <label for="admission_number" class="form-label">Admission Number</label>
-              <input type="text" class="form-control" id="admission_number" name="admission_number" required>
-            </div>
-            <div class="col-md-6">
-              <label for="academic_year" class="form-label">Academic Year</label>
-              <select id="academic_year" name="academic_year" class="form-select" required>
-                  {% for year in academic_years %}
-                    <option value="{{ year.id }}" {% if active_year and year.id == active_year.id %}selected{% endif %}>
-                        {{ year.year_start }}/{{ year.year_end }}
-                    </option>
-                  {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label for="classroom" class="form-label">Classroom</label>
-              <select class="form-select" id="classroom" name="classroom" required>
-                <option value="" selected>Select Classroom</option>
-                {% for classroom in classrooms %}
-                  <option value="{{ classroom.id }}">{{ classroom.name }} ({{ classroom.year }})</option>
+            <div class="col-md-6"><label>First Name</label><input type="text" name="first_name" class="form-control" required></div>
+            <div class="col-md-6"><label>Last Name</label><input type="text" name="last_name" class="form-control" required></div>
+            <div class="col-md-6"><label>Admission Number</label><input type="text" name="admission_number" class="form-control" required></div>
+            <div class="col-md-6"><label>Academic Year</label>
+              <select name="academic_year" class="form-select" required>
+                {% for year in academic_years %}
+                <option value="{{ year.id }}" {% if active_year and year.id == active_year.id %}selected{% endif %}>{{ year.year_start }}/{{ year.year_end }}</option>
                 {% endfor %}
               </select>
             </div>
-            <div class="col-md-6">
-              <label for="stream" class="form-label">Stream</label>
-              <select class="form-select" id="stream" name="stream">
+            <div class="col-md-6"><label>Classroom</label>
+              <select name="classroom" id="classroom" class="form-select" required>
+                <option value="" selected>Select Classroom</option>
+                {% for classroom in classrooms %}
+                <option value="{{ classroom.id }}">{{ classroom.name }} ({{ classroom.year }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6"><label>Stream</label>
+              <select name="stream" id="stream" class="form-select">
                 <option value="" selected>Select Stream</option>
                 {% for stream in streams %}
-                  <option value="{{ stream.id }}">{{ stream.name }}</option>
+                <option value="{{ stream.id }}">{{ stream.name }}</option>
                 {% endfor %}
               </select>
             </div>
           </div>
           <hr>
-          <!-- Parent Info -->
+          <h6 class="text-primary mb-3">Parent / Guardian Information</h6>
           <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Parent Full Name</label>
-              <input type="text" class="form-control" name="parent_full_name" placeholder="e.g. John Mwita" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Parent Phone Number</label>
-              <input type="text" class="form-control" name="parent_phone" placeholder="+2557XXXXXXXX" required>
-            </div>
+            <div class="col-md-6"><label>Parent Full Name</label><input type="text" name="parent_full_name" class="form-control" placeholder="John Mwita" required></div>
+            <div class="col-md-6"><label>Parent Phone</label><input type="text" name="parent_phone" class="form-control" placeholder="+2557XXXXXXXX" required></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           <button type="submit" class="btn btn-primary">Register Student</button>
         </div>
       </form>
@@ -198,7 +177,7 @@
   </div>
 </div>
 
-<!-- Edit Student Modal -->
+<!-- EDIT STUDENT MODAL -->
 <div class="modal fade" id="editStudentModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -210,20 +189,13 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="mb-3">
-            <label>First Name</label>
-            <input type="text" id="edit_first_name" name="first_name" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label>Last Name</label>
-            <input type="text" id="edit_last_name" name="last_name" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label>Stream</label>
+          <div class="mb-3"><label>First Name</label><input type="text" id="edit_first_name" name="first_name" class="form-control" required></div>
+          <div class="mb-3"><label>Last Name</label><input type="text" id="edit_last_name" name="last_name" class="form-control" required></div>
+          <div class="mb-3"><label>Stream</label>
             <select id="edit_stream" name="stream" class="form-select">
               <option value="">Select Stream</option>
               {% for stream in streams %}
-                <option value="{{ stream.id }}">{{ stream.name }}</option>
+              <option value="{{ stream.id }}">{{ stream.name }}</option>
               {% endfor %}
             </select>
           </div>
@@ -237,7 +209,7 @@
   </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
+<!-- DELETE STUDENT MODAL -->
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
   <div class="modal-dialog modal-md modal-dialog-centered">
     <div class="modal-content">
@@ -245,149 +217,81 @@
         <h5 class="modal-title">Confirm Delete</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body text-center">
-        Are you sure you want to delete this student?
-      </div>
+      <div class="modal-body text-center">Are you sure you want to delete this student?</div>
       <div class="modal-footer justify-content-center">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <a href="#" id="deleteStudentBtn" class="btn btn-danger">Delete</a>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ================= STYLES ================= -->
 <style>
-body { font-size: 18px; line-height: 1.7; }
-h2 { font-size: 28px; font-weight: 600; }
-table th, table td { font-size: 16px; padding: 12px 8px; }
-.btn { font-size: 16px; padding: 10px 14px; }
-table.table tbody tr:hover { background-color: rgba(79, 70, 229, 0.08); }
-table.table th { font-weight: 600; text-align: center; }
-table.table td { vertical-align: middle; }
-.btn-primary { background-color: #4f46e5; border: none; color: white; }
-.btn-primary:hover { background-color: #4338ca; }
-.btn-info { background-color: #5e4bee; border: none; color: white; }
-.btn-info:hover { background-color: #4338ca; }
-.btn-secondary { background-color: #94a3b8; border: none; color: white; }
-.btn-secondary:hover { background-color: #6b7280; }
-.btn-danger { background-color: #e92b2b; border: none; color: white; }
-.btn-danger:hover { background-color: #e22323; }
-.btn-warning { background-color: #f59e0b; border: none; color: white; }
-.btn-warning:hover { background-color: #d97706; }
-
-/* Mobile */
-@media (max-width: 768px) {
-    body { font-size: 18px; }
-    h2 { font-size: 26px; }
-    .table th, .table td { font-size: 16px; padding: 12px 10px; }
-    .btn { font-size: 15px; padding: 8px 12px; }
-    .modal-title { font-size: 20px; }
-    .modal-body label, .modal-body input, .modal-body select { font-size: 16px; padding: 6px 8px; }
-    form.row.g-3 > div { margin-bottom: 12px; }
+/* FULL RESPONSIVE STYLING */
+body { font-size: 15px; }
+.table th, .table td { font-size: 14px; text-align:center; vertical-align:middle; }
+.btn-primary { background-color:#4f46e5; border:none; color:white; }
+.btn-warning { background-color:#f59e0b; border:none; color:white; }
+.btn-danger { background-color:#e92b2b; border:none; color:white; }
+.btn-secondary { background-color:#94a3b8; border:none; color:white; }
+.table-responsive { overflow-x:auto; width:100%; }
+.card { border-radius:0; }
+.card-body { padding:10px; }
+@media (max-width:768px){
+    .table th,.table td{ font-size:13px; padding:8px; white-space:nowrap; }
+    .btn { font-size:12px; padding:4px 8px; }
+    h2{ font-size:20px; }
+    .container{padding:0 10px;}
 }
-@media (max-width: 480px) {
-    body { font-size: 19px; }
-    h2 { font-size: 24px; }
-    .table th, .table td { font-size: 17px; padding: 14px 10px; }
-    .btn { font-size: 16px; padding: 10px 12px; }
-    .modal-title { font-size: 19px; }
-    .modal-body label, .modal-body input, .modal-body select { font-size: 17px; padding: 8px 10px; }
+@media (max-width:480px){
+    body{font-size:14px;} h2{font-size:18px;} .btn{font-size:13px;}
 }
-
-/* Full width fixes */
-.container { max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
-.card { border-radius: 0; }
-.card-body { padding-left: 10px; padding-right: 10px; }
-.table { width: 100% !important; }
-.table-responsive { overflow-x: auto; width: 100%; }
-@media (max-width: 768px) { .card-body { padding-left: 5px; padding-right: 5px; } .table th, .table td { white-space: nowrap; } }
 </style>
 
-<!-- ================= JS ================= -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    // TOAST
-    document.querySelectorAll('.toast').forEach(function(toastEl){
-        new bootstrap.Toast(toastEl).show();
-    });
+document.addEventListener('DOMContentLoaded',function(){
+    // Show Toasts
+    document.querySelectorAll('.toast').forEach(t=>new bootstrap.Toast(t).show());
 
-    // DYNAMIC STREAM
-    const classroomSelect = document.getElementById('classroom');
-    const streamSelect = document.getElementById('stream');
-    if (classroomSelect && streamSelect) {
-        classroomSelect.addEventListener('change', function () {
-            const classroomId = this.value;
-            streamSelect.innerHTML = '<option value="">Select Stream</option>';
-            if (!classroomId) return;
-            fetch(`/get-streams/${classroomId}/`)
-                .then(res => res.json())
-                .then(data => {
-                    data.streams.forEach(stream => {
-                        const option = document.createElement('option');
-                        option.value = stream.id;
-                        option.textContent = stream.name;
-                        streamSelect.appendChild(option);
-                    });
-                })
-                .catch(err => console.error(err));
+    // Dynamic Streams
+    const classroom=document.getElementById('classroom'), stream=document.getElementById('stream');
+    if(classroom&&stream){ classroom.addEventListener('change',function(){
+        const id=this.value; stream.innerHTML='<option value="">Select Stream</option>';
+        if(!id) return;
+        fetch(`/get-streams/${id}/`).then(r=>r.json()).then(data=>{
+            data.streams.forEach(s=>{const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; stream.appendChild(o);});
         });
-    }
+    });}
 
-    // EDIT STUDENT
-    const editButtons = document.querySelectorAll('.editStudentBtn');
-    const editModalEl = document.getElementById('editStudentModal');
-    const editForm = document.getElementById('editStudentForm');
-    if (editButtons && editModalEl && editForm) {
-        editButtons.forEach(btn => {
-            btn.addEventListener('click', function () {
-                document.getElementById('edit_student_id').value = this.dataset.id;
-                document.getElementById('edit_first_name').value = this.dataset.first;
-                document.getElementById('edit_last_name').value = this.dataset.last;
-                document.getElementById('edit_stream').value = this.dataset.stream || "";
-                new bootstrap.Modal(editModalEl).show();
-            });
-        });
-
-        editForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const id = document.getElementById('edit_student_id').value;
-            fetch(`/students/edit/${id}/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-                body: new FormData(this)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success){
-                    const toastContainer = document.createElement('div');
-                    toastContainer.className = 'toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 p-3';
-                    toastContainer.setAttribute('role','alert');
-                    toastContainer.setAttribute('aria-live','assertive');
-                    toastContainer.setAttribute('aria-atomic','true');
-                    toastContainer.setAttribute('data-bs-delay','4000');
-                    toastContainer.style.zIndex = 20000;
-                    toastContainer.innerHTML = `<div class="d-flex"><div class="toast-body">${data.message || 'Student updated successfully!'}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-                    document.body.appendChild(toastContainer);
-                    new bootstrap.Toast(toastContainer).show();
-                    setTimeout(()=>location.reload(), 1000);
-                } else { alert('Update failed'); }
-            })
-            .catch(err => console.error(err));
-        });
-    }
-
-    // DELETE STUDENT
-    const deleteButtons = document.querySelectorAll('.deleteStudentBtn');
-    const deleteModalEl = document.getElementById('deleteConfirmModal');
-    const deleteStudentBtn = document.getElementById('deleteStudentBtn');
-    deleteButtons.forEach(btn => {
-        btn.addEventListener('click', function(){
-            deleteStudentBtn.href = this.dataset.href;
-            new bootstrap.Modal(deleteModalEl).show();
+    // Edit Student
+    const editBtns=document.querySelectorAll('.editStudentBtn'), editModal=document.getElementById('editStudentModal'), editForm=document.getElementById('editStudentForm');
+    editBtns.forEach(btn=>btn.addEventListener('click',function(){
+        document.getElementById('edit_student_id').value=this.dataset.id;
+        document.getElementById('edit_first_name').value=this.dataset.first;
+        document.getElementById('edit_last_name').value=this.dataset.last;
+        document.getElementById('edit_stream').value=this.dataset.stream||"";
+        new bootstrap.Modal(editModal).show();
+    }));
+    editForm.addEventListener('submit',function(e){
+        e.preventDefault();
+        const id=document.getElementById('edit_student_id').value;
+        fetch(`/students/edit/${id}/`,{method:'POST',headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:new FormData(this)})
+        .then(res=>res.json()).then(data=>{
+            if(data.success){
+                const t=document.createElement('div');
+                t.className='toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 p-3';
+                t.setAttribute('role','alert'); t.setAttribute('aria-live','assertive'); t.setAttribute('aria-atomic','true'); t.setAttribute('data-bs-delay','4000'); t.style.zIndex=20000;
+                t.innerHTML=`<div class="d-flex"><div class="toast-body">${data.message||'Student updated successfully!'}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+                document.body.appendChild(t); new bootstrap.Toast(t).show(); setTimeout(()=>location.reload(),1000);
+            }else{ alert('Update failed'); }
         });
     });
+
+    // Delete Student
+    const deleteBtns=document.querySelectorAll('.deleteStudentBtn'), deleteModal=document.getElementById('deleteConfirmModal'), deleteBtn=document.getElementById('deleteStudentBtn');
+    deleteBtns.forEach(btn=>btn.addEventListener('click',function(){
+        deleteBtn.setAttribute('href',this.dataset.href); new bootstrap.Modal(deleteModal).show();
+    }));
 });
 </script>
-
 {% endblock %}

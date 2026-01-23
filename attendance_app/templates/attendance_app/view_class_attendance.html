@@ -1,9 +1,8 @@
 {% extends 'attendance_app/admin_base.html' %}
-
 {% block title %}{{ classroom.name }} Attendance{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
 
     <!-- Card wrapper -->
     <div class="card shadow-sm">
@@ -13,12 +12,12 @@
             <h4 class="mb-4">{{ classroom.name }} - Attendance</h4>
 
             <!-- Filter Form -->
-            <form method="get" class="row g-3 mb-4 align-items-end">
-                <div class="col-md-3">
+            <form method="get" class="row g-3 mb-4 align-items-end flex-wrap">
+                <div class="col-12 col-md-3">
                     <label for="date" class="form-label">Date</label>
                     <input type="date" id="date" name="date" class="form-control" value="{{ selected_date }}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <label for="stream" class="form-label">Stream</label>
                     <select id="stream" name="stream" class="form-select">
                         <option value="">-- All Streams --</option>
@@ -27,14 +26,14 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-12 col-md-2">
                     <button class="btn btn-primary w-100">Filter</button>
                 </div>
             </form>
 
             <!-- Attendance Table -->
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped align-middle mb-0">
+            <div class="table-responsive touch-scroll">
+                <table class="table table-bordered table-striped align-middle mb-0 text-nowrap">
                     <thead class="bg-primary text-white text-center">
                         <tr>
                             <th>No</th>
@@ -48,7 +47,7 @@
                     <tbody>
                         {% for a in attendance_records %}
                         <tr>
-                            <td>{{forloop.counter}}</td>
+                            <td>{{ forloop.counter }}</td>
                             <td>{{ a.student.user.get_full_name }}</td>
                             <td class="text-center">
                                 {% if a.student.stream %}
@@ -60,18 +59,18 @@
                             <td class="text-center">{{ a.date }}</td>
                             <td class="text-center">
                                 {% if a.status == 'absent' %}
-                                <span class="badge bg-danger">Absent</span>
+                                    <span class="badge bg-danger">Absent</span>
                                 {% elif a.status == 'sick' %}
-                                <span class="badge bg-warning text-dark">Sick</span>
+                                    <span class="badge bg-warning text-dark">Sick</span>
                                 {% else %}
-                                <span class="badge bg-success">Present</span>
+                                    <span class="badge bg-success">Present</span>
                                 {% endif %}
                             </td>
                             <td>{{ a.marked_by.user.get_full_name }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted">No attendance records</td>
+                            <td colspan="6" class="text-center text-muted">No attendance records</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -83,16 +82,54 @@
 
 </div>
 
-<!-- Optional CSS -->
+<!-- ================= STYLES ================= -->
 <style>
 .card {
     border-radius: 0.6rem;
+    transition: transform 0.3s ease;
 }
+
+.card:hover {
+    transform: translateY(-3px);
+}
+
+/* Table Styling */
 .table thead th {
     vertical-align: middle;
 }
 .table tbody tr:hover {
     background-color: rgba(79, 70, 229, 0.08);
+}
+.table td, .table th {
+    white-space: nowrap;
+}
+
+/* Touch scroll for mobile */
+.table-responsive.touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+}
+
+/* Full width table & form on small devices */
+@media (max-width: 767px) {
+    .table {
+        min-width: 100%;
+        font-size: 0.95rem;
+    }
+    .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    form.row.g-3 {
+        gap: 0.5rem 0.5rem;
+    }
+    .form-label {
+        font-size: 0.9rem;
+    }
+    .btn {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+    }
 }
 </style>
 {% endblock %}

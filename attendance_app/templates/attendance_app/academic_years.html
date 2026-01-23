@@ -5,33 +5,15 @@
 {% block content %}
 <div class="container mt-4">
 
-    <!-- ================= TOAST MESSAGES (Popup Notifications) ================= -->
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="toast align-items-center text-white 
-                            {% if message.tags == 'success' %}bg-success{% elif message.tags == 'error' %}bg-danger{% else %}bg-info{% endif %} 
-                            border-0 mb-2" 
-                     role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            {{ message }}
-                        </div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                </div>
-            {% endfor %}
-        {% endif %}
-    </div>
-    <!-- ============================================================ -->
+    <!-- TOAST MESSAGES -->
+    <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
 
     <div class="card shadow-sm">
         <div class="card-body">
 
-            <!-- PAGE TITLE -->
+            <!-- PAGE TITLE & BUTTON -->
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h3 class="mb-0">Academic Years</h3>
-                <!-- Generate Button -->
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#generateYearModal">
                     Generate Academic Year
                 </button>
@@ -39,7 +21,7 @@
 
             <!-- TABLE -->
             <div class="table-responsive">
-                <table class="table table-bordered table-hover align-middle mb-0 text-nowrap">
+                <table class="table table-bordered table-hover align-middle mb-0 text-nowrap academic-table">
                     <thead class="text-center" style="background:#4f46e5;color:white;">
                         <tr>
                             <th>No</th>
@@ -51,7 +33,7 @@
                     </thead>
                     <tbody class="text-center" style="background:#f8fafc;">
                         {% for year in years %}
-                        <tr>
+                        <tr class="slide-row" style="--delay: {{ forloop.counter0|add:'0' }}00ms;">
                             <td>{{ forloop.counter }}</td>
                             <td>{{ year.year_start }}</td>
                             <td>{{ year.year_end }}</td>
@@ -65,16 +47,8 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-warning"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#editModal{{ year.id }}">
-                                    Edit
-                                </button>
-                                <button class="btn btn-sm btn-danger"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#deleteModal{{ year.id }}">
-                                    Delete
-                                </button>
+                                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal{{ year.id }}">Edit</button>
+                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ year.id }}">Delete</button>
                             </td>
                         </tr>
                         {% empty %}
@@ -85,7 +59,6 @@
                     </tbody>
                 </table>
             </div>
-
         </div>
     </div>
 </div>
@@ -171,65 +144,56 @@
 
 <!-- ================= STYLES ================= -->
 <style>
-/* ===== FULL WIDTH FIX ===== */
-.container {
-    max-width: 100% !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
+.container { max-width: 100%; padding: 0 10px; }
+.card { border-radius: 1rem; }
 
-.card {
-    border-radius: 1rem;
-}
+table.table tbody tr:hover { background-color: rgba(79,70,229,0.08); }
+.table { width: 100% !important; }
 
-/* ===== TABLE ===== */
-table.table tbody tr:hover {
-    background-color: rgba(79,70,229,0.08);
-}
-
-.table {
-    width: 100% !important;
-}
-
-/* ===== BUTTON COLORS ===== */
+/* Buttons */
 .btn-primary { background:#4f46e5; border:none; color:white; }
 .btn-primary:hover { background:#4338ca; }
-
 .btn-warning { background:#f59e0b; border:none; color:white; }
 .btn-warning:hover { background:#d97706; }
-
 .btn-danger { background:#ef4444; border:none; color:white; }
 .btn-danger:hover { background:#dc2626; }
 
-/* ===== MOBILE FONT OPTIMIZATION ===== */
-@media (max-width: 768px) {
-    table th,
-    table td {
-        font-size: 12px;
-        padding: 6px;
-    }
+/* Slide-in rows */
+.slide-row { transform: translateX(-100%); opacity:0; transition: all 0.5s ease-out; }
+.slide-row.show { transform: translateX(0); opacity:1; }
 
-    h3 {
-        font-size: 18px;
-    }
-
-    .btn {
-        font-size: 12px;
-        padding: 5px 8px;
-    }
+/* Mobile */
+@media (max-width:768px){
+    table th, table td { font-size:12px; padding:6px; }
+    h3 { font-size:18px; }
+    .btn { font-size:12px; padding:5px 8px; }
 }
 </style>
 
 <!-- ================= JS ================= -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    var toastElList = [].slice.call(document.querySelectorAll('.toast'))
-    toastElList.map(function(toastEl) {
-        var toast = new bootstrap.Toast(toastEl)
-        toast.show()
-        return toast
-    })
-})
-</script>
+    // Slide-in rows
+    const rows = document.querySelectorAll('.slide-row');
+    rows.forEach((row,index)=>{
+        setTimeout(()=> row.classList.add('show'), index*100);
+    });
 
+    // Show Django messages as toast
+    {% for message in messages %}
+        let type = "{% if 'error' in message.tags %}error{% else %}success{% endif %}";
+        let msg = "{{ message|escapejs }}";
+        const toastContainer = document.getElementById('toastContainer');
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center border-0 ${type==='error'?'bg-danger':'bg-success'} text-white`;
+        toastEl.role='alert';
+        toastEl.setAttribute('aria-live','assertive');
+        toastEl.setAttribute('aria-atomic','true');
+        toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        toastContainer.appendChild(toastEl);
+        new bootstrap.Toast(toastEl,{delay:4000}).show();
+        toastEl.addEventListener('hidden.bs.toast', ()=> toastEl.remove());
+    {% endfor %}
+});
+</script>
 {% endblock %}

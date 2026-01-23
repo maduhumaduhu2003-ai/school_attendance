@@ -5,7 +5,13 @@
 
 {% block extra_css %}
 <style>
-.container { margin-top: 30px; margin-bottom: 30px; }
+/* Container spacing */
+.container {
+    margin-top: 30px;
+    margin-bottom: 30px;
+}
+
+/* Card styling */
 .card {
     max-width: 700px;
     margin: 0 auto;
@@ -13,13 +19,22 @@
     border: 1px solid #e0e0e0;
     background-color: #ffffff;
     box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease;
 }
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+/* Card header */
 .card-header {
     background-color: #343a40;
     color: #ffffff;
     font-weight: 600;
     font-size: 16px;
 }
+
+/* Form fields */
 .form-control {
     background-color: #f8f9fa;
 }
@@ -27,6 +42,8 @@
     border-color: #4f46e5;
     box-shadow: 0 0 5px rgba(79, 70, 229, 0.3);
 }
+
+/* Buttons */
 .btn-primary {
     background-color: #4f46e5;
     border: none;
@@ -34,10 +51,49 @@
 .btn-primary:hover {
     background-color: #4338ca;
 }
+
+/* Profile Image */
 .profile-img {
     width: 120px;
+    max-width: 100%;
     border-radius: 5px;
     margin-bottom: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+    .card {
+        margin: 0 0.5rem;
+        box-shadow: none;
+        border: 1px solid #d1d5db;
+    }
+
+    .card-header h5 {
+        font-size: 1rem;
+    }
+
+    .row.mb-3 .col-md-6 {
+        margin-bottom: 1rem;
+    }
+
+    .profile-img {
+        width: 100px;
+    }
+
+    .btn-primary {
+        width: 100%;
+    }
+
+    .form-label {
+        font-size: 0.9rem;
+    }
+}
+
+/* Toast positioning */
+.position-fixed.top-0.end-0.p-3 {
+    top: 1rem;
+    right: 1rem;
+    z-index: 2000;
 }
 </style>
 {% endblock %}
@@ -46,7 +102,7 @@
 <div class="container">
 
     <!-- ================= TOAST MESSAGES ================= -->
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+    <div class="position-fixed top-0 end-0 p-3">
         {% if messages %}
             {% for message in messages %}
                 <div class="toast align-items-center text-white 
@@ -73,44 +129,43 @@
         </div>
 
         <div class="card-body">
-
             <form method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
 
                 <!-- USER BASIC INFO -->
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <label>First Name</label>
+                        <label class="form-label">First Name</label>
                         {{ user_form.first_name }}
                         {{ user_form.first_name.errors }}
                     </div>
                     <div class="col-md-6">
-                        <label>Last Name</label>
+                        <label class="form-label">Last Name</label>
                         {{ user_form.last_name }}
                         {{ user_form.last_name.errors }}
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label>Email</label>
+                    <label class="form-label">Email</label>
                     {{ user_form.email }}
                     {{ user_form.email.errors }}
                 </div>
 
                 <div class="mb-3">
-                    <label>Username</label>
+                    <label class="form-label">Username</label>
                     {{ profile_form.username }}
                     {{ profile_form.username.errors }}
                 </div>
 
                 <div class="mb-3">
-                    <label>Profile Email</label>
+                    <label class="form-label">Profile Email</label>
                     {{ profile_form.email }}
                     {{ profile_form.email.errors }}
                 </div>
 
-                <div class="mb-3">
-                    <label>Profile Picture</label><br>
+                <div class="mb-3 text-center">
+                    <label class="form-label">Profile Picture</label><br>
                     {% if profile_form.instance.profile_picture %}
                         <img src="{{ profile_form.instance.profile_picture.url }}" class="profile-img">
                     {% endif %}
@@ -122,11 +177,10 @@
                     Save Changes
                 </button>
             </form>
-
         </div>
     </div>
 </div>
-
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -138,5 +192,4 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 </script>
-{% endblock %}
 {% endblock %}

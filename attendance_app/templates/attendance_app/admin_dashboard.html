@@ -5,12 +5,12 @@
 {% block content %}
 <div class="container-fluid py-3">
 
-    <h3 class="mb-4 text-center" style="font-weight:600; color:#4f46e5;">Headmaster Dashboard</h3>
+    <h3 class="mb-4 text-center fw-semibold text-primary">Headmaster Dashboard</h3>
 
     <!-- Summary Cards -->
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-2 row-cols-lg-4 g-3 mb-4">
         <div class="col">
-            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3" style="background:#eef2ff;">
+            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3 bg-light-primary">
                 <div class="card-body">
                     <h6>Total Teachers</h6>
                     <h3>{{ teachers.count }}</h3>
@@ -19,7 +19,7 @@
         </div>
 
         <div class="col">
-            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3" style="background:#f0fdf4;">
+            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3 bg-light-success">
                 <div class="card-body">
                     <h6>Total Students</h6>
                     <h3>{{ total_students }}</h3>
@@ -28,7 +28,7 @@
         </div>
 
         <div class="col">
-            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3" style="background:#fff7ed;">
+            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3 bg-light-warning">
                 <div class="card-body">
                     <h6>Total Classrooms</h6>
                     <h3>{{ classrooms_count }}</h3>
@@ -37,7 +37,7 @@
         </div>
 
         <div class="col">
-            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3" style="background:#fef3c7;">
+            <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3 bg-light-info">
                 <div class="card-body">
                     <h6>Active Academic Year</h6>
                     <h6 class="text-success">{{ active_year }}</h6>
@@ -48,12 +48,12 @@
 
     <!-- Teachers Table -->
     <div class="card shadow-sm border-0 rounded-3">
-        <div class="card-header text-white" style="background-color: #4f46e5; font-weight:600;">
+        <div class="card-header text-white bg-primary fw-semibold">
             All Teachers
         </div>
         <div class="card-body table-responsive">
             <table class="table table-bordered table-striped align-middle mb-0">
-                <thead class="text-white" style="background-color: #4f46e5;">
+                <thead class="text-white bg-primary">
                     <tr>
                         <th>No</th>
                         <th>Username</th>
@@ -62,7 +62,7 @@
                         <th>Profile Picture</th>
                     </tr>
                 </thead>
-                <tbody style="background-color: #f8fafc;">
+                <tbody class="bg-light">
                     {% for teacher in teachers %}
                     <tr class="table-row-hover">
                         <td>{{ forloop.counter }}</td>
@@ -97,19 +97,15 @@
 
 <!-- Additional CSS -->
 <style>
-/* Table hover */
+/* Table hover effect */
 table.table tbody tr.table-row-hover:hover {
     background-color: rgba(79, 70, 229, 0.08);
 }
 
-/* Table styling */
-table.table th {
-    font-weight: 600;
+/* Center table headers & cells */
+table.table th, table.table td {
     text-align: center;
-}
-table.table td {
     vertical-align: middle;
-    text-align: center;
 }
 
 /* Profile images */
@@ -118,32 +114,21 @@ table.table td {
     height: 50px;
 }
 
-/* Mobile responsiveness */
-@media (max-width: 767px) {
-    .card h3 {
-        font-size: 1.6rem;
-    }
-    .card h6 {
-        font-size: 1rem;
-    }
-    .profile-img {
-        width: 45px;
-        height: 45px;
-    }
+/* Colored cards */
+.bg-light-primary { background-color: #eef2ff; }
+.bg-light-success { background-color: #f0fdf4; }
+.bg-light-warning { background-color: #fff7ed; }
+.bg-light-info { background-color: #fef3c7; }
 
-    /* Table adjustments for mobile */
-    .table-responsive {
-        overflow-x: auto;
-    }
-    table.table th, table.table td {
-        font-size: 1.2rem; /* Bigger text for readability on phone */
-        padding: 0.9rem 0.5rem; /* Increased padding */
-    }
-    table.table td img {
-        width: 50px;
-        height: 50px;
-    }
+/* Responsive adjustments */
+@media (max-width: 767px) {
+    .card h3 { font-size: 1.5rem; }
+    .card h6 { font-size: 0.95rem; }
+
+    /* Table adjustments for small screens */
+    .table-responsive { overflow-x: auto; }
+    table.table th, table.table td { font-size: 1rem; padding: 0.7rem 0.4rem; }
+    table.table td img { width: 45px; height: 45px; }
 }
 </style>
-
 {% endblock %}

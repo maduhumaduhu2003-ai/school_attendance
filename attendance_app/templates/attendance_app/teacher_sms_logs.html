@@ -10,9 +10,11 @@
         <div class="card-body">
 
             <!-- Header -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="mb-0">SMS Logs</h4>
-                <span class="badge bg-primary text-white">{{ logs.count }} SMS Logs</span>
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+                <h4 class="mb-2 mb-md-0">SMS Logs</h4>
+                <span class="badge bg-primary text-white">
+                    {{ logs.count }} SMS Logs
+                </span>
             </div>
 
             <!-- Table -->
@@ -37,26 +39,40 @@
                             <td>{{ log.student.user.get_full_name }}</td>
                             <td>{{ log.parent.user.get_full_name }}</td>
                             <td>{{ log.parent.user.phone_number }}</td>
-                            <td class="text-start">{{ log.message }}</td>
+                            <td class="text-start message-cell">
+                                {{ log.message }}
+                            </td>
                             <td>
                                 {% if log.status == "sent" %}
-                                <span class="badge bg-success">{{ log.status|capfirst }}</span>
+                                <span class="badge bg-success">
+                                    {{ log.status|capfirst }}
+                                </span>
                                 {% else %}
-                                <span class="badge bg-danger">{{ log.status|capfirst }}</span>
+                                <span class="badge bg-danger">
+                                    {{ log.status|capfirst }}
+                                </span>
                                 {% endif %}
                             </td>
-                            <td>{{ log.timestamp|date:"M d, Y H:i" }}</td>
                             <td>
-                                <a href="{% url 'delete_sms_log' log.id %}" 
-                                   class="btn btn-sm btn-danger mb-1"
-                                   onclick="return confirm('Are you sure you want to delete this SMS log?');">
-                                    Delete
-                                </a>
+                                {{ log.timestamp|date:"M d, Y H:i" }}
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{% url 'delete_sms_log' log.id %}" 
+                                       class="btn btn-sm btn-danger"
+                                       onclick="return confirm('Are you sure you want to delete this SMS log?');">
+                                        Delete
+                                    </a>
 
-                                <form method="POST" action="{% url 'resend_sms' log.id %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-primary mb-1">Resend</button>
-                                </form>
+                                    <form method="POST"
+                                          action="{% url 'resend_sms' log.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                class="btn btn-sm btn-primary w-100">
+                                            Resend
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
@@ -70,25 +86,26 @@
                 </table>
             </div>
 
-        </div> <!-- End card-body -->
-    </div> <!-- End card -->
+        </div>
+    </div>
 
 </div>
 
 <!-- Styles -->
 <style>
-/* Card shadow */
+/* Card */
 .card {
     border-radius: 0.5rem;
 }
 
-/* Table hover effect */
+/* Table hover */
 .table-hover tbody tr:hover {
     background-color: rgba(79, 70, 229, 0.08);
 }
 
-/* Table borders */
-.table-bordered th, .table-bordered td {
+/* Borders */
+.table-bordered th,
+.table-bordered td {
     border-color: #e5e7eb;
 }
 
@@ -98,18 +115,53 @@
     font-weight: 500;
 }
 
-/* Status badges */
-.badge-success {
-    background-color: #22c55e !important; /* green */
-}
-.badge-danger {
-    background-color: #ef4444 !important; /* red */
+/* Action buttons layout */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
-/* Optional: hover effect on action buttons */
+/* Message cell */
+.message-cell {
+    min-width: 220px;
+    word-wrap: break-word;
+}
+
+/* Hover */
 .btn:hover {
     opacity: 0.85;
     transition: 0.2s;
+}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+
+    h4 {
+        font-size: 1.1rem;
+    }
+
+    table {
+        font-size: 0.8rem;
+    }
+
+    th, td {
+        white-space: nowrap;
+    }
+
+    .message-cell {
+        white-space: normal;
+        font-size: 0.8rem;
+    }
+
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 5px 8px;
+    }
+
+    .action-buttons {
+        min-width: 90px;
+    }
 }
 </style>
 

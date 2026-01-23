@@ -3,15 +3,16 @@
 {% block title %}SMS Logs{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
     <div class="card shadow-sm">
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h4 class="mb-0">Sent SMS</h4>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped align-middle mb-0">
+            <!-- Responsive Table -->
+            <div class="table-responsive touch-scroll">
+                <table class="table table-bordered table-striped align-middle mb-0 text-nowrap">
                     <thead class="bg-primary text-white text-center">
                         <tr>
                             <th>No</th>
@@ -29,10 +30,10 @@
                             <td>{{ sms.student.user.get_full_name }}</td>
                             <td>{{ sms.parent.user.get_full_name }}</td>
                             <td>{{ sms.message }}</td>
-                            <td>
+                            <td class="text-center">
                                 <span class="badge bg-success">{{ sms.status|capfirst }}</span>
                             </td>
-                            <td>{{ sms.timestamp|date:"M d, Y H:i" }}</td>
+                            <td class="text-center">{{ sms.timestamp|date:"M d, Y H:i" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
@@ -47,9 +48,45 @@
     </div>
 </div>
 
+<!-- ================= STYLES ================= -->
 <style>
+.card {
+    border-radius: 0.6rem;
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+/* Table hover effect */
 table.table tbody tr:hover {
     background-color: rgba(79, 70, 229, 0.08);
+}
+
+.table td, .table th {
+    white-space: nowrap;
+}
+
+/* Touch scroll for mobile */
+.table-responsive.touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+}
+
+/* Full width table on small devices */
+@media (max-width: 767px) {
+    .table {
+        min-width: 100%;
+        font-size: 0.95rem;
+    }
+    .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    h4.mb-0 {
+        font-size: 1rem;
+    }
 }
 </style>
 {% endblock %}

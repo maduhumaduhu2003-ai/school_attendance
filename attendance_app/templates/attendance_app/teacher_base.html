@@ -23,11 +23,10 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: #f4f6f9;
     margin: 0;
-    padding: 0;
     min-height: 100vh;
 }
 
-/* SIDEBAR */
+/* ================= SIDEBAR ================= */
 .sidebar {
     width: var(--sidebar-width);
     height: 100vh;
@@ -35,87 +34,220 @@ body {
     top: 0;
     left: 0;
     background: var(--sidebar-bg);
-    color: var(--sidebar-text);
     display: flex;
     flex-direction: column;
     padding: 1.5rem 0;
-    transition: all 0.3s ease;
-    z-index: 1100;
+    transition: transform 0.3s ease;
+    z-index: 1200;
     overflow-y: auto;
     box-shadow: 2px 0 6px rgba(0,0,0,0.05);
 }
 
-.sidebar-header { padding: 0 1.5rem 1rem; margin-bottom: 1rem; }
-.sidebar-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--sidebar-text); font-weight: 700; font-size: 1.15rem; }
+.sidebar-header {
+    padding: 0 1.5rem 1rem;
+    font-weight: 700;
+    font-size: 1.15rem;
+}
 
-.nav-link { color: var(--sidebar-text); text-decoration: none; display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem; border-radius: 8px; transition: all 0.2s; font-weight: 500; }
-.nav-link i { font-size: 1.05rem; color: #6b7280; }
-.nav-link:hover { background: var(--sidebar-hover); color: var(--primary-color); }
-.nav-link.active { background: rgba(79,70,229,0.15); color: var(--primary-color); border-left: 3px solid var(--primary-color); }
+.sidebar-logo {
+    text-decoration: none;
+    color: var(--sidebar-text);
+}
 
-.sidebar .btn-primary { background-color: var(--primary-color); border: none; color: white; padding: 0.65rem 1rem; border-radius: 8px; font-weight: 500; width: 100%; margin-top: 10px; transition: all 0.2s ease; }
-.sidebar .btn-primary:hover { background-color: #4338ca; }
+.nav-link {
+    color: var(--sidebar-text);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: 0.2s;
+}
 
-.logout-section { padding: 1rem; margin-top: auto; }
-.logout-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem; background: rgba(220,53,69,0.1); color: #b91c1c; border-radius: 8px; font-weight: 500; text-decoration: none; transition: all 0.2s ease; }
-.logout-link:hover { background: rgba(220,53,69,0.2); color: #f87171; transform: translateX(5px); }
+.nav-link i {
+    color: #6b7280;
+}
 
-/* CONTENT */
-.content { margin-left: var(--sidebar-width); transition: margin-left 0.3s; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+.nav-link:hover {
+    background: var(--sidebar-hover);
+    color: var(--primary-color);
+}
 
-.topbar { background: #ffffff; padding: 0.8rem 1.2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.12); position: sticky; top: 0; z-index: 100; border-radius: 8px; margin-bottom: 20px; }
+.nav-link.active {
+    background: rgba(79,70,229,0.15);
+    color: var(--primary-color);
+    border-left: 3px solid var(--primary-color);
+}
 
-.school-info { display: flex; align-items: center; gap: 0.5rem; }
-.school-logo { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
-.school-name { font-weight: 600; color: #1e293b; font-size: 1.05rem; }
+.logout-section {
+    margin-top: auto;
+    padding: 1rem;
+}
 
-.profile-section { display: flex; align-items: center; gap: 0.5rem; position: relative; }
-.profile-name { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
-.profile-img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: none; cursor: pointer; }
+.logout-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    background: rgba(220,53,69,0.1);
+    color: #b91c1c;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+}
 
-.dropdown-menu { min-width: 180px; }
-.sidebar-toggle { display: none; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--primary-color); z-index: 1201; }
+.logout-link:hover {
+    background: rgba(220,53,69,0.2);
+}
 
-/* MOBILE */
-@media (max-width: 992px){
-    .sidebar { transform: translateX(-100%); position: fixed; z-index: 1200; }
-    .sidebar.show { transform: translateX(0); }
-    .content { margin-left: 0 !important; padding: 15px !important; }
-    .sidebar-toggle { display: block; position: fixed; top: 10px; left: 10px; }
+/* ================= CONTENT ================= */
+.content {
+    margin-left: var(--sidebar-width);
+    padding: 20px;
+    transition: margin-left 0.3s ease;
+}
+
+.topbar {
+    background: #fff;
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.school-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.school-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.school-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.profile-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.profile-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.profile-img {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+/* ================= TOGGLE & OVERLAY ================= */
+.sidebar-toggle {
+    display: none;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    font-size: 1.25rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    z-index: 1300;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1150;
+}
+
+/* ================= MOBILE ================= */
+@media (max-width: 992px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    .content {
+        margin-left: 0;
+        padding: 15px;
+    }
+    .sidebar-toggle {
+        display: block;
+    }
+    .sidebar-overlay.show {
+        display: block;
+    }
+    .profile-name {
+        display: none;
+    }
 }
 </style>
 </head>
 <body>
 
-<!-- SIDEBAR TOGGLE BUTTON -->
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+<div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
-        <a href="{% url 'teacher_dashboard' %}" class="sidebar-logo">
-            <span class="sidebar-logo-text">Teacher Panel</span>
-        </a>
+        <a href="{% url 'teacher_dashboard' %}" class="sidebar-logo">Teacher Panel</a>
     </div>
 
-    <nav class="sidebar-nav">
-        <a href="{% url 'teacher_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}"><i class="bi bi-speedometer2"></i>Dashboard</a>
-        <a href="{% url 'mark_attendance' %}" class="nav-link {% if request.resolver_match.url_name == 'mark_attendance' %}active{% endif %}"><i class="bi bi-check2-square"></i>Mark Attendance</a>
-        <a href="{% url 'view_attendance' %}" class="nav-link {% if request.resolver_match.url_name == 'view_attendance' %}active{% endif %}"><i class="bi bi-clipboard-data"></i>Attendance Records</a>
-        <a href="{% url 'my_students' %}" class="nav-link {% if request.resolver_match.url_name == 'my_students' %}active{% endif %}"><i class="bi bi-people"></i>My Students</a>
-        <a href="{% url 'teacher_sms_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_sms_logs' %}active{% endif %}"><i class="bi bi-chat-dots"></i>SMS Logs</a>
-        <a href="{% url 'teacher_profile_view' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_profile_view' %}active{% endif %}"><i class="bi bi-person-circle"></i>Profile / Settings</a>
+    <nav class="px-2">
+        <a href="{% url 'teacher_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+        <a href="{% url 'mark_attendance' %}" class="nav-link {% if request.resolver_match.url_name == 'mark_attendance' %}active{% endif %}">
+            <i class="bi bi-check2-square"></i> Mark Attendance
+        </a>
+        <a href="{% url 'view_attendance' %}" class="nav-link {% if request.resolver_match.url_name == 'view_attendance' %}active{% endif %}">
+            <i class="bi bi-clipboard-data"></i> Attendance Records
+        </a>
+        <a href="{% url 'my_students' %}" class="nav-link {% if request.resolver_match.url_name == 'my_students' %}active{% endif %}">
+            <i class="bi bi-people"></i> My Students
+        </a>
+        <a href="{% url 'teacher_sms_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_sms_logs' %}active{% endif %}">
+            <i class="bi bi-chat-dots"></i> SMS Logs
+        </a>
+        <a href="{% url 'teacher_profile_view' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_profile_view' %}active{% endif %}">
+            <i class="bi bi-person-circle"></i> Profile / Settings
+        </a>
     </nav>
 
     <div class="logout-section">
         <a href="#" class="logout-link" data-bs-toggle="modal" data-bs-target="#logoutModal">
-            <i class="bi bi-box-arrow-right"></i><span>Logout</span>
+            <i class="bi bi-box-arrow-right"></i> Logout
         </a>
     </div>
 </div>
 
 <!-- CONTENT -->
-<div class="content" id="content">
+<div class="content">
     <div class="topbar">
         <div class="school-info">
             {% if school_settings.logo %}
@@ -126,39 +258,51 @@ body {
             <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
         </div>
 
+        <!-- ✅ FIXED PROFILE SECTION -->
         <div class="profile-section dropdown">
-            <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+            <span class="profile-name">
+                {{ request.user.get_full_name|default:request.user.username }}
+            </span>
+
             {% if request.user.teacherprofile.profile_picture %}
-                <img src="{{ request.user.teacherprofile.profile_picture.url }}" class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
+                <img src="{{ request.user.teacherprofile.profile_picture.url }}"
+                     class="profile-img dropdown-toggle"
+                     data-bs-toggle="dropdown">
             {% else %}
-                <img src="{% static 'img/default-avatar.png' %}" class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
+                <img src="{% static 'img/default-avatar.png' %}"
+                     class="profile-img dropdown-toggle"
+                     data-bs-toggle="dropdown">
             {% endif %}
+
             <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{% url 'teacher_profile_view' %}">My Profile</a></li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'teacher_profile_view' %}">My Profile</a>
+                </li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
+                <li>
+                    <a class="dropdown-item text-danger"
+                       href="#"
+                       data-bs-toggle="modal"
+                       data-bs-target="#logoutModal">Logout</a>
+                </li>
             </ul>
         </div>
     </div>
 
-    <div class="main-content">
-        {% block content %}{% endblock %}
-    </div>
+    {% block content %}{% endblock %}
 </div>
 
-<!-- Logout Modal -->
-<div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+<!-- LOGOUT MODAL -->
+<div class="modal fade" id="logoutModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title">Confirm Logout</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        Are you sure you want to logout?
-      </div>
+      <div class="modal-body">Are you sure you want to logout?</div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
       </div>
     </div>
@@ -168,6 +312,7 @@ body {
 <script>
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('show');
+    document.getElementById('overlay').classList.toggle('show');
 }
 </script>
 
