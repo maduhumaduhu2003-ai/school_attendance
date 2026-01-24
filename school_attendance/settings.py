@@ -111,3 +111,12 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 # =================== Africastalking ===================
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
+
+
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='maduhumaduhu2003@gmail.com')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='ibqe ktfg qyra wgqa')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='School System <maduhumaduhu2003@gmail.com>')
+
