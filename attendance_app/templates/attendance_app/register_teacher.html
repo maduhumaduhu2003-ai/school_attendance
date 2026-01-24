@@ -33,7 +33,7 @@
             <!-- PAGE TITLE & ADD BUTTON -->
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
                 <h2 class="mb-2 mb-md-0">Manage Teachers</h2>
-                <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#registerTeacherModal">
+                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#registerTeacherModal">
                     Register New Teacher
                 </button>
             </div>
@@ -62,7 +62,6 @@
                             <td data-label="Actions">
                                 <div class="d-flex flex-wrap justify-content-center gap-1">
                                     <a href="{% url 'edit_teacher' teacher.id %}" class="btn btn-sm btn-warning action-btn">Edit</a>
-                                    <!-- DELETE BUTTON TRIGGERS MODAL -->
                                     <button type="button" class="btn btn-sm btn-danger deleteBtn action-btn"
                                             data-bs-toggle="modal"
                                             data-bs-target="#deleteTeacherModal"
@@ -87,9 +86,9 @@
 
 </div>
 
-<!-- MODAL: REGISTER TEACHER -->
+<!-- MODAL: REGISTER TEACHER (GRID / TABLE-LIKE) -->
 <div class="modal fade" id="registerTeacherModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-3">
       <form id="teacherForm" method="POST" action="{% url 'register_teacher' %}">
         {% csrf_token %}
@@ -98,46 +97,48 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-            <div class="row g-3">
-                <div class="col-12 col-md-6">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control form-control-lg" name="username" required>
-                </div>
-                <div class="col-12 col-md-6">
-                    <label class="form-label">Phone Number</label>
-                    <input type="text" class="form-control form-control-lg" name="phone_number" placeholder="e.g. +255712345678" required>
-                </div>
-                <div class="col-12 col-md-6">
-                    <label class="form-label">First Name</label>
-                    <input type="text" class="form-control form-control-lg" name="first_name" required>
-                </div>
-                <div class="col-12 col-md-6">
-                    <label class="form-label">Last Name</label>
-                    <input type="text" class="form-control form-control-lg" name="last_name" required>
-                </div>
-                <div class="col-12 col-md-6">
-                    <label class="form-label">Classroom</label>
-                    <select class="form-select form-select-lg" id="classroom" name="classroom" required>
-                        <option value="" selected>Select Classroom</option>
-                        {% for c in classrooms %}
-                            <option value="{{ c.id }}">{{ c.name }} ({{ c.year }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-12 col-md-6">
-                    <label class="form-label">Stream</label>
-                    <select class="form-select form-select-lg" id="stream" name="stream" required>
-                        <option value="" selected>Select Stream</option>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <small class="text-muted">Password will be set automatically: <strong>Teacher@123</strong></small>
+            <div class="container-fluid">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control form-control-sm" name="username" required>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Phone Number</label>
+                        <input type="text" class="form-control form-control-sm" name="phone_number" placeholder="+255712345678" required>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-control form-control-sm" name="first_name" required>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-control form-control-sm" name="last_name" required>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Classroom</label>
+                        <select class="form-select form-select-sm" id="classroom" name="classroom" required>
+                            <option value="" selected>Select Classroom</option>
+                            {% for c in classrooms %}
+                                <option value="{{ c.id }}">{{ c.name }} ({{ c.year }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Stream</label>
+                        <select class="form-select form-select-sm" id="stream" name="stream" required>
+                            <option value="" selected>Select Stream</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted">Password will be set automatically: <strong>Teacher@123</strong></small>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="modal-footer flex-wrap">
-          <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-primary btn-lg">Register Teacher</button>
+        <div class="modal-footer flex-wrap justify-content-end">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary btn-sm">Register</button>
         </div>
       </form>
     </div>
@@ -146,7 +147,7 @@
 
 <!-- MODAL: DELETE TEACHER -->
 <div class="modal fade" id="deleteTeacherModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-md">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content p-3">
       <form method="POST" id="deleteTeacherForm">
         {% csrf_token %}
@@ -157,9 +158,9 @@
         <div class="modal-body">
           <p>Are you sure you want to delete <strong id="teacherName"></strong>?</p>
         </div>
-        <div class="modal-footer flex-wrap">
-          <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-danger btn-lg">Delete</button>
+        <div class="modal-footer flex-wrap justify-content-end">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger btn-sm">Delete</button>
         </div>
       </form>
     </div>
@@ -189,8 +190,9 @@
 /* Mobile tweaks */
 @media (max-width: 767px) {
     html { font-size: 17px; }
-    .large-table th, .large-table td { font-size: 1.05rem; padding: 0.6rem; }
+    .large-table th, .large-table td { font-size: 1rem; padding: 0.5rem; }
     .container-fluid { padding-left: 0; padding-right: 0; }
+    .btn-sm { font-size: 0.8rem; padding: 0.35rem 0.6rem; }
 }
 
 /* Focus outlines */

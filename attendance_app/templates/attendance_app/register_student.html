@@ -79,6 +79,7 @@
                             <th>Admission Number</th>
                             <th>First Name</th>
                             <th>Last Name</th>
+                            <th>Gender</th>
                             <th>Classroom</th>
                             <th>Stream</th>
                             <th>Academic Year</th>
@@ -92,6 +93,7 @@
                             <td>{{ student.admission_number }}</td>
                             <td>{{ student.user.first_name }}</td>
                             <td>{{ student.user.last_name }}</td>
+                            <td>{{ student.user.gender }}</td>
                             <td>{% if student.classroom %}{{ student.classroom.name }} ({{ student.classroom.year }}){% else %}N/A{% endif %}</td>
                             <td>{% if student.stream %}{{ student.stream.name }}{% else %}N/A{% endif %}</td>
                             <td>{{ student.academic_year }}</td>
@@ -100,7 +102,8 @@
                                     data-id="{{ student.id }}"
                                     data-first="{{ student.user.first_name }}"
                                     data-last="{{ student.user.last_name }}"
-                                    data-stream="{{ student.stream.id|default:'' }}">
+                                    data-stream="{{ student.stream.id|default:'' }}"
+                                    data-gender="{{ student.gender|default:'' }}">
                                     Edit
                                 </button>
                                 <button class="btn btn-sm btn-danger deleteStudentBtn"
@@ -160,7 +163,17 @@
                 {% endfor %}
               </select>
             </div>
+            <!-- ✅ Gender -->
+            <div class="col-md-6">
+              <label>Gender</label>
+              <select name="gender" class="form-select" required>
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+              </select>
+            </div>
           </div>
+
           <hr>
           <h6 class="text-primary mb-3">Parent / Guardian Information</h6>
           <div class="row g-3">
@@ -189,15 +202,24 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="mb-3"><label>First Name</label><input type="text" id="edit_first_name" name="first_name" class="form-control" required></div>
-          <div class="mb-3"><label>Last Name</label><input type="text" id="edit_last_name" name="last_name" class="form-control" required></div>
-          <div class="mb-3"><label>Stream</label>
-            <select id="edit_stream" name="stream" class="form-select">
-              <option value="">Select Stream</option>
-              {% for stream in streams %}
-              <option value="{{ stream.id }}">{{ stream.name }}</option>
-              {% endfor %}
-            </select>
+          <div class="row g-3">
+            <div class="col-md-6"><label>First Name</label><input type="text" id="edit_first_name" name="first_name" class="form-control" required></div>
+            <div class="col-md-6"><label>Last Name</label><input type="text" id="edit_last_name" name="last_name" class="form-control" required></div>
+            <div class="col-md-6"><label>Stream</label>
+              <select id="edit_stream" name="stream" class="form-select">
+                <option value="">Select Stream</option>
+                {% for stream in streams %}
+                <option value="{{ stream.id }}">{{ stream.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6"><label>Gender</label>
+              <select id="edit_gender" name="gender" class="form-select" required>
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -227,7 +249,6 @@
 </div>
 
 <style>
-/* FULL RESPONSIVE STYLING */
 body { font-size: 15px; }
 .table th, .table td { font-size: 14px; text-align:center; vertical-align:middle; }
 .btn-primary { background-color:#4f46e5; border:none; color:white; }
@@ -270,12 +291,18 @@ document.addEventListener('DOMContentLoaded',function(){
         document.getElementById('edit_first_name').value=this.dataset.first;
         document.getElementById('edit_last_name').value=this.dataset.last;
         document.getElementById('edit_stream').value=this.dataset.stream||"";
+        document.getElementById('edit_gender').value=this.dataset.gender||"";
         new bootstrap.Modal(editModal).show();
     }));
+
     editForm.addEventListener('submit',function(e){
         e.preventDefault();
         const id=document.getElementById('edit_student_id').value;
-        fetch(`/students/edit/${id}/`,{method:'POST',headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:new FormData(this)})
+        fetch(`/students/edit/${id}/`,{
+            method:'POST',
+            headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},
+            body:new FormData(this)
+        })
         .then(res=>res.json()).then(data=>{
             if(data.success){
                 const t=document.createElement('div');
@@ -283,7 +310,7 @@ document.addEventListener('DOMContentLoaded',function(){
                 t.setAttribute('role','alert'); t.setAttribute('aria-live','assertive'); t.setAttribute('aria-atomic','true'); t.setAttribute('data-bs-delay','4000'); t.style.zIndex=20000;
                 t.innerHTML=`<div class="d-flex"><div class="toast-body">${data.message||'Student updated successfully!'}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
                 document.body.appendChild(t); new bootstrap.Toast(t).show(); setTimeout(()=>location.reload(),1000);
-            }else{ alert('Update failed'); }
+            } else { alert('Update failed'); }
         });
     });
 

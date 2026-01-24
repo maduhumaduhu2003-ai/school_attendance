@@ -287,9 +287,9 @@ def register_teacher(request):
                 send_mail(
                     "Your Teacher Account Details",
                     f"Habari {first_name},\n\nAccount yako imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}\n\nTafadhali badilisha password yako mara ya kwanza kuingia.",
-                    "school@system.com",
+                    settings.DEFAULT_FROM_EMAIL,
                     [username],
-                    fail_silently=True
+                    fail_silently=False
                 )
             except Exception as e:
                 print("Email send failed:", e)
@@ -396,6 +396,7 @@ def register_student(request):
         # ===== STUDENT DATA =====
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
+        gender = request.POST.get('gender')
         password = request.POST.get('password') or "Student@123"
         admission_number = request.POST.get('admission_number')
         academic_year_id = request.POST.get('academic_year')
@@ -441,6 +442,7 @@ def register_student(request):
             first_name=first_name,
             last_name=last_name,
             role='student',
+            gender=gender,
             password=make_password(password)
         )
 
@@ -769,6 +771,7 @@ def edit_student(request, student_id):
         student.user.first_name = request.POST.get('first_name')
         student.user.last_name = request.POST.get('last_name')
         stream_id = request.POST.get('stream')
+        student.user.gender=request.POST.get('gender')
 
         student.stream_id = stream_id if stream_id else None
 

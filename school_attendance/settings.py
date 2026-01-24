@@ -12,37 +12,37 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+from decouple import config, Csv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# =================== SECURITY ===================
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', default=False, cast=bool)
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qq2s%x+g*5lua8p4q-vzgmmlxpg5icm-1#rnumnmdshb-^u_7p'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['school-attendance-1.onrender.com', "localhost","127.0.0.1",]
-
-#EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
+# =================== EMAIL ===================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT', cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
-EMAIL_HOST_USER = 'maduhumaduhu2003@gmail.com'
-EMAIL_HOST_PASSWORD = 'ibqe ktfg qyra wgqa'
-DEFAULT_FROM_EMAIL = 'School System <maduhumaduhu2003@gmail.com>'
+# =================== DATABASE ===================
+DATABASES = {
+    'default': {
+        'ENGINE': config('DB_ENGINE'),
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT', cast=int),
+    }
+}
 
-
-
-# Application definition
-
+# =================== APPS & MIDDLEWARE ===================
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -86,86 +86,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'school_attendance.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-import os
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-PORT = int(os.environ.get("PORT", 8000))
-
-if os.environ.get("DB_NAME"):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME'),
-            'USER': os.environ.get('DB_USER'),
-            'PASSWORD': os.environ.get('DB_PASSWORD'),
-            'HOST': os.environ.get('DB_HOST'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-
-
-
-
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
-
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
-STATIC_URL = 'static/'
-
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
-
-
-AUTH_USER_MODEL = 'attendance_app.User'  # Custom user model
-
-
+# =================== AUTH & MEDIA ===================
+AUTH_USER_MODEL = 'attendance_app.User'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -174,14 +96,13 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/admin-dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
-
-#MEDIA_ROOT = BASE_DIR / 'media'
-
-
-
-#AFRICASTALKING_USERNAME = "sandbox"
-#AFRICASTALKING_API_KEY ="atsk_e370416ec7ef98e908e3ef94d6860118502be30d9f2811d03d65fdede9d863697994a477"
-AFRICASTALKING_USERNAME = 'demoApp2025'
-AFRICASTALKING_API_KEY = 'atsk_c9a09ce73cf457041b9b02fde189d097ff4e903054cb9f46d89f4d5555377517dc6dada6'
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# =================== STATIC FILES ===================
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# =================== Africastalking ===================
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
