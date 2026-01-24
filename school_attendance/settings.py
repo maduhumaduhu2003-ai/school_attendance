@@ -10,7 +10,13 @@ ENVIRONMENT = config('ENVIRONMENT', default='local')  # 'local' or 'render'
 # =================== SECURITY ===================
 SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
 DEBUG = config('DEBUG', default=(ENVIRONMENT == 'local'), cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost', cast=Csv())
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default='localhost,127.0.0.1,.onrender.com',
+    cast=Csv()
+)
+
+
 
 # =================== DATABASE ===================
 if ENVIRONMENT == 'render':
