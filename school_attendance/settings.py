@@ -1,57 +1,77 @@
 from pathlib import Path
 import os
 from decouple import config, Csv
-import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# =================== SECURITY ===================
-SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', cast=bool)
+# =================== ENVIRONMENT ===================
+ENVIRONMENT = config('ENVIRONMENT', default='local')  # 'local' or 'render'
 
+# =================== SECURITY ===================
+SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
+DEBUG = config('DEBUG', default=(ENVIRONMENT == 'local'), cast=bool)
 ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS',
-    default='localhost,127.0.0.1,.up.railway.app',
+    default='localhost,127.0.0.1,.onrender.com',
     cast=Csv()
 )
 
-# =================== DATABASE (RAILWAY ONLY) ===================
-DATABASES = {
-    'default': dj_database_url.parse(
-        config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
-    )
-}
+
+# =================== DATABASE ===================
+if ENVIRONMENT == 'render':
+    DATABASES = {
+        'default': {
+            'ENGINE': config('PROD_DB_ENGINE', default='django.db.backends.postgresql'),
+            'NAME': config('PROD_DB_NAME', default='render_db'),
+            'USER': config('PROD_DB_USER', default='postgres'),
+            'PASSWORD': config('PROD_DB_PASSWORD', default='postgres'),
+            'HOST': config('PROD_DB_HOST', default='localhost'),
+            'PORT': config('PROD_DB_PORT', default=5432, cast=int),
+        }
+    }
+else:  # local
+    DATABASES = {
+        'default': {
+            'ENGINE': config('LOCAL_DB_ENGINE', default='django.db.backends.sqlite3'),
+            'NAME': config('LOCAL_DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')),
+            'USER': config('LOCAL_DB_USER', default=''),
+            'PASSWORD': config('LOCAL_DB_PASSWORD', default=''),
+            'HOST': config('LOCAL_DB_HOST', default=''),
+            'PORT': config('LOCAL_DB_PORT', default='', cast=str),
+        }
+    }
 
 # =================== EMAIL ===================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST')
-EMAIL_PORT = config('EMAIL_PORT', cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.example.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@example.com')
 
 # =================== AFRICASTALKING ===================
-AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
-AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 
-# =================== AUTH ===================
+# =================== AUTH & MEDIA ===================
 AUTH_USER_MODEL = 'attendance_app.User'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/admin-dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
-# =================== MEDIA ===================
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# =================== STATIC ===================
+# =================== STATIC FILES ===================
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# =================== APPS ===================
+# =================== INSTALLED APPS ===================
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -94,6 +114,3 @@ TEMPLATES = [
 ]
 
 ROOT_URLCONF = 'school_attendance.urls'
-WSGI_APPLICATION = 'school_attendance.wsgi.application'
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
