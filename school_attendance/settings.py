@@ -16,15 +16,37 @@ from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# =================== ENVIRONMENT ===================
+ENVIRONMENT = config('ENVIRONMENT', default='local')
+
 # =================== SECURITY ===================
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config(
-    'ALLOWED_HOSTS',
-    default='localhost,127.0.0.1',
-    cast=Csv()
-)
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
+# =================== DATABASE ===================
+if ENVIRONMENT == 'render':
+    DATABASES = {
+        'default': {
+            'ENGINE': config('PROD_DB_ENGINE'),
+            'NAME': config('PROD_DB_NAME'),
+            'USER': config('PROD_DB_USER'),
+            'PASSWORD': config('PROD_DB_PASSWORD'),
+            'HOST': config('PROD_DB_HOST'),
+            'PORT': config('PROD_DB_PORT', cast=int),
+        }
+    }
+else:  # local
+    DATABASES = {
+        'default': {
+            'ENGINE': config('LOCAL_DB_ENGINE'),
+            'NAME': config('LOCAL_DB_NAME'),
+            'USER': config('LOCAL_DB_USER'),
+            'PASSWORD': config('LOCAL_DB_PASSWORD'),
+            'HOST': config('LOCAL_DB_HOST'),
+            'PORT': config('LOCAL_DB_PORT', cast=int),
+        }
+    }
 
 # =================== EMAIL ===================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -35,61 +57,9 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
-# =================== DATABASE ===================
-DATABASES = {
-    'default': {
-        'ENGINE': config('DB_ENGINE'),
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', cast=int),
-    }
-}
-
-# =================== APPS & MIDDLEWARE ===================
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'attendance_app',
-    'rest_framework',
-    'widget_tweaks',
-]
-
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.cache.UpdateCacheMiddleware',
-]
-
-ROOT_URLCONF = 'school_attendance.urls'
-
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'attendance_app.context_processors.school_and_profile',
-            ],
-        },
-    },
-]
-
-WSGI_APPLICATION = 'school_attendance.wsgi.application'
+# =================== AFRICASTALKING ===================
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
 
 # =================== AUTH & MEDIA ===================
 AUTH_USER_MODEL = 'attendance_app.User'
@@ -104,13 +74,53 @@ LOGOUT_REDIRECT_URL = '/login/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # =================== STATIC FILES ===================
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# =================== Africastalking ===================
-AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
-AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
+# =================== INSTALLED APPS ===================
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'attendance_app',
+    'rest_framework',
+    'widget_tweaks',
+]
 
+# =================== MIDDLEWARE ===================
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
 
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],  # hakikisha folder templates ipo
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+                # context processors zako binafsi kama unazo
+                'attendance_app.context_processors.school_and_profile',
+            ],
+        },
+    },
+]
+ROOT_URLCONF = 'school_attendance.urls'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # kwa deployment
 
