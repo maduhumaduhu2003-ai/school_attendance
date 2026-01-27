@@ -48,8 +48,9 @@
                         <th>No</th>
                         <th>Admission No</th>
                         <th>Student Name</th>
-                        <th class="d-none d-md-table-cell">Email</th>
-                        <th class="d-none d-md-table-cell">Phone</th>
+                        <th>Classroom</th>
+                        <th>Gender</th>
+                        <th>Phone</th>
                         <th class="text-center">Action</th>
                     </tr>
                 </thead>
@@ -59,8 +60,9 @@
                         <td>{{ students.start_index|add:forloop.counter0 }}</td>
                         <td>{{ student.admission_number }}</td>
                         <td>{{ student.user.get_full_name }}</td>
-                        <td class="d-none d-md-table-cell">{{ student.user.email|default:"—" }}</td>
-                        <td class="d-none d-md-table-cell">{{ student.phone_number|default:"—" }}</td>
+                        <td>{{ student.classroom.name }}</td>
+                        <td>{{ student.user.gender|title }}</td>
+                        <td>{{ student.parents.first.user.phone_number|default:"—" }}</td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-primary w-100 w-md-auto"
                                     data-bs-toggle="modal"
@@ -72,7 +74,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted">
+                        <td colspan="8" class="text-center text-muted">
                             No students found
                         </td>
                     </tr>

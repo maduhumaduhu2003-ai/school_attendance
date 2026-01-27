@@ -108,159 +108,103 @@ body::after {
     padding:6px;
     background:white;
     box-shadow:0 3px 8px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease;
 }
-.school-logo:hover { transform: scale(1.05); }
-.school-name { color: var(--primary-color); font-size:1.4rem; font-weight:700; margin-bottom:0.25rem; }
-.card-subtitle { color: var(--text-secondary); font-size:0.85rem; font-weight:500; }
+.school-name { color: var(--primary-color); font-size:1.4rem; font-weight:700; }
 
 /* Card body */
 .card-body { padding:1.25rem 1.5rem 1.5rem; }
-.form-label { color: var(--text-primary); font-weight:600; font-size:0.9rem; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; }
-.form-label i { color: var(--primary-color); }
+
 .form-control {
     padding:0.75rem 1rem;
     border:2px solid var(--border-color);
     border-radius:10px;
-    font-size:1rem;
-    transition: all 0.3s ease;
-    background:white;
 }
-.form-control:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); transform: translateY(-1px); }
 
-.input-group { position: relative; }
-.password-toggle { position:absolute; right:12px; top:50%; transform:translateY(-50%); color: var(--text-secondary); cursor:pointer; background:none; border:none; padding:0; z-index:10; }
-.password-toggle:hover { color: var(--primary-color); }
-
-.login-btn {
-    background: var(--gradient-primary);
+.password-toggle {
+    position:absolute;
+    right:12px;
+    top:50%;
+    transform:translateY(-50%);
+    cursor:pointer;
+    background:none;
     border:none;
-    border-radius:10px;
-    padding:0.85rem;
-    font-weight:600;
-    font-size:1rem;
-    color:white;
-    transition: all 0.3s ease;
-}
-.login-btn:hover { transform: translateY(-1px); box-shadow:0 6px 15px rgba(79,70,229,0.3); }
-.login-btn:active { transform: translateY(0); }
-
-/* Card footer */
-.card-footer { padding:1rem 1.5rem; text-align:center; background: rgba(255,255,255,0.7); backdrop-filter: blur(5px); color: var(--text-secondary); font-size:0.8rem; border-top:1px solid var(--border-color); }
-
-@keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
-
-/* ================= RESPONSIVE IMPROVEMENTS ================= */
-@media(max-width:480px) {
-    .login-container { max-width:95%; }
-    .card-header { padding:1.25rem 1rem 0.75rem; }
-    .card-body { padding:1.25rem 1rem 1rem; }
-    .card-footer { padding:0.75rem 1rem; font-size:0.75rem; }
-    .school-logo { width:60px; height:60px; }
-    .school-name { font-size:1.2rem; }
-    .form-control { font-size:0.85rem; padding:0.65rem 0.9rem; }
-    .login-btn { font-size:0.9rem; padding:0.7rem; }
-    .password-toggle { right:8px; }
-}
-@media(max-width:360px){
-    .login-btn { font-size:0.85rem; padding:0.65rem; }
-    .school-name { font-size:1.1rem; }
-    .card-body { padding:1rem; }
 }
 
-/* Bubbles smaller screens */
-@media(max-width:480px){
-    .bg-bubble-1 { width:200px; height:200px; top:-100px; right:-100px; }
-    .bg-bubble-2 { width:150px; height:150px; bottom:-75px; left:-75px; }
-    .bg-bubble-3 { width:100px; height:100px; top:50%; left:-50px; }
+/* Footer */
+.card-footer {
+    padding:1rem;
+    text-align:center;
+    font-size:0.8rem;
 }
 </style>
 </head>
+
 <body>
 
-<!-- Animated bubbles -->
 <div class="bg-bubble-1"></div>
 <div class="bg-bubble-2"></div>
 <div class="bg-bubble-3"></div>
 
 <div class="login-container">
     <div class="login-card">
-        <!-- Card Header -->
+
         <div class="card-header">
             {% if school_settings.logo %}
-                <img src="{{ school_settings.logo.url }}" alt="School Logo" class="school-logo">
+                <img src="{{ school_settings.logo.url }}" class="school-logo">
             {% else %}
-                <img src="/static/images/logo.png" alt="Default Logo" class="school-logo">
+                <img src="/static/images/logo.png" class="school-logo">
             {% endif %}
             <h1 class="school-name">{{ school_settings.school_name|default:"School Attendance System" }}</h1>
-            <p class="card-subtitle">Secure Login Portal</p>
         </div>
 
-        <!-- Card Body -->
         <div class="card-body">
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
+                    <div class="alert alert-danger">{{ message }}</div>
                 {% endfor %}
             {% endif %}
 
-            <form method="post" id="loginForm">
+            <form method="post">
                 {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label"><i class="bi bi-person-fill"></i> Email</label>
-                    <input type="email" name="username" class="form-control" placeholder="Enter your email" required autofocus>
+
+                <input type="email" name="username" class="form-control mb-3" placeholder="Email" required>
+
+                <div class="position-relative mb-3">
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Password" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        <i class="bi bi-eye"></i>
+                    </button>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label"><i class="bi bi-key-fill"></i> Password</label>
-                    <div class="input-group">
-                        <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" required>
-                        <button type="button" class="password-toggle" onclick="togglePassword()"><i class="bi bi-eye"></i></button>
-                    </div>
+                <button class="btn btn-primary w-100 mb-3">Login</button>
+
+                <div class="text-center">
+                    <a href="{% url 'forgot_password' %}">Forgot password?</a>
                 </div>
 
-                <div class="d-grid mb-3">
-                    <button type="submit" class="btn login-btn" id="loginButton">Login</button>
-                </div>
-
-                <div class="text-center mb-2">
-                    <a href="{% url 'forgot_password' %}" class="forgot-link"><i class="bi bi-shield-lock"></i> Forgot password?</a>
-                </div>
-
-                <!-- Register Admin Link -->
                 {% if not admin_exists %}
-                    <div class="text-center mt-3">
-                        <a href="{% url 'register_admin' %}" class="btn btn-outline-primary w-100">
-                            <i class="bi bi-person-plus-fill"></i> Register Admin
-                        </a>
-                    </div>
+                <div class="mt-3">
+                    <a href="{% url 'register_admin' %}" class="btn btn-outline-primary w-100">
+                        Register Admin
+                    </a>
+                </div>
                 {% endif %}
             </form>
         </div>
 
         <div class="card-footer">
-            &copy; {{ year|default:"2025" }} {{ school_settings.school_name|default:"School Attendance System" }}<br>
-            <small class="text-muted">All rights reserved</small>
+            &copy; {{ year|default:"2025" }} {{ school_settings.school_name }}
         </div>
+
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function togglePassword() {
-    const passwordInput = document.getElementById('password');
-    const icon = passwordInput.nextElementSibling.querySelector('i');
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        icon.classList.replace('bi-eye','bi-eye-slash');
-    } else {
-        passwordInput.type = 'password';
-        icon.classList.replace('bi-eye-slash','bi-eye');
-    }
+    const p = document.getElementById("password");
+    p.type = p.type === "password" ? "text" : "password";
 }
 </script>
+
 </body>
 </html>

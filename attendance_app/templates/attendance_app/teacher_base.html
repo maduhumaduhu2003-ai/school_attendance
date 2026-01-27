@@ -231,6 +231,11 @@ body {
         <a href="{% url 'my_students' %}" class="nav-link {% if request.resolver_match.url_name == 'my_students' %}active{% endif %}">
             <i class="bi bi-people"></i> My Students
         </a>
+        <a href="{% url 'register_student' %}"
+            class="nav-link {% if request.resolver_match.url_name == 'register_student' %}active{% endif %}">
+                <i class="bi bi-person-plus-fill"></i> Register Student
+        </a>
+
         <a href="{% url 'teacher_sms_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_sms_logs' %}active{% endif %}">
             <i class="bi bi-chat-dots"></i> SMS Logs
         </a>

@@ -203,70 +203,78 @@ def admin_dashboard(request):
     return render(request, 'attendance_app/admin_dashboard.html', context)
 
 
+
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def register_teacher(request):
-    teachers = TeacherProfile.objects.select_related(
-        'user', 'classroom', 'stream'
-    ).all()
+    teachers = TeacherProfile.objects.select_related('user', 'classroom', 'stream').all()
     classrooms = Classroom.objects.all()
     streams = Stream.objects.all()
 
     DEFAULT_PASSWORD = "Teacher@123" 
 
     if request.method == 'POST':
-        username = request.POST.get('username')  # must be email
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        phone_number = request.POST.get('phone_number')  # NEW
+        username = request.POST.get('username', '').strip()  # Must be email
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
         classroom_id = request.POST.get('classroom')
         stream_id = request.POST.get('stream')  
 
-        # Validate email format
-        if "@" not in username:
+        # ===== VALIDATE EMAIL =====
+        if not username or '@' not in username:
+            msg = "Username must be a valid email"
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': 'Username must be a valid email'})
-            messages.error(request, "Username must be a valid email")
+                return JsonResponse({'success': False, 'error': msg})
+            messages.error(request, msg)
             return redirect('register_teacher')
 
-        # Validate classroom
+        # ===== VALIDATE CLASSROOM =====
         try:
             classroom = Classroom.objects.get(id=classroom_id)
         except Classroom.DoesNotExist:
+            msg = "Selected classroom does not exist."
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': 'Selected classroom does not exist.'})
-            messages.error(request, "Selected classroom does not exist.")
+                return JsonResponse({'success': False, 'error': msg})
+            messages.error(request, msg)
             return redirect('register_teacher')
 
-        # Validate stream
+        # ===== VALIDATE STREAM =====
         stream = None
         if stream_id:
             try:
                 stream = Stream.objects.get(id=stream_id, classroom=classroom)
             except Stream.DoesNotExist:
+                msg = "Selected stream does not exist."
                 if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                    return JsonResponse({'success': False, 'error': 'Invalid stream selected.'})
-                messages.error(request, "Selected stream does not exist.")
+                    return JsonResponse({'success': False, 'error': msg})
+                messages.error(request, msg)
                 return redirect('register_teacher')
 
-        # Check if username/email exists
+        # ===== CHECK IF USER EXISTS =====
         if User.objects.filter(username=username).exists():
+            msg = "Username already exists."
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': 'Username already exists.'})
-            messages.error(request, "Username already exists.")
+                return JsonResponse({'success': False, 'error': msg})
+            messages.error(request, msg)
             return redirect('register_teacher')
 
-        # Normalize phone number to +255 format
+        # ===== NORMALIZE PHONE =====
         if phone_number:
-            if phone_number.startswith("0"):
-                phone_number = "+255" + phone_number[1:]
-            elif not phone_number.startswith("+"):
-                phone_number = "+255" + phone_number
+            phone_number = phone_number.replace(' ', '').replace('-', '')
+            if phone_number.startswith('0') and len(phone_number) == 10:
+                phone_number = '+255' + phone_number[1:]
+            elif phone_number.startswith(('6','7')) and len(phone_number) == 9:
+                phone_number = '+255' + phone_number
+            elif not phone_number.startswith('+'):
+                phone_number = '+255' + phone_number
 
-        # Create user with default password
+        # ===== CREATE USER =====
         user = User.objects.create(
-            username=username,
+            username=username,           # Used as login
+            email=username,              # Email field filled same as username
             first_name=first_name,
             last_name=last_name,
             password=make_password(DEFAULT_PASSWORD),
@@ -274,7 +282,7 @@ def register_teacher(request):
             phone_number=phone_number
         )
 
-        # Create teacher profile
+        # ===== CREATE TEACHER PROFILE =====
         TeacherProfile.objects.create(
             user=user,
             classroom=classroom,
@@ -282,26 +290,25 @@ def register_teacher(request):
         )
 
         # ===== SEND EMAIL =====
-        if username:
-            try:
-                send_mail(
-                    "Your Teacher Account Details",
-                    f"Habari {first_name},\n\nAccount yako imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}\n\nTafadhali badilisha password yako mara ya kwanza kuingia.",
-                    settings.DEFAULT_FROM_EMAIL,
-                    [username],
-                    fail_silently=False
-                )
-            except Exception as e:
-                print("Email send failed:", e)
+        try:
+            send_mail(
+                "Your Teacher Account Details",
+                f"Habari {first_name},\n\nAccount yako imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}\n\nTafadhali badilisha password yako mara ya kwanza kuingia.",
+                settings.DEFAULT_FROM_EMAIL,
+                [username],
+                fail_silently=False
+            )
+        except Exception as e:
+            print("Email send failed:", e)
 
         # ===== SEND SMS =====
         if phone_number:
-            africastalking.initialize(
-                username=settings.AFRICASTALKING_USERNAME,
-                api_key=settings.AFRICASTALKING_API_KEY
-            )
-            sms = africastalking.SMS
             try:
+                africastalking.initialize(
+                    username=settings.AFRICASTALKING_USERNAME,
+                    api_key=settings.AFRICASTALKING_API_KEY
+                )
+                sms = africastalking.SMS
                 sms.send(
                     message=f"Habari {first_name}, account yako ya Teacher imesajiliwa. Username: {username}, Password: {DEFAULT_PASSWORD}",
                     recipients=[phone_number],
@@ -310,7 +317,7 @@ def register_teacher(request):
             except Exception as e:
                 print("SMS failed:", e)
 
-        # AJAX response
+        # ===== AJAX RESPONSE =====
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True})
 
@@ -382,15 +389,27 @@ def teacher_dashboard(request):
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def register_student(request):
     classroom = None
+    stream = None
 
-    # GET TEACHER CLASSROOM
+    # ===============================
+    # GET TEACHER CLASSROOM & STREAM
+    # ===============================
     if request.user.role == 'teacher':
         teacher = request.user.teacherprofile
         classroom = teacher.classroom
 
-    # FETCH ACTIVE ACADEMIC YEAR
+        if not classroom:
+            messages.error(request, "You are not assigned to any classroom.")
+            return redirect('teacher_dashboard')
+
+        # Automatic stream assignment (first available stream of classroom)
+        stream = Stream.objects.filter(classroom=classroom).first()
+
+    # ===============================
+    # FETCH ACADEMIC YEARS
+    # ===============================
     active_year = AcademicYear.objects.filter(is_active=True).first()
-    academic_years = AcademicYear.objects.all()  # for dropdown
+    academic_years = AcademicYear.objects.all()
 
     if request.method == 'POST':
         # ===== STUDENT DATA =====
@@ -400,29 +419,11 @@ def register_student(request):
         password = request.POST.get('password') or "Student@123"
         admission_number = request.POST.get('admission_number')
         academic_year_id = request.POST.get('academic_year')
-        academic_year_obj = AcademicYear.objects.filter(id=academic_year_id).first() if academic_year_id else active_year
-        stream_id = request.POST.get('stream')
+        academic_year_obj = AcademicYear.objects.filter(
+            id=academic_year_id
+        ).first() if academic_year_id else active_year
 
-        # ===== PARENT DATA =====
-        parent_full_name = request.POST.get('parent_full_name')
-        parent_phone = request.POST.get('parent_phone').strip()
-
-        # ===== CONVERT PHONE TO +255 FORMAT =====
-        if parent_phone.startswith('0') and len(parent_phone) == 10:
-            parent_phone = '+255' + parent_phone[1:]
-        elif parent_phone.startswith('7') and len(parent_phone) == 9:
-            parent_phone = '+255' + parent_phone
-        elif parent_phone.startswith('6') and len(parent_phone) == 9:
-            parent_phone = '+255' + parent_phone
-        # Optional: remove spaces or hyphens
-        parent_phone = parent_phone.replace(' ', '').replace('-', '')
-
-        # ===== VALIDATE PARENT PHONE =====
-        if not re.match(r'^\+255[67]\d{8}$', parent_phone):
-            messages.error(request, "Parent phone number must start with +2557 or +2556 and have 12 digits total.")
-            return redirect('register_student')
-
-        # ===== CLASSROOM =====
+        # For admin: classroom and stream from POST
         if request.user.role == 'admin':
             classroom_id = request.POST.get('classroom')
             if not classroom_id:
@@ -430,19 +431,38 @@ def register_student(request):
                 return redirect('register_student')
             classroom = get_object_or_404(Classroom, id=classroom_id)
 
-        stream = Stream.objects.filter(id=stream_id).first() if stream_id else None
+            stream_id = request.POST.get('stream')
+            stream = Stream.objects.filter(id=stream_id).first() if stream_id else None
 
-        # ===== CREATE STUDENT USER =====
+        # ===== PARENT DATA =====
+        parent_full_name = request.POST.get('parent_full_name')
+        parent_phone = request.POST.get('parent_phone', '').strip()
+
+        # ===== FORMAT PHONE =====
+        parent_phone = parent_phone.replace(' ', '').replace('-', '')
+        if parent_phone.startswith('0') and len(parent_phone) == 10:
+            parent_phone = '+255' + parent_phone[1:]
+        elif parent_phone.startswith(('6', '7')) and len(parent_phone) == 9:
+            parent_phone = '+255' + parent_phone
+
+        if not re.match(r'^\+255[67]\d{8}$', parent_phone):
+            messages.error(request, "Invalid parent phone number.")
+            return redirect('register_student')
+
+        # ===== CHECK ADMISSION NUMBER =====
         if User.objects.filter(username=admission_number).exists():
             messages.error(request, "Admission number already exists.")
             return redirect('register_student')
 
+        # ===============================
+        # CREATE STUDENT USER & PROFILE
+        # ===============================
         student_user = User.objects.create(
             username=admission_number,
             first_name=first_name,
             last_name=last_name,
-            role='student',
             gender=gender,
+            role='student',
             password=make_password(password)
         )
 
@@ -454,7 +474,9 @@ def register_student(request):
             academic_year=academic_year_obj
         )
 
-        # ===== CREATE PARENT USER =====
+        # ===============================
+        # CREATE PARENT USER & PROFILE
+        # ===============================
         parent_names = parent_full_name.split(" ", 1)
         parent_first = parent_names[0]
         parent_last = parent_names[1] if len(parent_names) > 1 else ""
@@ -474,23 +496,35 @@ def register_student(request):
                 student=student_profile
             )
 
-        # SUCCESS TOAST
-        messages.success(request, f"Student {first_name} {last_name} & Parent registered successfully!")
+        messages.success(
+            request,
+            f"Student {first_name} {last_name} registered in {classroom.name}"
+        )
+
         return redirect('register_student')
 
-    # LISTING
-    students = StudentProfile.objects.all()
+    # ===============================
+    # LISTING STUDENTS
+    # ===============================
+    if request.user.role == 'teacher':
+        students = StudentProfile.objects.filter(classroom=classroom)
+        template = 'attendance_app/register_student_teacher.html'
+    else:
+        students = StudentProfile.objects.all()
+        template = 'attendance_app/register_student_admin.html'
+
     classrooms = Classroom.objects.all()
     streams = Stream.objects.all()
 
-    return render(request, 'attendance_app/register_student.html', {
+    return render(request, template, {
         'students': students,
         'classrooms': classrooms,
         'streams': streams,
         'active_year': active_year,
         'academic_years': academic_years,
+        'teacher_classroom': classroom,
+        'teacher_stream': stream,
     })
-
 
 
 
@@ -1411,23 +1445,20 @@ def teacher_profile_view(request):
     teacher = get_object_or_404(TeacherProfile, user=request.user)
     students = StudentProfile.objects.filter(classroom=teacher.classroom) if teacher else []
 
+    profile_success = None
+    password_success = None
+
     if request.method == 'POST':
-        profile_form = TeacherProfileForm(
-            request.POST, request.FILES, instance=teacher, user=request.user
-        )
+        profile_form = TeacherProfileForm(request.POST, request.FILES, instance=teacher, user=request.user)
         password_form = PasswordChangeForm(user=request.user, data=request.POST)
 
-        if 'update_profile' in request.POST:
-            if profile_form.is_valid():
-                profile_form.save()
-                messages.success(request, "Profile updated successfully!")
-                return redirect('teacher_profile_view')
-        elif 'change_password' in request.POST:
-            if password_form.is_valid():
-                user = password_form.save()
-                update_session_auth_hash(request, user)  # keep user logged in
-                messages.success(request, "Password changed successfully!")
-                return redirect('teacher_profile_view')
+        if 'update_profile' in request.POST and profile_form.is_valid():
+            profile_form.save()
+            profile_success = "Profile updated successfully!"
+        elif 'change_password' in request.POST and password_form.is_valid():
+            user = password_form.save()
+            update_session_auth_hash(request, user)
+            password_success = "Password changed successfully!"
     else:
         profile_form = TeacherProfileForm(instance=teacher, user=request.user)
         password_form = PasswordChangeForm(user=request.user)
@@ -1437,8 +1468,12 @@ def teacher_profile_view(request):
         'students': students,
         'profile_form': profile_form,
         'password_form': password_form,
+        'profile_success': profile_success,
+        'password_success': password_success,
     }
     return render(request, 'attendance_app/teacher_profile.html', context)
+
+
 
 
 @never_cache

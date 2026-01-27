@@ -5,6 +5,7 @@ from .models import TeacherProfile, SchoolSettings, AcademicYear
 User = get_user_model()
 
 
+
 class TeacherProfileForm(forms.ModelForm):
     username = forms.CharField(
         max_length=150,
@@ -17,36 +18,30 @@ class TeacherProfileForm(forms.ModelForm):
 
     class Meta:
         model = TeacherProfile
-        fields = ['profile_picture', 'classroom', 'stream']
+        fields = ['profile_picture']  # only profile picture from TeacherProfile
         widgets = {
-            'profile_picture': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'classroom': forms.Select(attrs={'class': 'form-control'}),
-            'stream': forms.Select(attrs={'class': 'form-control'}),
+            'profile_picture': forms.ClearableFileInput(attrs={'class': 'form-control'})
         }
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)  # store user for save
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-
-        # Pre-fill username/email if user is provided
         if self.user:
             self.fields['username'].initial = self.user.username
             self.fields['email'].initial = self.user.email
 
     def save(self, commit=True):
+        # Update user
+        if self.user:
+            self.user.username = self.cleaned_data.get('username', self.user.username)
+            self.user.email = self.cleaned_data.get('email', self.user.email)
+            if commit:
+                self.user.save()
+
+        # Update profile picture only
         profile = super().save(commit=False)
-
-        # Ensure profile has a user assigned
-        if not profile.user_id and self.user:
-            profile.user = self.user
-
-        # Update user info
-        user = profile.user
-        user.username = self.cleaned_data.get('username', user.username)
-        user.email = self.cleaned_data.get('email', user.email)
-
         if commit:
-            user.save()
+            profile.user = self.user
             profile.save()
 
         return profile

@@ -1,0 +1,63 @@
+{% extends "attendance_app/teacher_base.html" %}
+{% load static %}
+
+{% block title %}Register Student{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h4 class="mb-3">
+        Register Student – {{ teacher_classroom.name }}
+    </h4>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="row">
+            <div class="col-md-6">
+                <label>First Name</label>
+                <input type="text" name="first_name" class="form-control" required>
+            </div>
+
+            <div class="col-md-6">
+                <label>Last Name</label>
+                <input type="text" name="last_name" class="form-control" required>
+            </div>
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <label>Gender</label>
+                <select name="gender" class="form-control" required>
+                    <option value="">---</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label>Admission Number</label>
+                <input type="text" name="admission_number" class="form-control" required>
+            </div>
+        </div>
+
+        <div class="mt-2">
+            <label>Parent Full Name</label>
+            <input type="text" name="parent_full_name" class="form-control" required>
+        </div>
+
+        <div class="mt-2">
+            <label>Parent Phone</label>
+            <input type="text" name="parent_phone" class="form-control" placeholder="07XXXXXXXX" required>
+        </div>
+
+        <!-- 🚫 HAKUNA CLASSROOM FIELD -->
+        <!-- Darasa linachukuliwa automatic -->
+
+        <button class="btn btn-primary mt-3">
+            Register Student
+        </button>
+    </form>
+
+</div>
+{% endblock %}

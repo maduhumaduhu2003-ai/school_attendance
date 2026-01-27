@@ -11,7 +11,7 @@
     <h3 class="mb-4">My Profile</h3>
 
     <div class="row justify-content-center">
-        <div class="col-md-5">
+        <div class="col-md-6">
             <div class="card shadow-sm p-4">
 
                 <div class="text-center mb-4">
@@ -22,31 +22,88 @@
                     {% endif %}
                 </div>
 
-                <form method="POST" enctype="multipart/form-data">
-                    {% csrf_token %}
+                <!-- TABS -->
+                <ul class="nav nav-tabs mb-3" id="profileTab" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">Profile</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="password-tab" data-bs-toggle="tab" data-bs-target="#password" type="button" role="tab">Change Password</button>
+                  </li>
+                </ul>
 
-                    <!-- Profile Picture Upload -->
-                    <div class="mb-3 text-center">
-                        {{ profile_form.profile_picture.label_tag }}
-                        {{ profile_form.profile_picture|add_class:"form-control form-control-sm" }}
-                    </div>
-
-                    <!-- Username -->
+                <!-- MESSAGES -->
+                {% if messages %}
                     <div class="mb-3">
-                        {{ profile_form.username.label_tag }}
-                        {{ profile_form.username|add_class:"form-control form-control-sm" }}
+                        {% for message in messages %}
+                            <div class="alert 
+                                        {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %} 
+                                        alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="tab-content">
+                    <!-- PROFILE TAB -->
+                    <div class="tab-pane fade show active" id="profile" role="tabpanel">
+                        <form method="POST" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            {{ profile_form.non_field_errors }}
+
+                            <div class="mb-3 text-center">
+                                {{ profile_form.profile_picture.label_tag }}
+                                {{ profile_form.profile_picture|add_class:"form-control form-control-sm" }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ profile_form.username.label_tag }}
+                                {{ profile_form.username|add_class:"form-control form-control-sm" }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ profile_form.email.label_tag }}
+                                {{ profile_form.email|add_class:"form-control form-control-sm" }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ profile_form.phone_number.label_tag }}
+                                {{ profile_form.phone_number|add_class:"form-control form-control-sm" }}
+                            </div>
+
+                            <button type="submit" name="update_profile" class="btn btn-primary w-100">
+                                Update Profile
+                            </button>
+                        </form>
                     </div>
 
-                    <!-- Email -->
-                    <div class="mb-3">
-                        {{ profile_form.email.label_tag }}
-                        {{ profile_form.email|add_class:"form-control form-control-sm" }}
-                    </div>
+                    <!-- PASSWORD TAB -->
+                    <div class="tab-pane fade" id="password" role="tabpanel">
+                        <form method="POST">
+                            {% csrf_token %}
+                            {{ password_form.non_field_errors }}
 
-                    <button type="submit" name="update_profile" class="btn btn-primary w-100">
-                        Update Profile
-                    </button>
-                </form>
+                            <div class="mb-3">
+                                {{ password_form.old_password.label_tag }}
+                                {{ password_form.old_password|add_class:"form-control form-control-sm" }}
+                            </div>
+                            <div class="mb-3">
+                                {{ password_form.new_password1.label_tag }}
+                                {{ password_form.new_password1|add_class:"form-control form-control-sm" }}
+                            </div>
+                            <div class="mb-3">
+                                {{ password_form.new_password2.label_tag }}
+                                {{ password_form.new_password2|add_class:"form-control form-control-sm" }}
+                            </div>
+
+                            <button type="submit" name="change_password" class="btn btn-warning w-100">
+                                Change Password
+                            </button>
+                        </form>
+                    </div>
+                </div>
 
             </div>
         </div>
@@ -72,9 +129,33 @@
     background-color: #4338ca;
 }
 
+.btn-warning {
+    background-color: #f59e0b;
+    border: none;
+    color: #fff;
+}
+
+.btn-warning:hover {
+    background-color: #d97706;
+}
+
 img.rounded-circle {
     object-fit: cover;
 }
 </style>
+
+<!-- AUTO SWITCH TAB IF MESSAGE COMES FROM PASSWORD CHANGE -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    {% if messages %}
+        {% for message in messages %}
+            {% if 'Password' in message %}
+                var passwordTab = new bootstrap.Tab(document.getElementById('password-tab'));
+                passwordTab.show();
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+});
+</script>
 
 {% endblock %}
