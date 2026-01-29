@@ -881,70 +881,79 @@ def delete_student(request, student_id):
 
 
 
+import random
+import time
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from attendance_app.utils import send_sms
+
+
 def forgot_password(request):
     if request.method == "POST":
-        identifier = request.POST.get("identifier")
+        identifier = request.POST.get("identifier", "").strip()
 
-        # Tafuta user kwa email au phone
-        user = User.objects.filter(email=identifier).first() \
-               or User.objects.filter(phone_number=identifier).first()
+        # Find user by email OR phone number
+        user = (
+            User.objects.filter(email=identifier).first()
+            or User.objects.filter(phone_number=identifier).first()
+        )
 
         if not user:
             messages.error(request, "User not found")
             return redirect("forgot_password")
 
+        # Generate reset code
         code = random.randint(100000, 999999)
 
-        # Store in session
+        # Store reset info in session
         request.session["reset_code"] = str(code)
         request.session["reset_user"] = user.id
         request.session["reset_time"] = int(time.time())
 
-        # EMAIL
-        if user.email:  # check if email exists
-            send_mail(
-                "Password Reset Code",
-                f"Your reset code is {code}",
-                "school@system.com",
-                [user.email],
-                fail_silently=True
-            )
+        # ================= EMAIL =================
+        if user.email:
+            try:
+                send_mail(
+                    subject="Password Reset Code",
+                    message=f"Your password reset code is {code}",
+                    from_email="school@system.com",
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                print("Email error:", e)
 
-        # SEND SMS code if phone exists
+        # ================= SMS =================
         if user.phone_number:
-            phone_number = user.phone_number.strip()  # remove any leading/trailing spaces
+            phone_number = user.phone_number.strip()
 
-            # Format Tanzanian number
+            # Normalize Tanzanian phone number
             if phone_number.startswith("0"):
                 phone_number = "+255" + phone_number[1:]
             elif not phone_number.startswith("+"):
                 phone_number = "+255" + phone_number
 
-            # Initialize Africastalking
-            africastalking.initialize(
-                username=settings.AFRICASTALKING_USERNAME,
-                api_key=settings.AFRICASTALKING_API_KEY
+            sms_sent = send_sms(
+                phone_number,
+                f"Your password reset code is {code}"
             )
-            sms = africastalking.SMS
 
-            try:
-                response = sms.send(
-                    message=f"Your reset code is {code}",
-                    recipients=[phone_number],
-                    sender_id='School_SMS',
-                )
-                print("SMS sent:", response)
-            except Exception as e:
-                print("SMS failed:", e)
+            if not sms_sent:
+                print("SMS sending failed")
+
         else:
-            print("No phone number for this user, skipping SMS.")
+            print("No phone number found, SMS skipped")
 
-        messages.success(request, "Reset code sent via Email & SMS (if available)")
+        messages.success(
+            request,
+            "Reset code sent via Email and SMS (if available)"
+        )
         return redirect("verify_reset")
 
     # GET request
     return render(request, "attendance_app/forgot_password.html")
-
 
 
 
