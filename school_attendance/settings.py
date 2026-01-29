@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from decouple import config, Csv
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -52,8 +53,20 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@example.com')
 
 # =================== AFRICASTALKING ===================
-AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
-AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
+#AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
+#AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
+
+
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
+AFRICASTALKING_SENDER_ID = config('SENDER_ID')
+
+
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
 
 # =================== AUTH & MEDIA ===================
 AUTH_USER_MODEL = 'attendance_app.User'

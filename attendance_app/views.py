@@ -1,45 +1,84 @@
+# ===============================
+# Django core imports
+# ===============================
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout
+from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
+from django.contrib.auth import (
+    authenticate,
+    login,
+    logout,
+    update_session_auth_hash,
+    get_user_model,
+)
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.hashers import make_password
-from .models import User, TeacherProfile, StudentProfile, Classroom, AcademicYear, Attendance, SMSLog, Stream
-from django.http import JsonResponse
+from django.contrib.auth.forms import PasswordChangeForm
 from django.core.mail import send_mail
-import random
-from django.db.models.deletion import ProtectedError
-from datetime import date
-from django.db import IntegrityError
 from django.core.paginator import Paginator
+from django.conf import settings
+from django.views.decorators.cache import never_cache
+from django.db import IntegrityError
+from django.db.models import Q
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.utils.timezone import now
-from datetime import datetime
-from django.db.models import Q
-from django.http import HttpResponse
-import csv
-from reportlab.pdfgen import canvas
-import africastalking
-from django.conf import settings
-from .models import SMSLog, ParentProfile
 
-from django.contrib.auth.forms import PasswordChangeForm
-from django.contrib.auth import update_session_auth_hash
-from .forms import TeacherProfileForm
-import random, time
-from django.contrib import messages
-from django.shortcuts import render, redirect
-from django.core.mail import send_mail
-from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required
-from .models import TeacherProfile, SchoolSettings
-from .forms import TeacherProfileForm, SchoolSettingsForm, AcademicYear
-from .forms import TeacherProfileForm, SchoolSettingsForm, UserUpdateForm, AcademicYearForm
-from .utils import auto_lock_expired_academic_year
-from django.views.decorators.cache import never_cache
+# ===============================
+# Python standard library
+# ===============================
+import csv
+import random
+import time
 import re
 import os
+from datetime import date, datetime
 
-from django.contrib.auth import get_user_model
+# ===============================
+# Third-party libraries
+# ===============================
+from reportlab.pdfgen import canvas
+import openpyxl
+from openpyxl.styles import Font, Alignment
+import africastalking
+
+# ===============================
+# Local app imports (models)
+# ===============================
+from .models import (
+    User,
+    TeacherProfile,
+    StudentProfile,
+    ParentProfile,
+    Classroom,
+    AcademicYear,
+    Attendance,
+    SMSLog,
+    Stream,
+    SchoolSettings,
+)
+
+# ===============================
+# Local app imports (forms)
+# ===============================
+from .forms import (
+    TeacherProfileForm,
+    SchoolSettingsForm,
+    UserUpdateForm,
+    AcademicYearForm,
+)
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
+
+
+# ===============================
+# Local app imports (utils)
+# ===============================
+from .utils import auto_lock_expired_academic_year
+
+# ===============================
+# Custom user model
+# ===============================
 User = get_user_model()
 
 
@@ -1234,6 +1273,187 @@ def view_attendance(request):
 
     return render(request, "attendance_app/view_attendance.html", context)
 
+@login_required
+def attendance_export_pdf(request):
+    teacher = get_object_or_404(TeacherProfile, user=request.user)
+    classroom = teacher.classroom
+    stream = teacher.stream
+
+    raw_date = request.GET.get("date")
+    try:
+        selected_date = (
+            datetime.strptime(raw_date, "%Y-%m-%d").date()
+            if raw_date else now().date()
+        )
+    except ValueError:
+        selected_date = now().date()
+
+    qs = Attendance.objects.filter(
+        student__classroom=classroom,
+        date=selected_date
+    ).select_related("student", "student__user")
+
+    if stream:
+        qs = qs.filter(student__stream=stream)
+
+    html = render_to_string(
+        "attendance_app/attendance_pdf.html",
+        {
+            "records": qs,
+            "classroom": classroom,
+            "date": selected_date
+        }
+    )
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename=Attendance_{classroom.name}_{selected_date}.pdf'
+    )
+
+    pisa_status = pisa.CreatePDF(html, dest=response)
+
+    if pisa_status.err:
+        return HttpResponse("Error generating PDF", status=500)
+
+    return response
+
+
+@login_required
+def attendance_export_excel(request):
+    teacher = get_object_or_404(TeacherProfile, user=request.user)
+    classroom = teacher.classroom
+    stream = teacher.stream
+
+    raw_date = request.GET.get("date")
+    try:
+        selected_date = (
+            datetime.strptime(raw_date, "%Y-%m-%d").date()
+            if raw_date else now().date()
+        )
+    except ValueError:
+        selected_date = now().date()
+
+    qs = Attendance.objects.filter(
+        student__classroom=classroom,
+        date=selected_date
+    ).select_related("student", "student__user")
+
+    if stream:
+        qs = qs.filter(student__stream=stream)
+
+    # ================= CALCULATIONS =================
+    total = qs.count()
+    present = qs.filter(status="present").count()
+    absent = qs.filter(status="absent").count()
+    sick = qs.filter(status="sick").count()
+
+    def pct(x):
+        return round((x / total) * 100, 1) if total else 0
+
+    male_qs = qs.filter(student__user__gender="male")
+    female_qs = qs.filter(student__user__gender="female")
+
+    # ================= EXCEL =================
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Attendance"
+
+    bold = Font(bold=True)
+    center = Alignment(horizontal="center")
+
+    row = 1
+
+    # ===== TITLE =====
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+    ws.cell(row=row, column=1, value="SMARTPRESENCE – ATTENDANCE REPORT").font = bold
+    ws.cell(row=row, column=1).alignment = center
+    row += 2
+
+    # ===== CLASS INFO =====
+    ws.append([
+        "Class:",
+        classroom.name,
+        "Year:",
+        str(classroom.year),  # Fixed: convert AcademicYear object to string
+        "Date:",
+        selected_date.strftime("%Y-%m-%d")
+    ])
+    for col in range(1, 7):
+        ws.cell(row=row, column=col).font = bold
+    row += 2
+
+    # ===== SUMMARY =====
+    ws.append(["SUMMARY"])
+    ws.cell(row=row, column=1).font = bold
+    row += 1
+
+    ws.append(["Total Students", total])
+    ws.append(["Present", f"{present} ({pct(present)}%)"])
+    ws.append(["Absent", f"{absent} ({pct(absent)}%)"])
+    ws.append(["Sick", f"{sick} ({pct(sick)}%)"])
+    row += 2
+
+    # ===== GENDER SUMMARY =====
+    ws.append(["GENDER SUMMARY"])
+    ws.cell(row=row, column=1).font = bold
+    row += 1
+
+    ws.append([
+        "Male",
+        male_qs.count(),
+        f"Present {male_qs.filter(status='present').count()}",
+        f"Absent {male_qs.filter(status='absent').count()}",
+        f"Sick {male_qs.filter(status='sick').count()}",
+    ])
+
+    ws.append([
+        "Female",
+        female_qs.count(),
+        f"Present {female_qs.filter(status='present').count()}",
+        f"Absent {female_qs.filter(status='absent').count()}",
+        f"Sick {female_qs.filter(status='sick').count()}",
+    ])
+
+    row += 2
+
+    # ===== TABLE HEADER =====
+    headers = ["No", "Admission No", "Student Name", "Gender", "Status", "Date"]
+    ws.append(headers)
+    for col in range(1, len(headers) + 1):
+        ws.cell(row=row, column=col).font = bold
+        ws.cell(row=row, column=col).alignment = center
+    row += 1
+
+    # ===== TABLE DATA =====
+    for i, r in enumerate(qs, start=1):
+        ws.append([
+            i,
+            r.student.admission_number,
+            r.student.user.get_full_name(),
+            r.student.user.gender.capitalize() if r.student.user.gender else "",
+            r.status.capitalize(),
+            r.date.strftime("%Y-%m-%d")
+        ])
+
+    # ===== COLUMN WIDTH =====
+    widths = [6, 18, 28, 12, 14, 14]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    # ===== RESPONSE =====
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename=Attendance_{classroom.name}_{selected_date}.xlsx'
+    )
+
+    wb.save(response)
+    return response
+
+
+
+
 
 @never_cache
 @login_required
@@ -1378,6 +1598,9 @@ def student_profile_modal(request, pk):
     })
 
 
+
+
+# ================= EXPORT EXCEL =================
 @never_cache
 @login_required
 def export_students_excel(request):
@@ -1388,22 +1611,25 @@ def export_students_excel(request):
     ).select_related("user")
 
     response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = 'attachment; filename="students_list.csv"'
+    response["Content-Disposition"] = f'attachment; filename="students_{teacher.classroom.name}.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(["Admission No", "Name", "Email", "Phone"])
+    writer.writerow(["Admission No", "Name", "Email", "Phone", "Gender", "Classroom"])
 
     for s in students:
         writer.writerow([
             s.admission_number,
             f"{s.user.first_name} {s.user.last_name}",
             s.user.email,
-            getattr(s, 'phone_number', '')
+            getattr(s, 'phone_number', '—'),
+            s.user.gender.capitalize() if s.user.gender else '—',
+            s.classroom.name
         ])
 
     return response
 
 
+# ================= EXPORT PDF =================
 @never_cache
 @login_required
 def export_students_pdf(request):
@@ -1414,28 +1640,39 @@ def export_students_pdf(request):
     ).select_related("user")
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = 'attachment; filename="students_list.pdf"'
+    response["Content-Disposition"] = f'attachment; filename="students_{teacher.classroom.name}.pdf"'
 
     p = canvas.Canvas(response)
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(50, 800, f"Students List - {teacher.classroom.name}")
     p.setFont("Helvetica", 10)
 
-    y = 800
-    p.drawString(50, y, f"Students - {teacher.classroom.name}")
-    y -= 30
+    y = 770
+    p.drawString(50, y, "No")
+    p.drawString(80, y, "Admission No")
+    p.drawString(180, y, "Name")
+    p.drawString(330, y, "Email")
+    p.drawString(480, y, "Phone")
+    p.drawString(550, y, "Gender")
+    y -= 20
 
-    for s in students:
-        p.drawString(
-            50, y,
-            f"{s.admission_number} - {s.user.first_name} {s.user.last_name}"
-        )
+    for i, s in enumerate(students, start=1):
+        p.drawString(50, y, str(i))
+        p.drawString(80, y, s.admission_number)
+        p.drawString(180, y, f"{s.user.first_name} {s.user.last_name}")
+        p.drawString(330, y, s.user.email)
+        p.drawString(480, y, getattr(s, 'phone_number', '—'))
+        p.drawString(550, y, s.user.gender.capitalize() if s.user.gender else '—')
         y -= 20
         if y < 50:
             p.showPage()
             y = 800
+            p.setFont("Helvetica", 10)
 
     p.showPage()
     p.save()
     return response
+
 
 
 

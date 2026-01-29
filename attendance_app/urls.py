@@ -14,6 +14,10 @@ urlpatterns = [
     path('teacher-dashboard/', views.teacher_dashboard, name='teacher_dashboard'),
     path('mark_attendance/', views.mark_attendance, name='mark_attendance'),
     path('view_attendance/', views.view_attendance, name='view_attendance'),
+    path("attendance/export/pdf/", views.attendance_export_pdf, name="attendance_export_pdf"),
+    path("attendance/export/excel/",views. attendance_export_excel, name="attendance_export_excel"),
+
+    
     path('edit_attendance/<int:pk>/',views.edit_attendance, name='edit_attendance'),
     path('delete_attendance/<int:pk>/', views.delete_attendance, name='delete_attendance'),
     

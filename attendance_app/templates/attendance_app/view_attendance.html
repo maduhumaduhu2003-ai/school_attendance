@@ -9,6 +9,20 @@
             Attendance Records : {{ classroom.name }} ({{ classroom.year }})
         </h4>
 
+        <!-- ================= EXPORT BUTTONS ================= -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+    <a href="{% url 'attendance_export_pdf' %}?date={{ selected_date }}"
+       class="btn btn-danger btn-sm">
+        Export PDF
+    </a>
+
+    <a href="{% url 'attendance_export_excel' %}?date={{ selected_date }}"
+       class="btn btn-success btn-sm">
+        Export Excel
+    </a>
+</div>
+
+
         <!-- ================= SUMMARY ================= -->
         <div class="row g-2 mb-4 summary-box">
             <div class="col-6 col-md-2"><strong>Total:</strong> {{ students_count }}</div>
