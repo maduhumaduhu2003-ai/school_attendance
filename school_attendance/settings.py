@@ -2,12 +2,11 @@ from pathlib import Path
 import os
 from decouple import config, Csv
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # =================== ENVIRONMENT ===================
- # 'local' or 'render'
-ENVIRONMENT = config('ENVIRONMENT', default='local') 
+# 'local' or 'render'
+ENVIRONMENT = config('ENVIRONMENT', default='local')
 
 # =================== SECURITY ===================
 SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
@@ -17,7 +16,6 @@ ALLOWED_HOSTS = config(
     default='localhost,127.0.0.1,.onrender.com',
     cast=Csv()
 )
-
 
 # =================== DATABASE ===================
 if ENVIRONMENT == 'render':
@@ -53,18 +51,14 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@example.com')
 
 # =================== AFRICASTALKING ===================
-#AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
-#AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
+# Use decouple for local, environment variables for production
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default=os.getenv("AFRICASTALKING_USERNAME", ""))
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default=os.getenv("AFRICASTALKING_API_KEY", ""))
+AFRICASTALKING_SENDER_ID = config('SENDER_ID', default=os.getenv("SENDER_ID", "School_SMS"))
 
-
-
-AFRICASTALKING_USERNAME = os.getenv("AFRICASTALKING_USERNAME")
-AFRICASTALKING_API_KEY = os.getenv("AFRICASTALKING_API_KEY")
-AFRICASTALKING_SENDER_ID = os.getenv("SENDER_ID")
-
-
-
-
+# Optional: sanity check
+if not AFRICASTALKING_USERNAME or not AFRICASTALKING_API_KEY:
+    print("Warning: AfricasTalking credentials not set!")
 
 # =================== AUTH & MEDIA ===================
 AUTH_USER_MODEL = 'attendance_app.User'
