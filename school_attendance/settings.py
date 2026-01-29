@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 from decouple import config, Csv
-from dotenv import load_dotenv
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -64,10 +64,6 @@ AFRICASTALKING_SENDER_ID = os.getenv("SENDER_ID")
 
 
 
-
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
 
 
 # =================== AUTH & MEDIA ===================
