@@ -76,9 +76,16 @@ from xhtml2pdf import pisa
 # ===============================
 from .utils import auto_lock_expired_academic_year
 
-# ===============================
-# Custom user model
-# ===============================
+
+
+import random
+import time
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from attendance_app.utils import send_sms
+from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
@@ -881,13 +888,6 @@ def delete_student(request, student_id):
 
 
 
-import random
-import time
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.contrib.auth.models import User
-from django.core.mail import send_mail
-from attendance_app.utils import send_sms
 
 
 def forgot_password(request):
