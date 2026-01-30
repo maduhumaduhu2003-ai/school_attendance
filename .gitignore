@@ -1,7 +1,7 @@
 # Virtual environment
-venv/
-env/
-.venv/
+venv
+.env
+
 
 # Django
 __pycache__/
