@@ -18,5 +18,7 @@ openpyxl==3.1.5
 
 python-dotenv==1.0.0
 xhtml2pdf
-
+xhtml2pdf
+python-dotenv
+Django>=4.2
 
