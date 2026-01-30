@@ -1,74 +1,31 @@
 from pathlib import Path
 import os
 from decouple import config, Csv
+import dj_database_url
 from dotenv import load_dotenv
+
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# =================== ENVIRONMENT ===================
-# 'local' or 'render'
-#ENVIRONMENT = config('ENVIRONMENT', default='local')
-
 # =================== SECURITY ===================
-#SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
-#DEBUG = config('DEBUG', default=(ENVIRONMENT == 'local'), cast=bool)
-#ALLOWED_HOSTS = config(
-#    'ALLOWED_HOSTS',
-#    default='localhost,127.0.0.1,.onrender.com',
- #   cast=Csv()
-#)
+SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
+DEBUG = config('DEBUG', default=True, cast=bool)
 
-# ===================RAIL WAY SECURITY ===================
-import os
-from dotenv import load_dotenv
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default='localhost,127.0.0.1',
+    cast=Csv()
+)
 
-load_dotenv() 
-
-SECRET_KEY = os.getenv('SECRET_KEY')
-
-#DEBUG = os.getenv('DEBUG', 'True') == 'True'  # Convert string to boolean
-#ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-ALLOWED_HOSTS=["*"]
-
-# =================== DATABASE ===================
-#if ENVIRONMENT == 'render':
-   # DATABASES = {
-   #     'default': {
-    #        'ENGINE': config('PROD_DB_ENGINE', default='django.db.backends.postgresql'),
-    #        'NAME': config('PROD_DB_NAME', default='render_db'),
-     #       'USER': config('PROD_DB_USER', default='postgres'),
-    #        'PASSWORD': config('PROD_DB_PASSWORD', default='postgres'),
-    #        'HOST': config('PROD_DB_HOST', default='localhost'),
-     #       'PORT': config('PROD_DB_PORT', default=5432, cast=int),
-   #     }
- #   }
-#else:  # local
-   # DATABASES = {
-     #   'default': {
-     #       'ENGINE': config('LOCAL_DB_ENGINE', default='django.db.backends.sqlite3'),
-     #       'NAME': config('LOCAL_DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')),
-     #       'USER': config('LOCAL_DB_USER', default=''),
-     #       'PASSWORD': config('LOCAL_DB_PASSWORD', default=''),
-     #       'HOST': config('LOCAL_DB_HOST', default=''),
-     #       'PORT': config('LOCAL_DB_PORT', default='', cast=str),
- #       }
- #   }
- 
- 
+# =================== DATABASE (ONLY dj_database_url) ===================
 DATABASES = {
-        'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv("DB_NAME"),
-        'USER': os.getenv("DB_USER"),
-        'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST': os.getenv("DB_HOST"),
-        'PORT': os.getenv("DB_PORT"),
-    }
+    'default': dj_database_url.parse(
+        config('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=False
+    )
 }
-    
-
-
 
 # =================== EMAIL ===================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -80,20 +37,12 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@example.com')
 
 # =================== AFRICASTALKING ===================
-# Use decouple for local, environment variables for production
-AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default=os.getenv("AFRICASTALKING_USERNAME", ""))
-AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default=os.getenv("AFRICASTALKING_API_KEY", ""))
-AFRICASTALKING_SENDER_ID = config('SENDER_ID', default=os.getenv("SENDER_ID", "School_SMS"))
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
+AFRICASTALKING_SENDER_ID = config('SENDER_ID', default='School_SMS')
 
-# Optional: sanity check
-if not AFRICASTALKING_USERNAME or not AFRICASTALKING_API_KEY:
-    print("Warning: AfricasTalking credentials not set!")
-
-# =================== AUTH & MEDIA ===================
+# =================== AUTH ===================
 AUTH_USER_MODEL = 'attendance_app.User'
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/admin-dashboard/'
@@ -101,7 +50,11 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# =================== STATIC FILES ===================
+# =================== MEDIA ===================
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# =================== STATIC ===================
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -114,6 +67,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'attendance_app',
     'rest_framework',
     'widget_tweaks',

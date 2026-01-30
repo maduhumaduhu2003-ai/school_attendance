@@ -23,13 +23,16 @@ def send_sms(phone, message):
         print("SMS Error:", e)
         return False
 
+from django.utils import timezone
+from .models import AcademicYear
 
 def auto_lock_expired_academic_year():
-    now = timezone.now().date()
-    active_year = AcademicYear.objects.filter(is_active=True).first()
+    current_year = timezone.now().year   # INT
+    active_year = AcademicYear.objects.filter(is_active=True, is_locked=False).first()
 
-    if active_year and now > active_year.year_end:
+    if active_year and current_year > active_year.year_end:
         active_year.is_active = False
         active_year.is_locked = True
         active_year.save()
         print(f"Academic Year {active_year} locked.")
+
