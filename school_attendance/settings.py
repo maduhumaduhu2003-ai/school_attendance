@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 #ENVIRONMENT = config('ENVIRONMENT', default='local')
 
 # =================== SECURITY ===================
-SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
+#SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
 #DEBUG = config('DEBUG', default=(ENVIRONMENT == 'local'), cast=bool)
 #ALLOWED_HOSTS = config(
 #    'ALLOWED_HOSTS',
