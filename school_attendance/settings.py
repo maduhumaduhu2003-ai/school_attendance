@@ -20,9 +20,11 @@ SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
 #)
 
 # ===================RAIL WAY SECURITY ===================
-SECRET_KEY = os.getenv('SECRET_KEY', 'unsafe-default-secret-key')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'  # Convert string to boolean
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+#SECRET_KEY = os.getenv('SECRET_KEY', 'unsafe-default-secret-key')
+#DEBUG = os.getenv('DEBUG', 'True') == 'True'  # Convert string to boolean
+#ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS=["*"]
+
 # =================== DATABASE ===================
 #if ENVIRONMENT == 'render':
    # DATABASES = {
