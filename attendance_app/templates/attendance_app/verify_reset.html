@@ -6,104 +6,85 @@
 <title>Verify Code | {{ school_settings.school_name|default:"School Attendance System" }}</title>
 
 <!-- Bootstrap CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <style>
-:root {
-    --primary-color: #4f46e5;
-    --secondary-color: #10b981;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --card-color: #ffffff;
-    --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.1);
-}
-
 body {
-    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #eef2ff, #f8fafc);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     min-height: 100vh;
     display: flex;
-    justify-content: center;
     align-items: center;
-    background: #f3f4f6;
+    justify-content: center;
     margin: 0;
     padding: 0;
 }
 
-.verify-card {
+.card-verify {
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     padding: 2rem;
-    border-radius: 15px;
-    background-color: var(--card-color);
-    box-shadow: var(--shadow-lg);
-    transition: transform 0.2s;
+    border-radius: 1rem;
+    box-shadow: 0 12px 30px -8px rgba(0,0,0,0.15);
+    background-color: #fff;
+    animation: fadeIn 0.5s ease-in-out;
 }
 
-.verify-card:hover {
-    transform: translateY(-2px);
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.verify-card h4 {
-    font-weight: 600;
-    color: var(--primary-color);
+.icon-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: rgba(79,70,229,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4f46e5;
+    margin: 0 auto 1rem auto;
 }
 
-.form-control {
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    border: 1px solid #ced4da;
-    transition: all 0.3s ease;
-}
-
-.form-control:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.btn-primary {
-    background-color: var(--primary-color);
-    border: none;
-    border-radius: 10px;
-    padding: 0.75rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-    background-color: #4338ca;
-    transform: translateY(-1px);
-}
-
-.alert {
+.subtitle {
     font-size: 0.9rem;
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
+    color: #6b7280;
+    text-align: center;
+    margin-bottom: 1.5rem;
 }
 
-/* Responsive adjustments */
-@media(max-width:480px) {
-    .verify-card {
-        padding: 1.5rem;
-        margin: 0 0.5rem;
-    }
+.divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 1.5rem 0;
+}
 
-    .form-control {
-        font-size: 0.9rem;
-        padding: 0.65rem 0.9rem;
-    }
+.back-link {
+    font-size: 0.9rem;
+    text-decoration: none;
+    color: #6b7280;
+    transition: all 0.2s ease;
+}
 
-    .btn-primary {
-        font-size: 0.9rem;
-        padding: 0.65rem;
-    }
+.back-link:hover {
+    color: #4f46e5;
+    text-decoration: underline;
 }
 </style>
 </head>
 <body>
 
-<div class="verify-card">
-    <h4 class="text-center mb-3">Verify Code</h4>
+<div class="card-verify">
+
+    <div class="icon-circle">
+        ✅
+    </div>
+
+    <h4 class="text-center mb-1">Verify Code</h4>
+    <p class="subtitle">Enter the verification code sent to your email or phone</p>
 
     {% if messages %}
         {% for message in messages %}
@@ -117,12 +98,16 @@ body {
     <form method="POST">
         {% csrf_token %}
         <div class="mb-3">
-            <input type="number" name="code"
-                   class="form-control"
-                   placeholder="Enter verification code" required>
+            <input type="number" name="code" class="form-control form-control-lg" placeholder="Enter verification code" required>
         </div>
 
-        <button class="btn btn-primary w-100" type="submit">Verify</button>
+        <button type="submit" class="btn btn-primary btn-lg w-100">Verify</button>
+
+        <div class="divider"></div>
+
+        <div class="text-center">
+            <a href="{% url 'login' %}" class="back-link">Back to Login</a>
+        </div>
     </form>
 </div>
 

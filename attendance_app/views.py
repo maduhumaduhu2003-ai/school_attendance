@@ -85,6 +85,23 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from attendance_app.utils import send_sms
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.cache import never_cache
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.hashers import make_password
+from django.conf import settings
+from django.core.mail import send_mail
+
+from .models import TeacherProfile, Classroom, Stream, User
+
+import africastalking
+import logging
+
+logger = logging.getLogger(__name__)
+
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
@@ -255,126 +272,153 @@ def admin_dashboard(request):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def register_teacher(request):
-    teachers = TeacherProfile.objects.select_related('user', 'classroom', 'stream').all()
+    teachers = TeacherProfile.objects.select_related(
+        'user', 'classroom', 'stream'
+    ).all()
+
     classrooms = Classroom.objects.all()
     streams = Stream.objects.all()
 
-    DEFAULT_PASSWORD = "Teacher@123" 
+    DEFAULT_PASSWORD = "Teacher@123"
 
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()  # Must be email
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        phone_number = request.POST.get('phone_number', '').strip()
-        classroom_id = request.POST.get('classroom')
-        stream_id = request.POST.get('stream')  
-
-        # ===== VALIDATE EMAIL =====
-        if not username or '@' not in username:
-            msg = "Username must be a valid email"
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': msg})
-            messages.error(request, msg)
-            return redirect('register_teacher')
-
-        # ===== VALIDATE CLASSROOM =====
         try:
-            classroom = Classroom.objects.get(id=classroom_id)
-        except Classroom.DoesNotExist:
-            msg = "Selected classroom does not exist."
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': msg})
-            messages.error(request, msg)
-            return redirect('register_teacher')
+            username = request.POST.get('username', '').strip()   # email
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            phone_number = request.POST.get('phone_number', '').strip()
+            classroom_id = request.POST.get('classroom')
+            stream_id = request.POST.get('stream')
 
-        # ===== VALIDATE STREAM =====
-        stream = None
-        if stream_id:
+            # ================= EMAIL VALIDATION =================
+            if not username or '@' not in username:
+                return JsonResponse(
+                    {'success': False, 'error': 'Username must be a valid email'},
+                    status=400
+                )
+
+            # ================= CLASSROOM =================
             try:
-                stream = Stream.objects.get(id=stream_id, classroom=classroom)
-            except Stream.DoesNotExist:
-                msg = "Selected stream does not exist."
-                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                    return JsonResponse({'success': False, 'error': msg})
-                messages.error(request, msg)
-                return redirect('register_teacher')
+                classroom = Classroom.objects.get(id=classroom_id)
+            except Classroom.DoesNotExist:
+                return JsonResponse(
+                    {'success': False, 'error': 'Selected classroom does not exist'},
+                    status=400
+                )
 
-        # ===== CHECK IF USER EXISTS =====
-        if User.objects.filter(username=username).exists():
-            msg = "Username already exists."
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': msg})
-            messages.error(request, msg)
-            return redirect('register_teacher')
+            # ================= STREAM =================
+            stream = None
+            if stream_id:
+                try:
+                    stream = Stream.objects.get(
+                        id=stream_id, classroom=classroom
+                    )
+                except Stream.DoesNotExist:
+                    return JsonResponse(
+                        {'success': False, 'error': 'Selected stream does not exist'},
+                        status=400
+                    )
 
-        # ===== NORMALIZE PHONE =====
-        if phone_number:
-            phone_number = phone_number.replace(' ', '').replace('-', '')
-            if phone_number.startswith('0') and len(phone_number) == 10:
-                phone_number = '+255' + phone_number[1:]
-            elif phone_number.startswith(('6','7')) and len(phone_number) == 9:
-                phone_number = '+255' + phone_number
-            elif not phone_number.startswith('+'):
-                phone_number = '+255' + phone_number
+            # ================= USER EXISTS =================
+            if User.objects.filter(username=username).exists():
+                return JsonResponse(
+                    {'success': False, 'error': 'Username already exists'},
+                    status=400
+                )
 
-        # ===== CREATE USER =====
-        user = User.objects.create(
-            username=username,           # Used as login
-            email=username,              # Email field filled same as username
-            first_name=first_name,
-            last_name=last_name,
-            password=make_password(DEFAULT_PASSWORD),
-            role='teacher',
-            phone_number=phone_number
-        )
+            # ================= PHONE NORMALIZATION =================
+            if phone_number:
+                phone_number = phone_number.replace(' ', '').replace('-', '')
+                if phone_number.startswith('0') and len(phone_number) == 10:
+                    phone_number = '+255' + phone_number[1:]
+                elif phone_number.startswith(('6', '7')) and len(phone_number) == 9:
+                    phone_number = '+255' + phone_number
+                elif not phone_number.startswith('+'):
+                    phone_number = '+255' + phone_number
 
-        # ===== CREATE TEACHER PROFILE =====
-        TeacherProfile.objects.create(
-            user=user,
-            classroom=classroom,
-            stream=stream
-        )
-
-        # ===== SEND EMAIL =====
-        try:
-            send_mail(
-                "Your Teacher Account Details",
-                f"Habari {first_name},\n\nAccount yako imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}\n\nTafadhali badilisha password yako mara ya kwanza kuingia.",
-                settings.DEFAULT_FROM_EMAIL,
-                [username],
-                fail_silently=False
+            # ================= CREATE USER =================
+            user = User.objects.create(
+                username=username,
+                email=username,
+                first_name=first_name,
+                last_name=last_name,
+                password=make_password(DEFAULT_PASSWORD),
+                role='teacher',
+                phone_number=phone_number
             )
-        except Exception as e:
-            print("Email send failed:", e)
 
-        # ===== SEND SMS =====
-        if phone_number:
+            # ================= TEACHER PROFILE =================
+            TeacherProfile.objects.create(
+                user=user,
+                classroom=classroom,
+                stream=stream
+            )
+
+            # ================= SEND SMS (PRIMARY) =================
+            if phone_number:
+                try:
+                    africastalking.initialize(
+                        username=settings.AFRICASTALKING_USERNAME,
+                        api_key=settings.AFRICASTALKING_API_KEY
+                    )
+                    sms = africastalking.SMS
+                    response = sms.send(
+                        message=(
+                            f"Habari {first_name}, account yako ya Teacher "
+                            f"imesajiliwa.\nUsername: {username}\n"
+                            f"Password: {DEFAULT_PASSWORD}"
+                        ),
+                        recipients=[phone_number]
+                    )
+                    logger.info(f"SMS sent successfully: {response}")
+                except Exception as sms_error:
+                    logger.error(f"SMS failed: {sms_error}")
+
+            # ================= SEND EMAIL (OPTIONAL) =================
             try:
-                africastalking.initialize(
-                    username=settings.AFRICASTALKING_USERNAME,
-                    api_key=settings.AFRICASTALKING_API_KEY
+                send_mail(
+                    "Your Teacher Account Details",
+                    (
+                        f"Habari {first_name},\n\n"
+                        f"Account yako imesajiliwa.\n"
+                        f"Username: {username}\n"
+                        f"Password: {DEFAULT_PASSWORD}\n\n"
+                        f"Tafadhali badilisha password mara ya kwanza kuingia."
+                    ),
+                    settings.DEFAULT_FROM_EMAIL,
+                    [username],
+                    fail_silently=True   # 🔥 IMPORTANT FOR RENDER
                 )
-                sms = africastalking.SMS
-                sms.send(
-                    message=f"Habari {first_name}, account yako ya Teacher imesajiliwa. Username: {username}, Password: {DEFAULT_PASSWORD}",
-                    recipients=[phone_number],
-                    sender_id="School_SMS"
-                )
-            except Exception as e:
-                print("SMS failed:", e)
+            except Exception as email_error:
+                logger.warning(f"Email failed: {email_error}")
 
-        # ===== AJAX RESPONSE =====
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'success': True})
+            # ================= RESPONSE =================
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
 
-        messages.success(request, f"Teacher {first_name} {last_name} registered successfully!")
-        return redirect('register_teacher')
+            messages.success(
+                request,
+                f"Teacher {first_name} {last_name} registered successfully!"
+            )
+            return redirect('register_teacher')
 
-    return render(request, 'attendance_app/register_teacher.html', {
-        'classrooms': classrooms,
-        'teachers': teachers,
-        'streams': streams
-    })
+        except Exception as e:
+            logger.critical(f"Register Teacher Error: {e}")
+            return JsonResponse(
+                {'success': False, 'error': 'Internal server error'},
+                status=500
+            )
+
+    return render(
+        request,
+        'attendance_app/register_teacher.html',
+        {
+            'classrooms': classrooms,
+            'teachers': teachers,
+            'streams': streams
+        }
+    )
+
 
 
 @never_cache
@@ -888,72 +932,89 @@ def delete_student(request, student_id):
 
 
 
-
-
+@never_cache
 def forgot_password(request):
     if request.method == "POST":
-        identifier = request.POST.get("identifier", "").strip()
+        try:
+            identifier = request.POST.get("identifier", "").strip()
 
-        # Find user by email OR phone number
-        user = (
-            User.objects.filter(email=identifier).first()
-            or User.objects.filter(phone_number=identifier).first()
-        )
+            if not identifier:
+                messages.error(request, "Enter email or phone number")
+                return redirect("forgot_password")
 
-        if not user:
-            messages.error(request, "User not found")
-            return redirect("forgot_password")
-
-        # Generate reset code
-        code = random.randint(100000, 999999)
-
-        # Store reset info in session
-        request.session["reset_code"] = str(code)
-        request.session["reset_user"] = user.id
-        request.session["reset_time"] = int(time.time())
-
-        # ================= EMAIL =================
-        if user.email:
-            try:
-                send_mail(
-                    subject="Password Reset Code",
-                    message=f"Your password reset code is {code}",
-                    from_email="school@system.com",
-                    recipient_list=[user.email],
-                    fail_silently=True,
-                )
-            except Exception as e:
-                print("Email error:", e)
-
-        # ================= SMS =================
-        if user.phone_number:
-            phone_number = user.phone_number.strip()
-
-            # Normalize Tanzanian phone number
-            if phone_number.startswith("0"):
-                phone_number = "+255" + phone_number[1:]
-            elif not phone_number.startswith("+"):
-                phone_number = "+255" + phone_number
-
-            sms_sent = send_sms(
-                phone_number,
-                f"Your password reset code is {code}"
+            # ================= FIND USER =================
+            user = (
+                User.objects.filter(email=identifier).first()
+                or User.objects.filter(phone_number=identifier).first()
             )
 
-            if not sms_sent:
-                print("SMS sending failed")
+            if not user:
+                messages.error(request, "User not found")
+                return redirect("forgot_password")
 
-        else:
-            print("No phone number found, SMS skipped")
+            # ================= GENERATE RESET CODE =================
+            code = random.randint(100000, 999999)
 
-        messages.success(
-            request,
-            "Reset code sent via Email and SMS (if available)"
-        )
-        return redirect("verify_reset")
+            request.session["reset_code"] = str(code)
+            request.session["reset_user"] = user.id
+            request.session["reset_time"] = int(time.time())
 
-    # GET request
+            # ================= SEND SMS (PRIMARY) =================
+            if user.phone_number:
+                phone = user.phone_number.strip()
+
+                # Normalize Tanzania number
+                if phone.startswith("0") and len(phone) == 10:
+                    phone = "+255" + phone[1:]
+                elif phone.startswith(("6", "7")) and len(phone) == 9:
+                    phone = "+255" + phone
+                elif not phone.startswith("+"):
+                    phone = "+255" + phone
+
+                try:
+                    sms_sent = send_sms(
+                        phone,
+                        f"Namba ya kurejesha password ni {code}"
+                    )
+
+                    if sms_sent:
+                        logger.info(f"Password reset SMS sent to {phone}")
+                    else:
+                        logger.warning("SMS sending failed")
+
+                except Exception as sms_error:
+                    logger.error(f"SMS error: {sms_error}")
+            else:
+                logger.warning("No phone number, SMS skipped")
+
+            # ================= SEND EMAIL (OPTIONAL) =================
+            if user.email:
+                try:
+                    send_mail(
+                        subject="Password Reset Code",
+                        message=f"Your password reset code is {code}",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        fail_silently=True  # 🔥 muhimu kwa Render
+                    )
+                    logger.info(f"Password reset email sent to {user.email}")
+                except Exception as email_error:
+                    logger.warning(f"Email error: {email_error}")
+
+            messages.success(
+                request,
+                "Reset code sent via SMS and Email (if available)"
+            )
+            return redirect("verify_reset")
+
+        except Exception as e:
+            logger.critical(f"Forgot password error: {e}")
+            messages.error(request, "Something went wrong. Try again.")
+            return redirect("forgot_password")
+
+    # ================= GET REQUEST =================
     return render(request, "attendance_app/forgot_password.html")
+
 
 
 

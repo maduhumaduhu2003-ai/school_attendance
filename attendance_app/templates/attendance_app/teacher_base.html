@@ -209,6 +209,7 @@ body {
 </head>
 <body>
 
+<!-- TOGGLE & OVERLAY -->
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
 
@@ -231,11 +232,9 @@ body {
         <a href="{% url 'my_students' %}" class="nav-link {% if request.resolver_match.url_name == 'my_students' %}active{% endif %}">
             <i class="bi bi-people"></i> My Students
         </a>
-        <a href="{% url 'register_student' %}"
-            class="nav-link {% if request.resolver_match.url_name == 'register_student' %}active{% endif %}">
-                <i class="bi bi-person-plus-fill"></i> Register Student
+        <a href="{% url 'register_student' %}" class="nav-link {% if request.resolver_match.url_name == 'register_student' %}active{% endif %}">
+            <i class="bi bi-person-plus-fill"></i> Register Student
         </a>
-
         <a href="{% url 'teacher_sms_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_sms_logs' %}active{% endif %}">
             <i class="bi bi-chat-dots"></i> SMS Logs
         </a>
@@ -263,33 +262,13 @@ body {
             <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
         </div>
 
-        <!-- ✅ FIXED PROFILE SECTION -->
         <div class="profile-section dropdown">
-            <span class="profile-name">
-                {{ request.user.get_full_name|default:request.user.username }}
-            </span>
-
-            {% if request.user.teacherprofile.profile_picture %}
-                <img src="{{ request.user.teacherprofile.profile_picture.url }}"
-                     class="profile-img dropdown-toggle"
-                     data-bs-toggle="dropdown">
-            {% else %}
-                <img src="{% static 'img/default-avatar.png' %}"
-                     class="profile-img dropdown-toggle"
-                     data-bs-toggle="dropdown">
-            {% endif %}
-
+            <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+            <img src="{% if request.user.teacherprofile.profile_picture %}{{ request.user.teacherprofile.profile_picture.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
             <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                    <a class="dropdown-item" href="{% url 'teacher_profile_view' %}">My Profile</a>
-                </li>
+                <li><a class="dropdown-item" href="{% url 'teacher_profile_view' %}">My Profile</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li>
-                    <a class="dropdown-item text-danger"
-                       href="#"
-                       data-bs-toggle="modal"
-                       data-bs-target="#logoutModal">Logout</a>
-                </li>
+                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
             </ul>
         </div>
     </div>
@@ -319,6 +298,15 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('show');
     document.getElementById('overlay').classList.toggle('show');
 }
+
+// Auto-close sidebar on mobile when nav link or logout clicked
+document.querySelectorAll('.sidebar .nav-link, .logout-link').forEach(link => {
+    link.addEventListener('click', () => {
+        if(window.innerWidth < 992) {
+            toggleSidebar();
+        }
+    });
+});
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
