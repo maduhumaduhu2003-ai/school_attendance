@@ -293,59 +293,58 @@ def register_teacher(request):
     teachers = paginator.get_page(page_number)
 
     if request.method == 'POST':
+        username = request.POST.get('username', '').strip()  # email
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
+        classroom_id = request.POST.get('classroom')
+        stream_id = request.POST.get('stream')
+
+        # ================= EMAIL VALIDATION =================
+        if not username or '@' not in username:
+            messages.error(request, "Please enter a valid email for username.")
+            return redirect('register_teacher')
+
+        # ================= CLASSROOM =================
         try:
-            username = request.POST.get('username', '').strip()  # email
-            first_name = request.POST.get('first_name', '').strip()
-            last_name = request.POST.get('last_name', '').strip()
-            phone_number = request.POST.get('phone_number', '').strip()
-            classroom_id = request.POST.get('classroom')
-            stream_id = request.POST.get('stream')
+            classroom = Classroom.objects.get(id=classroom_id)
+        except Classroom.DoesNotExist:
+            messages.error(request, "Selected classroom does not exist.")
+            return redirect('register_teacher')
 
-            # ================= EMAIL VALIDATION =================
-            if not username or '@' not in username:
-                messages.error(request, "Please enter a valid email for username.")
-                return redirect('register_teacher')
-
-            # ================= CLASSROOM =================
+        # ================= STREAM & AVAILABILITY =================
+        stream = None
+        if stream_id:
             try:
-                classroom = Classroom.objects.get(id=classroom_id)
-            except Classroom.DoesNotExist:
-                messages.error(request, "Selected classroom does not exist.")
-                return redirect('register_teacher')
-
-            # ================= STREAM & AVAILABILITY =================
-            stream = None
-            if stream_id:
-                try:
-                    stream = Stream.objects.get(id=stream_id, classroom=classroom)
-                    # Pre-check: ensure no teacher is assigned already
-                    if TeacherProfile.objects.filter(stream=stream).exists():
-                        messages.warning(
-                            request,
-                            f"Stream '{stream.name}' in classroom '{classroom.name}' already has a teacher assigned. "
-                            "Please choose another stream."
-                        )
-                        return redirect('register_teacher')
-                except Stream.DoesNotExist:
-                    messages.error(request, "Selected stream does not exist.")
+                stream = Stream.objects.get(id=stream_id, classroom=classroom)
+                if TeacherProfile.objects.filter(stream=stream).exists():
+                    messages.warning(
+                        request,
+                        f"Stream '{stream.name}' in classroom '{classroom.name}' already has a teacher assigned. "
+                        "Please choose another stream."
+                    )
                     return redirect('register_teacher')
-
-            # ================= USER EXISTS =================
-            if User.objects.filter(username=username).exists():
-                messages.error(request, "Username already exists. Try a different email.")
+            except Stream.DoesNotExist:
+                messages.error(request, "Selected stream does not exist.")
                 return redirect('register_teacher')
 
-            # ================= PHONE NORMALIZATION =================
-            if phone_number:
-                phone_number = phone_number.replace(' ', '').replace('-', '')
-                if phone_number.startswith('0') and len(phone_number) == 10:
-                    phone_number = '+255' + phone_number[1:]
-                elif phone_number.startswith(('6', '7')) and len(phone_number) == 9:
-                    phone_number = '+255' + phone_number
-                elif not phone_number.startswith('+'):
-                    phone_number = '+255' + phone_number
+        # ================= USER EXISTS =================
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "Username already exists. Try a different email.")
+            return redirect('register_teacher')
 
-            # ================= CREATE USER =================
+        # ================= PHONE NORMALIZATION =================
+        if phone_number:
+            phone_number = phone_number.replace(' ', '').replace('-', '')
+            if phone_number.startswith('0') and len(phone_number) == 10:
+                phone_number = '+255' + phone_number[1:]
+            elif phone_number.startswith(('6', '7')) and len(phone_number) == 9:
+                phone_number = '+255' + phone_number
+            elif not phone_number.startswith('+'):
+                phone_number = '+255' + phone_number
+
+        # ================= CREATE USER =================
+        try:
             user = User.objects.create(
                 username=username,
                 email=username,
@@ -363,52 +362,50 @@ def register_teacher(request):
                 stream=stream
             )
 
-            # ================= SEND SMS =================
-            if phone_number:
-                try:
-                    africastalking.initialize(
-                        username=settings.AFRICASTALKING_USERNAME,
-                        api_key=settings.AFRICASTALKING_API_KEY
-                    )
-                    sms = africastalking.SMS
-                    response = sms.send(
-                        message=(
-                            f"Habari {first_name}, account yako ya Teacher "
-                            f"imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}"
-                        ),
-                        recipients=[phone_number],
-                        sender_id='School_SMS'
-                        
-                    )
-                    logger.info(f"SMS sent successfully: {response}")
-                except Exception as sms_error:
-                    logger.error(f"SMS failed: {sms_error}")
+        except IntegrityError as e:
+            logger.error(f"Database error while creating teacher: {e}")
+            messages.error(request, "Could not register teacher due to database error.")
+            return redirect('register_teacher')
 
-            # ================= SEND EMAIL =================
+        # ================= SEND SMS =================
+        if phone_number:
             try:
-                from django.core.mail import send_mail
-                send_mail(
-                    "Your Teacher Account Details",
-                    (
-                        f"Habari {first_name},\n\n"
-                        f"Account yako imesajiliwa.\n"
-                        f"Username: {username}\nPassword: {DEFAULT_PASSWORD}\n\n"
-                        f"Tafadhali badilisha password mara ya kwanza kuingia."
-                    ),
-                    settings.DEFAULT_FROM_EMAIL,
-                    [username],
-                    fail_silently=True
+                africastalking.initialize(
+                    username=settings.AFRICASTALKING_USERNAME,
+                    api_key=settings.AFRICASTALKING_API_KEY
                 )
-            except Exception as email_error:
-                logger.warning(f"Email failed: {email_error}")
+                sms = africastalking.SMS
+                sms.send(
+                    message=(
+                        f"Habari {first_name}, account yako ya Teacher "
+                        f"imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}"
+                    ),
+                    recipients=[phone_number],
+                    sender_id='School_SMS'
+                )
+            except Exception as sms_error:
+                logger.error(f"SMS failed: {sms_error}")
 
-            messages.success(request, f"Teacher {first_name} {last_name} registered successfully!")
-            return redirect('register_teacher')
+        # ================= SEND EMAIL (FAIL-SAFE) =================
+        try:
+            from django.core.mail import send_mail
+            send_mail(
+                "Your Teacher Account Details",
+                (
+                    f"Habari {first_name},\n\n"
+                    f"Account yako imesajiliwa.\n"
+                    f"Username: {username}\nPassword: {DEFAULT_PASSWORD}\n\n"
+                    f"Tafadhali badilisha password mara ya kwanza kuingia."
+                ),
+                settings.DEFAULT_FROM_EMAIL,
+                [username],
+                fail_silently=True  # fail_silently ensures email failure does not break flow
+            )
+        except Exception as email_error:
+            logger.warning(f"Email failed but registration continued: {email_error}")
 
-        except Exception as e:
-            logger.critical(f"Register Teacher Error: {e}")
-            messages.error(request, "Internal server error occurred while registering teacher.")
-            return redirect('register_teacher')
+        messages.success(request, f"Teacher {first_name} {last_name} registered successfully!")
+        return redirect('register_teacher')
 
     return render(
         request,
@@ -418,7 +415,6 @@ def register_teacher(request):
             'teachers': teachers
         }
     )
-
 
 
 
