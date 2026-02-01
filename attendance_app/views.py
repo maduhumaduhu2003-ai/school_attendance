@@ -265,18 +265,8 @@ def admin_dashboard(request):
 
     return render(request, 'attendance_app/admin_dashboard.html', context)
 
-from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
-from django.contrib import messages
-from django.contrib.auth.hashers import make_password
-from django.db import IntegrityError
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core.paginator import Paginator
-from django.conf import settings
-import africastalking
-import logging
 
-logger = logging.getLogger(__name__)
+
 
 DEFAULT_PASSWORD = "Teacher@123"
 
@@ -285,8 +275,7 @@ DEFAULT_PASSWORD = "Teacher@123"
 @user_passes_test(lambda u: u.role == 'admin')
 def register_teacher(request):
     classrooms = Classroom.objects.all()
-    
-    # Pagination: only 25 teachers per page
+
     teacher_list = TeacherProfile.objects.select_related('user', 'classroom', 'stream').all().order_by('user__first_name')
     paginator = Paginator(teacher_list, 25)
     page_number = request.GET.get('page')
@@ -312,7 +301,7 @@ def register_teacher(request):
             messages.error(request, "Selected classroom does not exist.")
             return redirect('register_teacher')
 
-        # ================= STREAM & AVAILABILITY =================
+        # ================= STREAM =================
         stream = None
         if stream_id:
             try:
@@ -320,8 +309,7 @@ def register_teacher(request):
                 if TeacherProfile.objects.filter(stream=stream).exists():
                     messages.warning(
                         request,
-                        f"Stream '{stream.name}' in classroom '{classroom.name}' already has a teacher assigned. "
-                        "Please choose another stream."
+                        f"Stream '{stream.name}' in classroom '{classroom.name}' already has a teacher assigned."
                     )
                     return redirect('register_teacher')
             except Stream.DoesNotExist:
@@ -343,7 +331,8 @@ def register_teacher(request):
             elif not phone_number.startswith('+'):
                 phone_number = '+255' + phone_number
 
-        # ================= CREATE USER =================
+        # ================= CREATE USER & TEACHER =================
+        user = None
         try:
             user = User.objects.create(
                 username=username,
@@ -354,17 +343,14 @@ def register_teacher(request):
                 role='teacher',
                 phone_number=phone_number
             )
-
-            # ================= CREATE TEACHER PROFILE =================
-            TeacherProfile.objects.create(
-                user=user,
-                classroom=classroom,
-                stream=stream
-            )
-
-        except IntegrityError as e:
-            logger.error(f"Database error while creating teacher: {e}")
+            TeacherProfile.objects.create(user=user, classroom=classroom, stream=stream)
+        except IntegrityError as db_error:
+            logger.error(f"Database error while creating teacher: {db_error}")
             messages.error(request, "Could not register teacher due to database error.")
+            return redirect('register_teacher')
+        except Exception as general_error:
+            logger.error(f"Unexpected error while creating teacher: {general_error}")
+            messages.error(request, "Unexpected error occurred during registration.")
             return redirect('register_teacher')
 
         # ================= SEND SMS =================
@@ -384,9 +370,9 @@ def register_teacher(request):
                     sender_id='School_SMS'
                 )
             except Exception as sms_error:
-                logger.error(f"SMS failed: {sms_error}")
+                logger.warning(f"SMS failed but registration continued: {sms_error}")
 
-        # ================= SEND EMAIL (FAIL-SAFE) =================
+        # ================= SEND EMAIL =================
         try:
             from django.core.mail import send_mail
             send_mail(
@@ -399,7 +385,7 @@ def register_teacher(request):
                 ),
                 settings.DEFAULT_FROM_EMAIL,
                 [username],
-                fail_silently=True  # fail_silently ensures email failure does not break flow
+                fail_silently=True
             )
         except Exception as email_error:
             logger.warning(f"Email failed but registration continued: {email_error}")
@@ -415,7 +401,6 @@ def register_teacher(request):
             'teachers': teachers
         }
     )
-
 
 
 
