@@ -265,25 +265,36 @@ def admin_dashboard(request):
 
     return render(request, 'attendance_app/admin_dashboard.html', context)
 
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from django.contrib.auth.hashers import make_password
+from django.db import IntegrityError
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.paginator import Paginator
+from django.conf import settings
+import africastalking
+import logging
 
+logger = logging.getLogger(__name__)
 
+DEFAULT_PASSWORD = "Teacher@123"
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def register_teacher(request):
-    teachers = TeacherProfile.objects.select_related(
-        'user', 'classroom', 'stream'
-    ).all()
-
     classrooms = Classroom.objects.all()
-    streams = Stream.objects.all()
-
-    DEFAULT_PASSWORD = "Teacher@123"
+    
+    # Pagination: only 25 teachers per page
+    teacher_list = TeacherProfile.objects.select_related('user', 'classroom', 'stream').all().order_by('user__first_name')
+    paginator = Paginator(teacher_list, 25)
+    page_number = request.GET.get('page')
+    teachers = paginator.get_page(page_number)
 
     if request.method == 'POST':
         try:
-            username = request.POST.get('username', '').strip()   # email
+            username = request.POST.get('username', '').strip()  # email
             first_name = request.POST.get('first_name', '').strip()
             last_name = request.POST.get('last_name', '').strip()
             phone_number = request.POST.get('phone_number', '').strip()
@@ -292,39 +303,37 @@ def register_teacher(request):
 
             # ================= EMAIL VALIDATION =================
             if not username or '@' not in username:
-                return JsonResponse(
-                    {'success': False, 'error': 'Username must be a valid email'},
-                    status=400
-                )
+                messages.error(request, "Please enter a valid email for username.")
+                return redirect('register_teacher')
 
             # ================= CLASSROOM =================
             try:
                 classroom = Classroom.objects.get(id=classroom_id)
             except Classroom.DoesNotExist:
-                return JsonResponse(
-                    {'success': False, 'error': 'Selected classroom does not exist'},
-                    status=400
-                )
+                messages.error(request, "Selected classroom does not exist.")
+                return redirect('register_teacher')
 
-            # ================= STREAM =================
+            # ================= STREAM & AVAILABILITY =================
             stream = None
             if stream_id:
                 try:
-                    stream = Stream.objects.get(
-                        id=stream_id, classroom=classroom
-                    )
+                    stream = Stream.objects.get(id=stream_id, classroom=classroom)
+                    # Pre-check: ensure no teacher is assigned already
+                    if TeacherProfile.objects.filter(stream=stream).exists():
+                        messages.warning(
+                            request,
+                            f"Stream '{stream.name}' in classroom '{classroom.name}' already has a teacher assigned. "
+                            "Please choose another stream."
+                        )
+                        return redirect('register_teacher')
                 except Stream.DoesNotExist:
-                    return JsonResponse(
-                        {'success': False, 'error': 'Selected stream does not exist'},
-                        status=400
-                    )
+                    messages.error(request, "Selected stream does not exist.")
+                    return redirect('register_teacher')
 
             # ================= USER EXISTS =================
             if User.objects.filter(username=username).exists():
-                return JsonResponse(
-                    {'success': False, 'error': 'Username already exists'},
-                    status=400
-                )
+                messages.error(request, "Username already exists. Try a different email.")
+                return redirect('register_teacher')
 
             # ================= PHONE NORMALIZATION =================
             if phone_number:
@@ -347,14 +356,14 @@ def register_teacher(request):
                 phone_number=phone_number
             )
 
-            # ================= TEACHER PROFILE =================
+            # ================= CREATE TEACHER PROFILE =================
             TeacherProfile.objects.create(
                 user=user,
                 classroom=classroom,
                 stream=stream
             )
 
-            # ================= SEND SMS (PRIMARY) =================
+            # ================= SEND SMS =================
             if phone_number:
                 try:
                     africastalking.initialize(
@@ -365,59 +374,52 @@ def register_teacher(request):
                     response = sms.send(
                         message=(
                             f"Habari {first_name}, account yako ya Teacher "
-                            f"imesajiliwa.\nUsername: {username}\n"
-                            f"Password: {DEFAULT_PASSWORD}"
+                            f"imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}"
                         ),
-                        recipients=[phone_number]
+                        recipients=[phone_number],
+                        sender_id='School_SMS'
+                        
                     )
                     logger.info(f"SMS sent successfully: {response}")
                 except Exception as sms_error:
                     logger.error(f"SMS failed: {sms_error}")
 
-            # ================= SEND EMAIL (OPTIONAL) =================
+            # ================= SEND EMAIL =================
             try:
+                from django.core.mail import send_mail
                 send_mail(
                     "Your Teacher Account Details",
                     (
                         f"Habari {first_name},\n\n"
                         f"Account yako imesajiliwa.\n"
-                        f"Username: {username}\n"
-                        f"Password: {DEFAULT_PASSWORD}\n\n"
+                        f"Username: {username}\nPassword: {DEFAULT_PASSWORD}\n\n"
                         f"Tafadhali badilisha password mara ya kwanza kuingia."
                     ),
                     settings.DEFAULT_FROM_EMAIL,
                     [username],
-                    fail_silently=True   # 🔥 IMPORTANT FOR RENDER
+                    fail_silently=True
                 )
             except Exception as email_error:
                 logger.warning(f"Email failed: {email_error}")
 
-            # ================= RESPONSE =================
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': True})
-
-            messages.success(
-                request,
-                f"Teacher {first_name} {last_name} registered successfully!"
-            )
+            messages.success(request, f"Teacher {first_name} {last_name} registered successfully!")
             return redirect('register_teacher')
 
         except Exception as e:
             logger.critical(f"Register Teacher Error: {e}")
-            return JsonResponse(
-                {'success': False, 'error': 'Internal server error'},
-                status=500
-            )
+            messages.error(request, "Internal server error occurred while registering teacher.")
+            return redirect('register_teacher')
 
     return render(
         request,
         'attendance_app/register_teacher.html',
         {
             'classrooms': classrooms,
-            'teachers': teachers,
-            'streams': streams
+            'teachers': teachers
         }
     )
+
+
 
 
 
@@ -474,55 +476,67 @@ def teacher_dashboard(request):
 
 
 
+
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def register_student(request):
+
     classroom = None
     stream = None
 
-    # ===============================
-    # GET TEACHER CLASSROOM & STREAM
-    # ===============================
+    # =========================================
+    # GET TEACHER CLASSROOM & STREAM (FIXED)
+    # =========================================
     if request.user.role == 'teacher':
         teacher = request.user.teacherprofile
         classroom = teacher.classroom
+        stream = teacher.stream   
 
-        if not classroom:
-            messages.error(request, "You are not assigned to any classroom.")
+        if not classroom or not stream:
+            messages.error(
+                request,
+                "You are not properly assigned to a classroom and stream."
+            )
             return redirect('teacher_dashboard')
 
-        # Automatic stream assignment (first available stream of classroom)
-        stream = Stream.objects.filter(classroom=classroom).first()
-
-    # ===============================
+    # =========================================
     # FETCH ACADEMIC YEARS
-    # ===============================
+    # =========================================
     active_year = AcademicYear.objects.filter(is_active=True).first()
     academic_years = AcademicYear.objects.all()
 
     if request.method == 'POST':
+
         # ===== STUDENT DATA =====
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
         gender = request.POST.get('gender')
         password = request.POST.get('password') or "Student@123"
         admission_number = request.POST.get('admission_number')
+
         academic_year_id = request.POST.get('academic_year')
         academic_year_obj = AcademicYear.objects.filter(
             id=academic_year_id
         ).first() if academic_year_id else active_year
 
-        # For admin: classroom and stream from POST
+        # =====================================
+        # ADMIN SELECTS CLASSROOM & STREAM
+        # =====================================
         if request.user.role == 'admin':
             classroom_id = request.POST.get('classroom')
-            if not classroom_id:
-                messages.error(request, "Please select a classroom.")
-                return redirect('register_student')
-            classroom = get_object_or_404(Classroom, id=classroom_id)
-
             stream_id = request.POST.get('stream')
-            stream = Stream.objects.filter(id=stream_id).first() if stream_id else None
+
+            if not classroom_id or not stream_id:
+                messages.error(
+                    request,
+                    "Please select both classroom and stream."
+                )
+                return redirect('register_student')
+
+            classroom = get_object_or_404(Classroom, id=classroom_id)
+            stream = get_object_or_404(Stream, id=stream_id, classroom=classroom)
 
         # ===== PARENT DATA =====
         parent_full_name = request.POST.get('parent_full_name')
@@ -530,6 +544,7 @@ def register_student(request):
 
         # ===== FORMAT PHONE =====
         parent_phone = parent_phone.replace(' ', '').replace('-', '')
+
         if parent_phone.startswith('0') and len(parent_phone) == 10:
             parent_phone = '+255' + parent_phone[1:]
         elif parent_phone.startswith(('6', '7')) and len(parent_phone) == 9:
@@ -544,9 +559,9 @@ def register_student(request):
             messages.error(request, "Admission number already exists.")
             return redirect('register_student')
 
-        # ===============================
+        # =====================================
         # CREATE STUDENT USER & PROFILE
-        # ===============================
+        # =====================================
         student_user = User.objects.create(
             username=admission_number,
             first_name=first_name,
@@ -564,9 +579,9 @@ def register_student(request):
             academic_year=academic_year_obj
         )
 
-        # ===============================
+        # =====================================
         # CREATE PARENT USER & PROFILE
-        # ===============================
+        # =====================================
         parent_names = parent_full_name.split(" ", 1)
         parent_first = parent_names[0]
         parent_last = parent_names[1] if len(parent_names) > 1 else ""
@@ -588,16 +603,19 @@ def register_student(request):
 
         messages.success(
             request,
-            f"Student {first_name} {last_name} registered in {classroom.name}"
+            f"Student {first_name} {last_name} registered in "
+            f"{classroom.name} - {stream.name}"
         )
 
         return redirect('register_student')
 
-    # ===============================
+  
     # LISTING STUDENTS
-    # ===============================
     if request.user.role == 'teacher':
-        students = StudentProfile.objects.filter(classroom=classroom)
+        students = StudentProfile.objects.filter(
+            classroom=classroom,
+            stream=stream
+        )
         template = 'attendance_app/register_student_teacher.html'
     else:
         students = StudentProfile.objects.all()
@@ -879,7 +897,7 @@ def delete_teacher(request, teacher_id):
     # If admin deleted their own account, log them out
     if request.user == user_to_delete:
         logout(request)
-        return redirect('login')  # or redirect to 'register_teacher' if you prefer
+        return redirect('login')  
 
     return redirect('register_teacher')
 
@@ -921,10 +939,10 @@ def delete_student(request, student_id):
     # Delete parents first
     parents = ParentProfile.objects.filter(student=student)
     for parent in parents:
-        parent.user.delete()  # deletes parent & profile
+        parent.user.delete()  
 
     # Delete student (user + profile)
-    student.user.delete()  # deletes StudentProfile automatically
+    student.user.delete()  
 
     messages.success(request, "Student and associated parent(s) deleted successfully.")
     return redirect('register_student')
@@ -995,7 +1013,7 @@ def forgot_password(request):
                         message=f"Your password reset code is {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[user.email],
-                        fail_silently=True  # 🔥 muhimu kwa Render
+                        fail_silently=True  
                     )
                     logger.info(f"Password reset email sent to {user.email}")
                 except Exception as email_error:
@@ -1136,17 +1154,27 @@ def send_absent_sms(student):
             status='failed'
         )
 
-
-
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def mark_attendance(request):
+
     teacher = get_object_or_404(TeacherProfile, user=request.user)
     classroom = teacher.classroom
+    stream = teacher.stream
 
+    if not classroom or not stream:
+        messages.error(
+            request,
+            "You are not assigned to a classroom or stream."
+        )
+        return redirect('teacher_dashboard')
+
+    # 🔥 FILTER BY CLASSROOM + STREAM
     students_list = StudentProfile.objects.filter(
-        classroom=classroom
+        classroom=classroom,
+        stream=stream,
+        status='Active'
     ).order_by('admission_number')
 
     paginator = Paginator(students_list, 25)
@@ -1156,7 +1184,7 @@ def mark_attendance(request):
     if request.method == "POST":
         today = timezone.now().date()
 
-        for student in students:  #PAGINATED LOOP
+        for student in students:  # PAGINATED LOOP
             status = request.POST.get(
                 f'attendance_{student.id}', 'present'
             )
@@ -1170,6 +1198,7 @@ def mark_attendance(request):
                 }
             )
 
+            # ===== ABSENT SMS LOGIC =====
             if status == 'absent':
                 start = timezone.now().replace(
                     hour=0, minute=0, second=0, microsecond=0
@@ -1191,27 +1220,43 @@ def mark_attendance(request):
     return render(request, 'attendance_app/mark_attendance.html', {
         'students': students,
         'classroom': classroom,
+        'stream': stream,
         'teacher': teacher,
     })
+
 
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def teacher_sms_logs(request):
+
     teacher = get_object_or_404(TeacherProfile, user=request.user)
     classroom = teacher.classroom
+    stream = teacher.stream
+
+    if not classroom or not stream:
+        messages.error(
+            request,
+            "You are not assigned to a classroom or stream."
+        )
+        return redirect('teacher_dashboard')
 
     logs = SMSLog.objects.filter(
-        student__classroom=classroom
+        student__classroom=classroom,
+        student__stream=stream,
+        student__attendances__marked_by=teacher
     ).select_related(
         'student', 'parent'
-    ).order_by('-timestamp')
+    ).distinct().order_by('-timestamp')
 
-    return render (request, 'attendance_app/teacher_sms_logs.html', {
+    return render(request, 'attendance_app/teacher_sms_logs.html', {
         'logs': logs,
         'teacher': teacher,
+        'classroom': classroom,
+        'stream': stream,
     })
+
 
 
 @never_cache
@@ -1239,42 +1284,48 @@ def delete_sms_log(request, sms_id):
 
 
 
+
+
 @never_cache
 @login_required
 def view_attendance(request):
     teacher = get_object_or_404(TeacherProfile, user=request.user)
     classroom = teacher.classroom
-    stream = teacher.stream
+    stream = teacher.stream  # stream ya mwalimu
 
-    # Get selected date
+    # =================== DATE FILTER ===================
     raw_date = request.GET.get("date")
     page_number = request.GET.get("page")
+
     try:
-        if raw_date:
-            selected_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
-        else:
-            selected_date = now().date()
+        selected_date = (
+            datetime.strptime(raw_date, "%Y-%m-%d").date()
+            if raw_date else now().date()
+        )
     except ValueError:
         selected_date = now().date()
 
-    # Base queryset
-    attendance_qs = Attendance.objects.filter(
-        student__classroom=classroom,
-        date=selected_date
-    ).select_related("student", "student__user")
+    # =================== BASE STUDENTS QUERYSET ===================
+    students_qs = StudentProfile.objects.filter(classroom=classroom)
 
     if stream:
-        attendance_qs = attendance_qs.filter(student__stream=stream)
+        students_qs = students_qs.filter(stream=stream)
 
-    attendance_qs = attendance_qs.order_by("student__user__first_name")
+    # =================== ATTENDANCE QUERYSET ===================
+    attendance_qs = Attendance.objects.filter(
+        student__in=students_qs,
+        date=selected_date
+    ).select_related("student", "student__user").order_by(
+        "student__user__first_name"
+    )
 
-    # Pagination
+    # =================== PAGINATION ===================
     paginator = Paginator(attendance_qs, 25)
     attendance_records = paginator.get_page(page_number)
 
     # =================== TOTAL SUMMARY ===================
-    students_count = StudentProfile.objects.filter(classroom=classroom).count()
-    
+    students_count = students_qs.count()
+
     total_present = attendance_qs.filter(status='present').count()
     total_absent = attendance_qs.filter(status='absent').count()
     total_sick = attendance_qs.filter(status='sick').count()
@@ -1285,8 +1336,8 @@ def view_attendance(request):
     sick_percentage = round((total_sick / total_records) * 100, 2) if total_records else 0
 
     # =================== SUMMARY BY GENDER ===================
-    male_students = StudentProfile.objects.filter(classroom=classroom, user__gender='male')
-    female_students = StudentProfile.objects.filter(classroom=classroom, user__gender='female')
+    male_students = students_qs.filter(user__gender='male')
+    female_students = students_qs.filter(user__gender='female')
 
     male_count = male_students.count()
     female_count = female_students.count()
@@ -1294,6 +1345,7 @@ def view_attendance(request):
     male_present = attendance_qs.filter(student__in=male_students, status='present').count()
     male_absent = attendance_qs.filter(student__in=male_students, status='absent').count()
     male_sick = attendance_qs.filter(student__in=male_students, status='sick').count()
+
     male_total_records = male_present + male_absent + male_sick
     male_present_pct = round((male_present / male_total_records) * 100, 2) if male_total_records else 0
     male_absent_pct = round((male_absent / male_total_records) * 100, 2) if male_total_records else 0
@@ -1302,16 +1354,20 @@ def view_attendance(request):
     female_present = attendance_qs.filter(student__in=female_students, status='present').count()
     female_absent = attendance_qs.filter(student__in=female_students, status='absent').count()
     female_sick = attendance_qs.filter(student__in=female_students, status='sick').count()
+
     female_total_records = female_present + female_absent + female_sick
     female_present_pct = round((female_present / female_total_records) * 100, 2) if female_total_records else 0
     female_absent_pct = round((female_absent / female_total_records) * 100, 2) if female_total_records else 0
     female_sick_pct = round((female_sick / female_total_records) * 100, 2) if female_total_records else 0
 
+    # =================== CONTEXT ===================
     context = {
         "classroom": classroom,
-        "attendance_records": attendance_records,
+        "stream": stream,
         "teacher": teacher,
+        "attendance_records": attendance_records,
         "selected_date": selected_date.strftime("%Y-%m-%d"),
+        "today": now().date(),
 
         # Total summary
         "students_count": students_count,
@@ -1338,10 +1394,11 @@ def view_attendance(request):
         "female_present_pct": female_present_pct,
         "female_absent_pct": female_absent_pct,
         "female_sick_pct": female_sick_pct,
-         "today": now().date(),
     }
 
     return render(request, "attendance_app/view_attendance.html", context)
+
+
 
 @login_required
 def attendance_export_pdf(request):
@@ -1811,61 +1868,52 @@ def resend_sms(request, sms_id):
 
     return redirect('teacher_sms_logs')
 
-
 @never_cache
 @login_required
 def admin_profile(request):
-    # Get or create teacher profile
     profile, _ = TeacherProfile.objects.get_or_create(user=request.user)
 
-    # Get or create school settings
-    settings_obj, _ = SchoolSettings.objects.get_or_create(
-        id=1,
-        defaults={'school_name': 'My School'}
-    )
-
-    # Initialize forms
-    user_form = UserUpdateForm(
-        request.POST or None,
-        instance=request.user
-    )
-
+    # Forms
+    user_form = UserUpdateForm(request.POST or None, instance=request.user)
     profile_form = TeacherProfileForm(
-        data=request.POST or None,
-        files=request.FILES or None,
-        user=request.user,
-        instance=profile
+        request.POST or None,
+        request.FILES or None,
+        instance=profile,
+        user=request.user
     )
 
+    settings_obj, _ = SchoolSettings.objects.get_or_create(id=1)
     settings_form = SchoolSettingsForm(
         request.POST or None,
         request.FILES or None,
         instance=settings_obj
     )
 
-    # Handle POST
     if request.method == 'POST':
-        if user_form.is_valid() and profile_form.is_valid():
+        if user_form.is_valid() and profile_form.is_valid() and settings_form.is_valid():
             user_form.save()
             profile_form.save()
-            if settings_form.is_valid():
-                settings_form.save()
-
+            settings_form.save()
             messages.success(request, "Profile updated successfully!")
         else:
             messages.error(request, "Please fix the errors below.")
 
-    # Render template directly (no redirect) so toast can show
     context = {
         'user_form': user_form,
         'profile_form': profile_form,
         'settings_form': settings_form,
-        'profile': profile,
-
+        'profile': profile,  # for direct access in template
     }
     return render(request, 'attendance_app/admin_profile.html', context)
 
 
+
+from django.core.files.storage import default_storage
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+import os
 
 @never_cache
 @login_required
@@ -1875,22 +1923,23 @@ def school_settings(request):
 
     if request.method == 'POST':
         if form.is_valid():
-            # Delete old logo if a new one is uploaded
+            # Delete old logo safely
             if 'logo' in request.FILES and school_settings.logo:
-                if school_settings.logo.path and os.path.isfile(school_settings.logo.path):
-                    os.remove(school_settings.logo.path)
+                if default_storage.exists(school_settings.logo.name):
+                    default_storage.delete(school_settings.logo.name)
 
             form.save()
             messages.success(request, "School settings updated successfully")
             return redirect('school_settings')
         else:
             messages.error(request, "Failed to update school settings")
-            print(form.errors)  # For debugging
+            print(form.errors)  # debugging
 
     return render(request, 'attendance_app/admin_settings.html', {
         'form': form,
         'school_settings': school_settings,
     })
+
 
 
 

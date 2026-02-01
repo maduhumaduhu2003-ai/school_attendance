@@ -5,26 +5,27 @@
 {% block content %}
 <div class="container-fluid p-1">
 
-    <!-- ================= TOAST MESSAGES ================= -->
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="toast align-items-center text-white 
-                            {% if message.tags == 'success' %}bg-success
-                            {% elif message.tags == 'error' %}bg-danger
-                            {% else %}bg-info{% endif %} 
-                            border-0 mb-2" 
-                     role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            {{ message }}
-                        </div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
+
+   <!-- TOAST MESSAGES -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="toast align-items-center text-white 
+                        {% if message.tags == 'success' %}bg-primary  <!-- Blue for success -->
+                        {% elif message.tags == 'warning' %}bg-danger  <!-- Nyekundu for warning -->
+                        {% elif message.tags == 'error' %}bg-danger    <!-- Nyekundu for errors -->
+                        {% else %}bg-info{% endif %} 
+                        border-0 mb-2" 
+                 role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+                <div class="d-flex">
+                    <div class="toast-body">{{ message }}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
-            {% endfor %}
-        {% endif %}
-    </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+</div>
+
     <!-- =================================================== -->
 
     <div class="card shadow-sm">
@@ -57,8 +58,20 @@
                             <td data-label="No">{{ forloop.counter }}</td>
                             <td data-label="Username">{{ teacher.user.username }}</td>
                             <td data-label="Full Name">{{ teacher.user.get_full_name }}</td>
-                            <td data-label="Classroom">{% if teacher.classroom %}{{ teacher.classroom.name }}{% else %}<span class="text-danger">N/A</span>{% endif %}</td>
-                            <td data-label="Stream">{% if teacher.stream %}{{ teacher.stream.name }}{% else %}<span class="text-danger">N/A</span>{% endif %}</td>
+                            <td data-label="Classroom">
+                                {% if teacher.classroom %}
+                                    {{ teacher.classroom.name }}
+                                {% else %}
+                                    <span class="text-danger">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Stream">
+                                {% if teacher.stream %}
+                                    {{ teacher.stream.name }}
+                                {% else %}
+                                    <span class="text-danger">N/A</span>
+                                {% endif %}
+                            </td>
                             <td data-label="Actions">
                                 <div class="d-flex flex-wrap justify-content-center gap-1">
                                     <a href="{% url 'edit_teacher' teacher.id %}" class="btn btn-sm btn-warning action-btn">Edit</a>
@@ -79,14 +92,43 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
 
+                <!-- ================= PAGINATION ================= -->
+                {% if teachers.has_other_pages %}
+                    <nav class="mt-2">
+                        <ul class="pagination justify-content-center">
+                            {% if teachers.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ teachers.previous_page_number }}">&laquo; Previous</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">&laquo; Previous</span></li>
+                            {% endif %}
+                            {% for num in teachers.paginator.page_range %}
+                                {% if teachers.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% else %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if teachers.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ teachers.next_page_number }}">Next &raquo;</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+
+            </div>
         </div>
     </div>
 
 </div>
 
-<!-- MODAL: REGISTER TEACHER (GRID / TABLE-LIKE) -->
+<!-- MODAL: REGISTER TEACHER -->
 <div class="modal fade" id="registerTeacherModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-3">
@@ -149,8 +191,7 @@
 <div class="modal fade" id="deleteTeacherModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content p-3">
-      <form method="POST" id="deleteTeacherForm">
-        {% csrf_token %}
+      <form method="POST" id="deleteTeacherForm">{% csrf_token %}
         <div class="modal-header bg-danger text-white">
           <h5 class="modal-title">&#9888; Confirm Delete</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -167,39 +208,22 @@
   </div>
 </div>
 
-<!-- STYLES -->
+<!-- STYLES & MOBILE OPTIMIZATION -->
 <style>
 .card { border-radius: 1rem; }
 .large-table th { font-weight: 600; text-align: center; font-size: 1rem; }
 .large-table td { vertical-align: middle; font-size: 1rem; }
 .table-row-hover:hover { background-color: rgba(79, 70, 229, 0.08); }
-
-/* Buttons */
 .btn-primary { background-color: #4f46e5; color: white; border:none; }
 .btn-primary:hover { background-color: #4338ca; }
-
-/* Table container scrolling */
-.table-container {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
-}
-.table-container a, .table-container button { touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.05); }
-.large-table { min-width: 900px; }
-
-/* Mobile tweaks */
+.table-container { overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
 @media (max-width: 767px) {
     html { font-size: 17px; }
     .large-table th, .large-table td { font-size: 1rem; padding: 0.5rem; }
     .container-fluid { padding-left: 0; padding-right: 0; }
     .btn-sm { font-size: 0.8rem; padding: 0.35rem 0.6rem; }
 }
-
-/* Focus outlines */
-button:focus, a:focus, .form-control:focus {
-    outline: 3px solid rgba(79,70,229,0.12);
-    outline-offset: 2px;
-}
+button:focus, a:focus, .form-control:focus { outline: 3px solid rgba(79,70,229,0.12); outline-offset: 2px; }
 </style>
 
 {% block extra_js %}
@@ -212,9 +236,10 @@ document.addEventListener('DOMContentLoaded', function () {
         try { new bootstrap.Toast(toastEl).show(); } catch(e) {}
     });
 
-    // ===== Dynamic Streams =====
+    // ===== Dynamic Streams (only available streams) =====
     const classroomSelect = document.getElementById('classroom');
     const streamSelect = document.getElementById('stream');
+
     if (classroomSelect) {
         classroomSelect.addEventListener('change', function() {
             const classroomId = this.value;
@@ -224,11 +249,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 streamSelect.innerHTML = '<option value="">Select Stream</option>';
                 return;
             }
-            fetch(`/get-streams/${classroomId}/`)
+
+            // Fetch streams that are not assigned to any teacher
+            fetch(`/get-streams/${classroomId}/?available_only=1`)
                 .then(res => res.json())
                 .then(data => {
                     let options = '<option value="">Select Stream</option>';
-                    data.streams.forEach(s => { options += `<option value="${s.id}">${s.name}</option>`; });
+                    if (data.streams.length === 0) {
+                        options += '<option value="" disabled>No available streams</option>';
+                    } else {
+                        data.streams.forEach(s => { 
+                            options += `<option value="${s.id}">${s.name}</option>`; 
+                        });
+                    }
                     streamSelect.innerHTML = options;
                 })
                 .catch(err => {
@@ -253,5 +286,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
+
+
 {% endblock %}
 {% endblock %}
