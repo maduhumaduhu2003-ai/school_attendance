@@ -377,7 +377,7 @@ def register_teacher(request):
                 sms = africastalking.SMS
                 sms.send(
                     message=(
-                        f"Habari {first_name}, account yako ya Teacher "
+                        f"Habari {first_name}, account yako ya Mwalimu "
                         f"imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}"
                     ),
                     recipients=[phone_number],
