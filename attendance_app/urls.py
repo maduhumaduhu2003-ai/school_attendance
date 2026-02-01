@@ -35,7 +35,8 @@ urlpatterns = [
 
     path('logout/', views.logout_view, name='logout'),
     path('register-teacher/', views.register_teacher, name='register_teacher'),
-    path('edit_teacher/<int:id>/',views.edit_teacher, name='edit_teacher'),
+    #path('edit_teacher/<int:id>/',views.edit_teacher, name='edit_teacher'),
+    path('teachers/edit/<int:id>/', views.edit_teacher, name='edit_teacher'),
     path('delete_teacher/<int:id>/',views.delete_teacher, name='delete_teacher'),
     path('delete-teacher/<int:teacher_id>/', views.delete_teacher, name='delete_teacher'),
 
