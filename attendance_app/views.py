@@ -964,74 +964,85 @@ def delete_student(request, student_id):
 @never_cache
 def forgot_password(request):
     if request.method == "POST":
-        identifier = request.POST.get("identifier", "").strip()
+        try:
+            identifier = request.POST.get("identifier", "").strip()
 
-        if not identifier:
-            messages.error(request, "Enter email or phone number")
+            if not identifier:
+                messages.error(request, "Enter email or phone number")
+                return redirect("forgot_password")
+
+            # ================= FIND USER =================
+            user = (
+                User.objects.filter(email=identifier).first()
+                or User.objects.filter(phone_number=identifier).first()
+            )
+
+            if not user:
+                messages.error(request, "User not found")
+                return redirect("forgot_password")
+
+            # ================= GENERATE RESET CODE =================
+            code = random.randint(100000, 999999)
+
+            request.session["reset_code"] = str(code)
+            request.session["reset_user"] = user.id
+            request.session["reset_time"] = int(time.time())
+
+            # ================= SEND SMS (PRIMARY) =================
+            if user.phone_number:
+                phone = user.phone_number.strip()
+
+                # Normalize Tanzania number
+                if phone.startswith("0") and len(phone) == 10:
+                    phone = "+255" + phone[1:]
+                elif phone.startswith(("6", "7")) and len(phone) == 9:
+                    phone = "+255" + phone
+                elif not phone.startswith("+"):
+                    phone = "+255" + phone
+
+                try:
+                    sms_sent = send_sms(
+                        phone,
+                        f"Namba ya kurejesha password ni {code}"
+                    )
+
+                    if sms_sent:
+                        logger.info(f"Password reset SMS sent to {phone}")
+                    else:
+                        logger.warning("SMS sending failed")
+
+                except Exception as sms_error:
+                    logger.error(f"SMS error: {sms_error}")
+            else:
+                logger.warning("No phone number, SMS skipped")
+
+            # ================= SEND EMAIL (OPTIONAL) =================
+           # if user.email:
+            #    try:
+            #        send_mail(
+             #           subject="Password Reset Code",
+              #          message=f"Your password reset code is {code}",
+              #          from_email=settings.DEFAULT_FROM_EMAIL,
+               #         recipient_list=[user.email],
+                #        fail_silently=True  
+               #     )
+               #     logger.info(f"Password reset email sent to {user.email}")
+               # except Exception as email_error:
+               #     logger.warning(f"Email error: {email_error}")
+
+          #  messages.success(
+             #   request,
+           #     "Reset code sent via SMS and Email (if available)"
+           # )
+            return redirect("verify_reset")
+
+        except Exception as e:
+            logger.critical(f"Forgot password error: {e}")
+            messages.error(request, "Something went wrong. Try again.")
             return redirect("forgot_password")
-
-        # ================= FIND USER =================
-        user = (
-            User.objects.filter(email=identifier).first()
-            or User.objects.filter(phone_number=identifier).first()
-        )
-
-        if not user:
-            messages.error(request, "User not found")
-            return redirect("forgot_password")
-
-        # ================= GENERATE RESET CODE =================
-        code = random.randint(100000, 999999)
-
-        request.session["reset_code"] = str(code)
-        request.session["reset_user"] = user.id
-        request.session["reset_time"] = int(time.time())
-
-        # ================= SEND SMS (PRIMARY - NON BLOCKING) =================
-        sms_sent = False
-
-        if user.phone_number:
-            phone = user.phone_number.strip()
-
-            # Normalize Tanzania number
-            if phone.startswith("0") and len(phone) == 10:
-                phone = "+255" + phone[1:]
-            elif phone.startswith(("6", "7")) and len(phone) == 9:
-                phone = "+255" + phone
-            elif not phone.startswith("+"):
-                phone = "+255" + phone
-
-            try:
-                sms_sent = send_sms(
-                    phone,
-                    f"Namba ya kurejesha password ni {code}"
-                )
-            except Exception as e:
-                logger.error(f"SMS failed but ignored: {e}")
-
-        # ================= SEND EMAIL (OPTIONAL - NON BLOCKING) =================
-        if user.email:
-            try:
-                send_mail(
-                    subject="Password Reset Code",
-                    message=f"Your password reset code is {code}",
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=True
-                )
-            except Exception as e:
-                logger.warning(f"Email failed but ignored: {e}")
-
-        # ================= FINAL USER MESSAGE =================
-        messages.success(
-            request,
-            "Reset code sent. Proceed to verification."
-        )
-        return redirect("verify_reset")
 
     # ================= GET REQUEST =================
     return render(request, "attendance_app/forgot_password.html")
-
 
 
 
