@@ -168,13 +168,13 @@ body {
 
 <!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
-    <div class="sidebar-header text-center">
+    <div class="sidebar-header">
         <a href="{% url 'admin_dashboard' %}" class="sidebar-logo justify-content-center">
     <i class="bi bi-shield-lock-fill text-primary"></i>
     <span class="sidebar-logo-text">Admin Panel</span>
 </a>
 
-    </div>
+ </div>
 
     <nav class="sidebar-nav">
         <a href="{% url 'admin_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
