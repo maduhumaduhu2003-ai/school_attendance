@@ -219,7 +219,7 @@ body {
    <div class="topbar">
     <div class="school-info">
         {% if school_settings.logo %}
-            <img src="{{ school_settings.logo.url }}" class="school-logo">
+            <img src="{% if school_settings.logo %}{{ school_settings.logo.url }}{% else %}{% static 'img/default-logo.png' %}{% endif %}" class="school-logo">
         {% else %}
             <img src="{% static 'img/default-logo.png' %}" class="school-logo">
         {% endif %}
