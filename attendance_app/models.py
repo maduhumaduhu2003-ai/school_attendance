@@ -9,6 +9,7 @@ from cloudinary.uploader import destroy
 from PIL import Image
 from io import BytesIO
 from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 
@@ -80,21 +81,31 @@ class TeacherProfile(models.Model):
             if old and old.profile_picture and old.profile_picture != self.profile_picture:
                 destroy(old.profile_picture.public_id)
 
-        # Resize new image in memory before saving
-        if self.profile_picture:
-            img = Image.open(self.profile_picture.file)  # use .file, not .path
-            max_size = (300, 300)
-            if img.height > 300 or img.width > 300:
-                img.thumbnail(max_size)
-                buffer = BytesIO()
-                img.save(buffer, format='PNG', optimize=True, quality=70)
-                buffer.seek(0)
-                self.profile_picture.save(self.profile_picture.name, ContentFile(buffer.read()), save=False)
+        # Resize image if it is a new uploaded file
+        if self.profile_picture and isinstance(self.profile_picture.file, InMemoryUploadedFile):
+            try:
+                img = Image.open(self.profile_picture.file)
+                max_size = (300, 300)
+                if img.height > 300 or img.width > 300:
+                    img.thumbnail(max_size)
+                    buffer = BytesIO()
+                    img.save(buffer, format='PNG', optimize=True, quality=70)
+                    buffer.seek(0)
+
+                    # Wrap resized image in InMemoryUploadedFile for Cloudinary
+                    self.profile_picture = InMemoryUploadedFile(
+                        buffer,                     # file
+                        'ImageField',               # field_name
+                        self.profile_picture.name,  # name
+                        'image/png',                # content_type
+                        buffer.getbuffer().nbytes,  # size
+                        None                        # charset
+                    )
+            except Exception:
+                # if PIL fails, just save original
+                pass
 
         super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.user.get_full_name()
 
 
 
@@ -155,31 +166,35 @@ class SMSLog(models.Model):
 
 
 
-
-
 class SchoolSettings(models.Model):
     school_name = models.CharField(max_length=200)
     logo = CloudinaryField('school_logo', blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        # Delete old logo from Cloudinary if updating
         if self.pk:
             old = SchoolSettings.objects.filter(pk=self.pk).first()
             if old and old.logo and old.logo != self.logo:
-                destroy(old.logo.public_id)  # delete old logo in Cloudinary
+                destroy(old.logo.public_id)
 
-        # Resize image in memory before saving
-        if self.logo:
-            img = Image.open(self.logo.file)  # use .file instead of .path
-            max_size = (300, 300)
-            if img.height > 300 or img.width > 300:
-                img.thumbnail(max_size)
-                buffer = BytesIO()
-                img.save(buffer, format='PNG', optimize=True, quality=70)
-                buffer.seek(0)
-                self.logo.save(self.logo.name, ContentFile(buffer.read()), save=False)
+        if self.logo and isinstance(self.logo.file, InMemoryUploadedFile):
+            try:
+                img = Image.open(self.logo.file)
+                max_size = (300, 300)
+                if img.height > 300 or img.width > 300:
+                    img.thumbnail(max_size)
+                    buffer = BytesIO()
+                    img.save(buffer, format='PNG', optimize=True, quality=70)
+                    buffer.seek(0)
+                    self.logo = InMemoryUploadedFile(
+                        buffer,
+                        'ImageField',
+                        self.logo.name,
+                        'image/png',
+                        buffer.getbuffer().nbytes,
+                        None
+                    )
+            except Exception:
+                pass
 
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return self.school_name
