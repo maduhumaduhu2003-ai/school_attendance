@@ -216,28 +216,29 @@ body {
 
 <!-- CONTENT -->
 <div class="content">
-    <div class="topbar">
-        <div class="school-info">
-            {% if school_settings.logo %}
-                <img src="{{ school_settings.logo.url }}" class="school-logo">
-            {% else %}
-                <img src="{% static 'img/default-logo.png' %}" class="school-logo">
-            {% endif %}
-            <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
-        </div>
-
-        <div class="profile-section dropdown">
-            <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-            <img src="{% if profile and profile.profile_picture %}{{ profile.profile_picture.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
-                 class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
-                <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
-            </ul>
-        </div>
+   <div class="topbar">
+    <div class="school-info">
+        {% if school_settings.logo %}
+            <img src="{{ school_settings.logo.url }}" class="school-logo">
+        {% else %}
+            <img src="{% static 'img/default-logo.png' %}" class="school-logo">
+        {% endif %}
+        <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
     </div>
+
+    <div class="profile-section dropdown">
+        <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+       <img src="{% if profile_picture_url %}{{ profile_picture_url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
+     class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
+            <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
+        </ul>
+    </div>
+</div>
+
 
     <div class="main-content">
         {% block content %}{% endblock %}

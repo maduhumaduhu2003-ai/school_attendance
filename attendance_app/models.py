@@ -4,6 +4,12 @@ from PIL import Image
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 import os
+from cloudinary.models import CloudinaryField
+from cloudinary.uploader import destroy
+from PIL import Image
+from io import BytesIO
+from django.core.files.base import ContentFile
+
 
 
 
@@ -60,34 +66,36 @@ class Stream(models.Model):
         return f"{self.name} ({self.classroom.name})"
 
 
+
 class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacherprofile')
     classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True)
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
-    profile_picture = models.ImageField(upload_to='teacher_profiles/', null=True, blank=True)
+    profile_picture = CloudinaryField('teacher_profile', blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        # Futa picha ya zamani kama kuna mpya
+        # Delete old profile picture in Cloudinary if updating
         if self.pk:
             old = TeacherProfile.objects.filter(pk=self.pk).first()
-            if old and old.profile_picture:
-                if self.profile_picture and old.profile_picture != self.profile_picture:
-                    if os.path.isfile(old.profile_picture.path):
-                        os.remove(old.profile_picture.path)
+            if old and old.profile_picture and old.profile_picture != self.profile_picture:
+                destroy(old.profile_picture.public_id)
+
+        # Resize new image in memory before saving
+        if self.profile_picture:
+            img = Image.open(self.profile_picture.file)  # use .file, not .path
+            max_size = (300, 300)
+            if img.height > 300 or img.width > 300:
+                img.thumbnail(max_size)
+                buffer = BytesIO()
+                img.save(buffer, format='PNG', optimize=True, quality=70)
+                buffer.seek(0)
+                self.profile_picture.save(self.profile_picture.name, ContentFile(buffer.read()), save=False)
 
         super().save(*args, **kwargs)
 
-        # Resize image (endelea kama ulivyokuwa)
-        if self.profile_picture:
-            img = Image.open(self.profile_picture.path)
-            max_size = (300, 300)
-
-            if img.height > 300 or img.width > 300:
-                img.thumbnail(max_size)
-                img.save(self.profile_picture.path, optimize=True, quality=70)
-
     def __str__(self):
         return self.user.get_full_name()
+
 
 
 
@@ -148,29 +156,30 @@ class SMSLog(models.Model):
 
 
 
+
 class SchoolSettings(models.Model):
     school_name = models.CharField(max_length=200)
-    logo = models.ImageField(upload_to='school/logo/', blank=True, null=True)
+    logo = CloudinaryField('school_logo', blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        # Angalia kama kuna existing record
+        # Delete old logo from Cloudinary if updating
         if self.pk:
             old = SchoolSettings.objects.filter(pk=self.pk).first()
-            if old and old.logo:
-                # Futa old logo ikiwa kuna mpya
-                if self.logo and old.logo != self.logo:
-                    if os.path.isfile(old.logo.path):
-                        os.remove(old.logo.path)
+            if old and old.logo and old.logo != self.logo:
+                destroy(old.logo.public_id)  # delete old logo in Cloudinary
 
-        super().save(*args, **kwargs)
-
-        # Resize image ikiwa ipo
+        # Resize image in memory before saving
         if self.logo:
-            img = Image.open(self.logo.path)
+            img = Image.open(self.logo.file)  # use .file instead of .path
             max_size = (300, 300)
             if img.height > 300 or img.width > 300:
                 img.thumbnail(max_size)
-                img.save(self.logo.path, optimize=True, quality=70)
+                buffer = BytesIO()
+                img.save(buffer, format='PNG', optimize=True, quality=70)
+                buffer.seek(0)
+                self.logo.save(self.logo.name, ContentFile(buffer.read()), save=False)
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.school_name

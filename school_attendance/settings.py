@@ -52,7 +52,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # =================== MEDIA ===================
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+#MEDIA_ROOT = BASE_DIR / 'media'
 
 # =================== STATIC ===================
 STATIC_URL = '/static/'
@@ -71,6 +71,9 @@ INSTALLED_APPS = [
     'attendance_app',
     'rest_framework',
     'widget_tweaks',
+    
+      'cloudinary',
+    'cloudinary_storage',
 ]
 
 # =================== MIDDLEWARE ===================
@@ -103,3 +106,4 @@ TEMPLATES = [
 ]
 
 ROOT_URLCONF = 'school_attendance.urls'
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
