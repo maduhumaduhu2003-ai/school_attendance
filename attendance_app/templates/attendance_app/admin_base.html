@@ -228,8 +228,9 @@ body {
 
     <div class="profile-section dropdown">
         <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-       <img src="{% if profile_picture_url %}{{ profile_picture_url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
-     class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
+   <img src="{% if profile_picture_url %}{{ profile_picture_url.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" 
+ class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
+
         <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
             <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
