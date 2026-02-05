@@ -198,3 +198,7 @@ class SchoolSettings(models.Model):
 
         super().save(*args, **kwargs)
 
+
+
+
+

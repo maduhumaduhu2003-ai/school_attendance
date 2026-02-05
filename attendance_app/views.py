@@ -678,7 +678,7 @@ def delete_classroom(request, classroom_id):
     classroom = get_object_or_404(Classroom, id=classroom_id)
 
     # Check related students and teachers only
-    has_students = classroom.studentprofile_set.exists()
+    has_students = classroom.students.exists()
     has_teachers = classroom.teacherprofile_set.exists()
 
     if request.method == "POST":
