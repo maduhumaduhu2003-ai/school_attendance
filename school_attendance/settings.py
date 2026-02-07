@@ -114,6 +114,10 @@ CLOUDINARY_STORAGE = {
 
 
 
+TIME_ZONE = config('DJANGO_TIME_ZONE', default='Africa/Dar_es_Salaam')
+
+USE_TZ = config('DJANGO_USE_TZ', cast=bool, default=True)
+
 
 ROOT_URLCONF = 'school_attendance.urls'
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

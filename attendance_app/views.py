@@ -1097,11 +1097,7 @@ def send_absent_sms(student):
         teacher = TeacherProfile.objects.filter(classroom=student.classroom).first()
         teacher_phone = teacher.user.phone_number if teacher else "N/A"
 
-        # Ensure teacher phone format +255
-        if teacher_phone and teacher_phone.startswith("0"):
-            teacher_phone = "+255" + teacher_phone[1:]
-        elif teacher_phone and not teacher_phone.startswith("+"):
-            teacher_phone = "+255" + teacher_phone
+
 
         # Prepare SMS
         message = (
@@ -1143,6 +1139,7 @@ def send_absent_sms(student):
             status='failed'
         )
 
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
@@ -1171,7 +1168,8 @@ def mark_attendance(request):
     students = paginator.get_page(page_number)
 
     if request.method == "POST":
-        today = timezone.now().date()
+        today = timezone.localdate()
+
 
         for student in students:  # PAGINATED LOOP
             status = request.POST.get(
@@ -1274,28 +1272,32 @@ def delete_sms_log(request, sms_id):
 
 
 
-
 @never_cache
 @login_required
 def view_attendance(request):
     teacher = get_object_or_404(TeacherProfile, user=request.user)
     classroom = teacher.classroom
-    stream = teacher.stream  # stream ya mwalimu
+    stream = teacher.stream
 
-    # =================== DATE FILTER ===================
+    # =================== DATE FILTER (TZ SAFE) ===================
     raw_date = request.GET.get("date")
     page_number = request.GET.get("page")
 
-    try:
-        selected_date = (
-            datetime.strptime(raw_date, "%Y-%m-%d").date()
-            if raw_date else now().date()
-        )
-    except ValueError:
-        selected_date = now().date()
+    if raw_date:
+        try:
+            selected_date = datetime.strptime(
+                raw_date, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            selected_date = timezone.localdate()
+    else:
+        selected_date = timezone.localdate()
 
     # =================== BASE STUDENTS QUERYSET ===================
-    students_qs = StudentProfile.objects.filter(classroom=classroom)
+    students_qs = StudentProfile.objects.filter(
+        classroom=classroom,
+        status="Active"
+    )
 
     if stream:
         students_qs = students_qs.filter(stream=stream)
@@ -1304,7 +1306,10 @@ def view_attendance(request):
     attendance_qs = Attendance.objects.filter(
         student__in=students_qs,
         date=selected_date
-    ).select_related("student", "student__user").order_by(
+    ).select_related(
+        "student",
+        "student__user"
+    ).order_by(
         "student__user__first_name"
     )
 
@@ -1315,9 +1320,10 @@ def view_attendance(request):
     # =================== TOTAL SUMMARY ===================
     students_count = students_qs.count()
 
-    total_present = attendance_qs.filter(status='present').count()
-    total_absent = attendance_qs.filter(status='absent').count()
-    total_sick = attendance_qs.filter(status='sick').count()
+    total_present = attendance_qs.filter(status="present").count()
+    total_absent = attendance_qs.filter(status="absent").count()
+    total_sick = attendance_qs.filter(status="sick").count()
+
     total_records = total_present + total_absent + total_sick
 
     present_percentage = round((total_present / total_records) * 100, 2) if total_records else 0
@@ -1325,29 +1331,29 @@ def view_attendance(request):
     sick_percentage = round((total_sick / total_records) * 100, 2) if total_records else 0
 
     # =================== SUMMARY BY GENDER ===================
-    male_students = students_qs.filter(user__gender='male')
-    female_students = students_qs.filter(user__gender='female')
+    male_students = students_qs.filter(user__gender="male")
+    female_students = students_qs.filter(user__gender="female")
 
     male_count = male_students.count()
     female_count = female_students.count()
 
-    male_present = attendance_qs.filter(student__in=male_students, status='present').count()
-    male_absent = attendance_qs.filter(student__in=male_students, status='absent').count()
-    male_sick = attendance_qs.filter(student__in=male_students, status='sick').count()
+    male_present = attendance_qs.filter(student__in=male_students, status="present").count()
+    male_absent = attendance_qs.filter(student__in=male_students, status="absent").count()
+    male_sick = attendance_qs.filter(student__in=male_students, status="sick").count()
 
-    male_total_records = male_present + male_absent + male_sick
-    male_present_pct = round((male_present / male_total_records) * 100, 2) if male_total_records else 0
-    male_absent_pct = round((male_absent / male_total_records) * 100, 2) if male_total_records else 0
-    male_sick_pct = round((male_sick / male_total_records) * 100, 2) if male_total_records else 0
+    male_total = male_present + male_absent + male_sick
+    male_present_pct = round((male_present / male_total) * 100, 2) if male_total else 0
+    male_absent_pct = round((male_absent / male_total) * 100, 2) if male_total else 0
+    male_sick_pct = round((male_sick / male_total) * 100, 2) if male_total else 0
 
-    female_present = attendance_qs.filter(student__in=female_students, status='present').count()
-    female_absent = attendance_qs.filter(student__in=female_students, status='absent').count()
-    female_sick = attendance_qs.filter(student__in=female_students, status='sick').count()
+    female_present = attendance_qs.filter(student__in=female_students, status="present").count()
+    female_absent = attendance_qs.filter(student__in=female_students, status="absent").count()
+    female_sick = attendance_qs.filter(student__in=female_students, status="sick").count()
 
-    female_total_records = female_present + female_absent + female_sick
-    female_present_pct = round((female_present / female_total_records) * 100, 2) if female_total_records else 0
-    female_absent_pct = round((female_absent / female_total_records) * 100, 2) if female_total_records else 0
-    female_sick_pct = round((female_sick / female_total_records) * 100, 2) if female_total_records else 0
+    female_total = female_present + female_absent + female_sick
+    female_present_pct = round((female_present / female_total) * 100, 2) if female_total else 0
+    female_absent_pct = round((female_absent / female_total) * 100, 2) if female_total else 0
+    female_sick_pct = round((female_sick / female_total) * 100, 2) if female_total else 0
 
     # =================== CONTEXT ===================
     context = {
@@ -1356,7 +1362,7 @@ def view_attendance(request):
         "teacher": teacher,
         "attendance_records": attendance_records,
         "selected_date": selected_date.strftime("%Y-%m-%d"),
-        "today": now().date(),
+        "today": timezone.localdate(),
 
         # Total summary
         "students_count": students_count,
@@ -1386,7 +1392,6 @@ def view_attendance(request):
     }
 
     return render(request, "attendance_app/view_attendance.html", context)
-
 
 
 @login_required
