@@ -109,7 +109,7 @@ User = get_user_model()
 #school GPS coordinates
 SCHOOL_LAT = -6.92673   
 SCHOOL_LNG = 37.56749   
-MAX_DISTANCE_METERS = 100  
+MAX_DISTANCE_METERS = 200  
 
 def distance_in_meters(lat1, lon1, lat2, lon2):
     """Haversine formula to calculate distance in meters between two GPS points"""
@@ -1170,23 +1170,53 @@ def send_absent_sms(student):
         )
 
 
+from django.contrib import messages
+
+
+# School GPS coordinates
+SCHOOL_LAT = -6.92673   
+SCHOOL_LNG = 37.56749   
+MAX_DISTANCE_METERS = 300  
+
+def distance_in_meters(lat1, lon1, lat2, lon2):
+    """Haversine formula to calculate distance in meters between two GPS points"""
+    R = 6371000  # radius of Earth in meters
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    return R * c
+
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def mark_attendance(request):
-
     teacher = get_object_or_404(TeacherProfile, user=request.user)
     classroom = teacher.classroom
     stream = teacher.stream
 
     if not classroom or not stream:
-        messages.error(
-            request,
-            "You are not assigned to a classroom or stream."
-        )
+        messages.error(request, "You are not assigned to a classroom or stream.")
         return redirect('teacher_dashboard')
 
-    #FILTER BY CLASSROOM AND STREAM
+    # ===== GPS CHECK =====
+    lat = request.POST.get('lat') or request.GET.get('lat')
+    lng = request.POST.get('lng') or request.GET.get('lng')
+
+    if lat is None or lng is None:
+        messages.error(request, "Cannot detect your location. Please allow location access.")
+        return redirect('teacher_dashboard')
+
+    lat = float(lat)
+    lng = float(lng)
+    distance = distance_in_meters(lat, lng, SCHOOL_LAT, SCHOOL_LNG)
+
+    if distance > MAX_DISTANCE_METERS:
+        messages.error(request, "You are not within the allowed school area to mark attendance.")
+        return redirect('teacher_dashboard')
+
+    # FILTER BY CLASSROOM AND STREAM
     students_list = StudentProfile.objects.filter(
         classroom=classroom,
         stream=stream,
@@ -1200,11 +1230,8 @@ def mark_attendance(request):
     if request.method == "POST":
         today = timezone.localdate()
 
-
         for student in students:  # PAGINATED LOOP
-            status = request.POST.get(
-                f'attendance_{student.id}', 'present'
-            )
+            status = request.POST.get(f'attendance_{student.id}', 'present')
 
             Attendance.objects.update_or_create(
                 student=student,
@@ -1217,12 +1244,8 @@ def mark_attendance(request):
 
             # ===== ABSENT SMS LOGIC =====
             if status == 'absent':
-                start = timezone.now().replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
-                end = timezone.now().replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
+                start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
 
                 sms_exists = SMSLog.objects.filter(
                     student=student,

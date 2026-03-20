@@ -15,8 +15,16 @@
         </div>
 
         <!-- Attendance Form -->
-        <form method="POST">
-            {% csrf_token %}
+        <form method="POST" id="attendance-form">
+             {% csrf_token %}
+    
+               <!-- Hidden inputs for GPS coordinates -->
+               <input type="hidden" name="lat" id="lat">
+               <input type="hidden" name="lng" id="lng">
+
+                <button type="button" id="get-location-btn" class="btn btn-warning mb-3">
+        Allow Location to Mark Attendance
+    </button>
 
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover align-middle">
@@ -169,5 +177,50 @@ input[type="radio"] {
     }
 }
 </style>
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('attendance-form');
+    if (!form) return;
+
+    const latInput = document.getElementById('lat');
+    const lngInput = document.getElementById('lng');
+
+    // Function to get location and fill inputs
+    function fillLocationAndSubmit() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    latInput.value = position.coords.latitude;
+                    lngInput.value = position.coords.longitude;
+                    // Now submit the form automatically
+                    form.submit();
+                },
+                function(err) {
+                    alert('Cannot detect your location. Please allow location access. Error: ' + err.message);
+                },
+                { enableHighAccuracy: true }
+            );
+        } else {
+            alert('Geolocation is not supported by your browser.');
+        }
+    }
+
+    // Attach to the submit button
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+        fillLocationAndSubmit();
+    });
+
+    // Optional: attach to "Allow Location" button if you want
+    const getLocBtn = document.getElementById('get-location-btn');
+    if(getLocBtn){
+        getLocBtn.addEventListener('click', function(){
+            fillLocationAndSubmit();
+        });
+    }
+});
+</script>
+{% endblock %}
 
 {% endblock %}
