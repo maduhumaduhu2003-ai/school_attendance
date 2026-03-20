@@ -109,7 +109,7 @@ User = get_user_model()
 #school GPS coordinates
 SCHOOL_LAT = -6.92673   
 SCHOOL_LNG = 37.56749   
-MAX_DISTANCE_METERS = 200  
+MAX_DISTANCE_METERS = 100  
 
 def distance_in_meters(lat1, lon1, lat2, lon2):
     """Haversine formula to calculate distance in meters between two GPS points"""
