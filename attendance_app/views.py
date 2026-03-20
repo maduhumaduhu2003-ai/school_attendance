@@ -99,11 +99,26 @@ from .models import TeacherProfile, Classroom, Stream, User
 
 import africastalking
 import logging
+from math import radians, cos, sin, sqrt, atan2
 
 logger = logging.getLogger(__name__)
 
 from django.contrib.auth import get_user_model
 User = get_user_model()
+
+#school GPS coordinates
+SCHOOL_LAT = -6.92673   
+SCHOOL_LNG = 37.56749   
+MAX_DISTANCE_METERS = 200  
+
+def distance_in_meters(lat1, lon1, lat2, lon2):
+    """Haversine formula to calculate distance in meters between two GPS points"""
+    R = 6371000  # radius of Earth in meters
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    return R * c
 
 
 def login_view(request):
@@ -113,6 +128,21 @@ def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
+        lat = request.POST.get('lat')
+        lng = request.POST.get('lng')
+        
+        if not lat or not lng:
+         messages.error(request, "Cannot detect your location. Please allow location access.")
+         return redirect('login')
+
+        lat = float(lat)
+        lng = float(lng)
+        distance = distance_in_meters(lat, lng, SCHOOL_LAT, SCHOOL_LNG)
+
+        if distance > MAX_DISTANCE_METERS:
+            messages.error(request, "You are not within the allowed school area.")
+            return redirect('login')
+        
         user = authenticate(request, username=username, password=password)
 
         if user is not None:

@@ -176,7 +176,10 @@ body::after {
                     </button>
                 </div>
 
-                <button class="btn btn-primary w-100 mb-3">Login</button>
+                
+                <button class="btn btn-primary w-100 mb-3" type="submit">Login</button>
+                <input type="hidden" name="lat" id="lat">
+                <input type="hidden" name="lng" id="lng">
 
                 <div class="text-center">
                     <a href="{% url 'forgot_password' %}">Forgot password?</a>
@@ -204,6 +207,27 @@ function togglePassword() {
     const p = document.getElementById("password");
     p.type = p.type === "password" ? "text" : "password";
 }
+document.querySelector('form').addEventListener('submit', function(e){
+    e.preventDefault(); // stop default submit
+
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(function(position){
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            // fill hidden inputs
+            document.getElementById('lat').value = lat;
+            document.getElementById('lng').value = lng;
+
+            // now submit the form
+            e.target.submit();
+        }, function(err){
+            alert('Unable to get your location: ' + err.message);
+        }, { enableHighAccuracy: true });
+    } else {
+        alert('Geolocation is not supported by your browser.');
+    }
+});
 </script>
 
 </body>
