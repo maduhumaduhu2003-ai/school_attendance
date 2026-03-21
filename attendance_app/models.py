@@ -68,44 +68,18 @@ class Stream(models.Model):
 
 
 
+
+
 class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacherprofile')
-    classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True)
-    stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
-    profile_picture = CloudinaryField('teacher_profile', blank=True, null=True)
+    classroom = models.ForeignKey('Classroom', on_delete=models.SET_NULL, null=True, blank=True)
+    stream = models.ForeignKey('Stream', on_delete=models.SET_NULL, null=True, blank=True)
 
-    def save(self, *args, **kwargs):
-        # Delete old profile picture in Cloudinary if updating
-        if self.pk:
-            old = TeacherProfile.objects.filter(pk=self.pk).first()
-            if old and old.profile_picture and old.profile_picture != self.profile_picture:
-                destroy(old.profile_picture.public_id)
+    def __str__(self):
+        return f"{self.user.username}'s Profile"
+        
 
-        # Resize image if it is a new uploaded file
-        if self.profile_picture and isinstance(self.profile_picture.file, InMemoryUploadedFile):
-            try:
-                img = Image.open(self.profile_picture.file)
-                max_size = (300, 300)
-                if img.height > 300 or img.width > 300:
-                    img.thumbnail(max_size)
-                    buffer = BytesIO()
-                    img.save(buffer, format='PNG', optimize=True, quality=70)
-                    buffer.seek(0)
 
-                    # Wrap resized image in InMemoryUploadedFile for Cloudinary
-                    self.profile_picture = InMemoryUploadedFile(
-                        buffer,                     # file
-                        'ImageField',               # field_name
-                        self.profile_picture.name,  # name
-                        'image/png',                # content_type
-                        buffer.getbuffer().nbytes,  # size
-                        None                        # charset
-                    )
-            except Exception:
-                # if PIL fails, just save original
-                pass
-
-        super().save(*args, **kwargs)
 
 
 

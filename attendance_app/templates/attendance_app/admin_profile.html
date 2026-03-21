@@ -5,191 +5,127 @@
 
 {% block extra_css %}
 <style>
-/* Container spacing */
-.container {
-    margin-top: 30px;
-    margin-bottom: 30px;
-}
-
-/* Card styling */
-.card {
-    max-width: 700px;
-    margin: 0 auto;
-    border-radius: 10px;
-    border: 1px solid #e0e0e0;
-    background-color: #ffffff;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-    transition: transform 0.2s ease;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-}
-
-/* Card header */
-.card-header {
-    background-color: #343a40;
-    color: #ffffff;
-    font-weight: 600;
-    font-size: 16px;
-}
-
-/* Form fields */
-.form-control {
-    background-color: #f8f9fa;
-}
-.form-control:focus {
-    border-color: #4f46e5;
-    box-shadow: 0 0 5px rgba(79, 70, 229, 0.3);
-}
-
-/* Buttons */
-.btn-primary {
-    background-color: #4f46e5;
-    border: none;
-}
-.btn-primary:hover {
-    background-color: #4338ca;
-}
-
-/* Profile Image */
-.profile-img {
-    width: 120px;
-    max-width: 100%;
-    border-radius: 5px;
-    margin-bottom: 10px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 767px) {
-    .card {
-        margin: 0 0.5rem;
-        box-shadow: none;
-        border: 1px solid #d1d5db;
-    }
-
-    .card-header h5 {
-        font-size: 1rem;
-    }
-
-    .row.mb-3 .col-md-6 {
-        margin-bottom: 1rem;
-    }
-
-    .profile-img {
-        width: 100px;
-    }
-
-    .btn-primary {
-        width: 100%;
-    }
-
-    .form-label {
-        font-size: 0.9rem;
-    }
-}
-
-/* Toast positioning */
-.position-fixed.top-0.end-0.p-3 {
-    top: 1rem;
-    right: 1rem;
-    z-index: 2000;
-}
+.container { margin-top:30px; margin-bottom:30px; }
+.card { max-width:700px; margin:0 auto; border-radius:10px; border:1px solid #e0e0e0; background:#fff; box-shadow:0 4px 8px rgba(0,0,0,0.05);}
+.card .form-control { border-radius:6px; background:#f8f9fa; }
+.card .form-control:focus { border-color:#4f46e5; box-shadow:0 0 5px rgba(79,70,229,0.3);}
+.btn-primary { background:#4f46e5; border:none;}
+.btn-primary:hover { background:#4338ca; }
+.btn-warning { background:#f59e0b; border:none; color:#fff; }
+.btn-warning:hover { background:#d97706; }
+@media (max-width:767px) { .card { margin:0 0.5rem; box-shadow:none; border:1px solid #d1d5db;} .btn-primary, .btn-warning{width:100%;} }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
+    <h3 class="mb-4 text-center">My Profile</h3>
 
-    <!-- ================= TOAST MESSAGES ================= -->
-    <div class="position-fixed top-0 end-0 p-3">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="toast align-items-center text-white 
-                            {% if message.tags == 'success' %}bg-success
-                            {% elif message.tags == 'error' %}bg-danger
-                            {% else %}bg-info{% endif %} 
-                            border-0 mb-2" 
-                     role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            {{ message }}
-                        </div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm p-4">
+
+                <!-- TABS -->
+                <ul class="nav nav-tabs mb-3" id="profileTab" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">Profile</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="password-tab" data-bs-toggle="tab" data-bs-target="#password" type="button" role="tab">Change Password</button>
+                  </li>
+                </ul>
+
+                <!-- MESSAGES -->
+                {% if messages %}
+                    <div class="mb-3">
+                        {% for message in messages %}
+                            <div class="alert 
+    {% if message.tags == 'success' %}alert-success
+    {% elif message.tags == 'error' %}alert-danger
+    {% else %}alert-info
+    {% endif %} alert-dismissible fade show" role="alert">
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="tab-content">
+                    <!-- PROFILE TAB -->
+                    <div class="tab-pane fade show active" id="profile" role="tabpanel">
+                        <form method="POST">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label class="form-label">First Name</label>
+                                <input type="text" name="first_name" class="form-control form-control-sm" value="{{ request.user.first_name }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" name="last_name" class="form-control form-control-sm" value="{{ request.user.last_name }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="email" class="form-control form-control-sm" value="{{ request.user.email }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" name="username" class="form-control form-control-sm" value="{{ request.user.username }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Phone Number</label>
+                                <input type="text" name="phone_number" class="form-control form-control-sm" value="{{ profile.phone_number|default:'' }}">
+                            </div>
+
+                            <button type="submit" name="update_profile" class="btn btn-primary w-100">Update Profile</button>
+                        </form>
+                    </div>
+
+                    <!-- PASSWORD TAB -->
+                    <div class="tab-pane fade" id="password" role="tabpanel">
+                        <form method="POST">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label class="form-label">Old Password</label>
+                                <input type="password" name="old_password" class="form-control form-control-sm" placeholder="Enter old password">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">New Password</label>
+                                <input type="password" name="new_password1" class="form-control form-control-sm" placeholder="Enter new password">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Confirm New Password</label>
+                                <input type="password" name="new_password2" class="form-control form-control-sm" placeholder="Confirm new password">
+                            </div>
+
+                            <button type="submit" name="change_password" class="btn btn-warning w-100">Change Password</button>
+                        </form>
                     </div>
                 </div>
-            {% endfor %}
-        {% endif %}
-    </div>
-    <!-- =================================================== -->
 
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">My Profile</h5>
+            </div>
         </div>
-
-        <div class="card-body">
-            <form method="POST" enctype="multipart/form-data">
-                {% csrf_token %}
-
-                <!-- USER BASIC INFO -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">First Name</label>
-                        {{ user_form.first_name }}
-                        {{ user_form.first_name.errors }}
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Last Name</label>
-                        {{ user_form.last_name }}
-                        {{ user_form.last_name.errors }}
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    {{ user_form.email }}
-                    {{ user_form.email.errors }}
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Username</label>
-                    {{ profile_form.username }}
-                    {{ profile_form.username.errors }}
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Profile Email</label>
-                    {{ profile_form.email }}
-                    {{ profile_form.email.errors }}
-                </div>
-
-                <div class="mb-3 text-center">
-                    <label class="form-label">Profile Picture</label><br>
-                    {% if profile_form.instance.profile_picture %}
-                        <img src="{{ profile_form.instance.profile_picture.url }}" class="profile-img">
-                    {% endif %}
-                    {{ profile_form.profile_picture }}
-                    {{ profile_form.profile_picture.errors }}
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                    Save Changes
-                </button>
-            </form>
-        </div>
     </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
-    toastElList.forEach(function(toastEl) {
-        var toast = new bootstrap.Toast(toastEl);
-        toast.show();
-    });
+    {% if messages %}
+        {% for message in messages %}
+            {% if 'Password' in message %}
+                var passwordTab = new bootstrap.Tab(document.getElementById('password-tab'));
+                passwordTab.show();
+            {% endif %}
+        {% endfor %}
+    {% endif %}
 });
 </script>
 {% endblock %}

@@ -150,13 +150,6 @@ body {
 .profile-name {
     font-weight: 600;
     font-size: 0.9rem;
-}
-
-.profile-img {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    object-fit: cover;
     cursor: pointer;
 }
 
@@ -201,9 +194,6 @@ body {
     .sidebar-overlay.show {
         display: block;
     }
-    .profile-name {
-        display: none;
-    }
 }
 </style>
 </head>
@@ -220,7 +210,6 @@ body {
             <i class="bi bi-mortarboard-fill text-primary"></i>
             <span class="sidebar-logo-text">Teacher Panel</span>
         </a>
-
     </div>
 
     <nav class="px-2">
@@ -267,8 +256,9 @@ body {
         </div>
 
         <div class="profile-section dropdown">
-            <span class="profile-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-            <img src="{% if request.user.teacherprofile.profile_picture %}{{ request.user.teacherprofile.profile_picture.url }}{% else %}{% static 'img/default-avatar.png' %}{% endif %}" class="profile-img dropdown-toggle" data-bs-toggle="dropdown">
+            <span class="profile-name dropdown-toggle" data-bs-toggle="dropdown">
+                {{ request.user.get_full_name|default:request.user.username }}
+            </span>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="{% url 'teacher_profile_view' %}">My Profile</a></li>
                 <li><hr class="dropdown-divider"></li>

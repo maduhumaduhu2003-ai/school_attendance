@@ -62,7 +62,6 @@ from .models import (
 # Local app imports (forms)
 # ===============================
 from .forms import (
-    TeacherProfileForm,
     SchoolSettingsForm,
     UserUpdateForm,
     AcademicYearForm,
@@ -83,7 +82,6 @@ import time
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
 from attendance_app.utils import send_sms
 
 from django.shortcuts import render, redirect
@@ -93,13 +91,14 @@ from django.views.decorators.cache import never_cache
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.hashers import make_password
 from django.conf import settings
-from django.core.mail import send_mail
 
 from .models import TeacherProfile, Classroom, Stream, User
 
 import africastalking
 import logging
 from math import radians, cos, sin, sqrt, atan2
+from django.core.files.storage import default_storage
+
 
 logger = logging.getLogger(__name__)
 
@@ -1826,41 +1825,62 @@ def export_students_pdf(request):
 
 
 
-
 @never_cache
 @login_required
 def teacher_profile_view(request):
-    teacher = get_object_or_404(TeacherProfile, user=request.user)
-    students = StudentProfile.objects.filter(classroom=teacher.classroom) if teacher else []
-
+    teacher_profile = get_object_or_404(TeacherProfile, user=request.user)
     profile_success = None
     password_success = None
 
-    if request.method == 'POST':
-        profile_form = TeacherProfileForm(request.POST, request.FILES, instance=teacher, user=request.user)
-        password_form = PasswordChangeForm(user=request.user, data=request.POST)
+    if request.method == "POST":
+        # Update profile
+        if "update_profile" in request.POST:
+            user = request.user  # User instance
 
-        if 'update_profile' in request.POST and profile_form.is_valid():
-            profile_form.save()
+            # --- Update User fields ---
+            user.first_name = request.POST.get("first_name", user.first_name)
+            user.last_name = request.POST.get("last_name", user.last_name)
+            user.username = request.POST.get("username", user.username)
+            user.email = request.POST.get("email", user.email)
+            user.phone_number = request.POST.get("phone_number", user.phone_number)
+            user.save()
+
+            # --- Update TeacherProfile fields ---
+            if "profile_picture" in request.FILES:
+                teacher_profile.profile_picture = request.FILES["profile_picture"]
+            teacher_profile.classroom_id = request.POST.get(
+                "classroom", teacher_profile.classroom_id
+            )
+            teacher_profile.stream_id = request.POST.get(
+                "stream", teacher_profile.stream_id
+            )
+            teacher_profile.save()
+
             profile_success = "Profile updated successfully!"
-        elif 'change_password' in request.POST and password_form.is_valid():
-            user = password_form.save()
-            update_session_auth_hash(request, user)
-            password_success = "Password changed successfully!"
-    else:
-        profile_form = TeacherProfileForm(instance=teacher, user=request.user)
-        password_form = PasswordChangeForm(user=request.user)
+
+        # Change password
+        elif "change_password" in request.POST:
+            old_password = request.POST.get("old_password")
+            new_password1 = request.POST.get("new_password1")
+            new_password2 = request.POST.get("new_password2")
+
+            if request.user.check_password(old_password):
+                if new_password1 == new_password2:
+                    request.user.set_password(new_password1)
+                    request.user.save()
+                    update_session_auth_hash(request, request.user)
+                    password_success = "Password changed successfully!"
+                else:
+                    password_success = "New passwords do not match!"
+            else:
+                password_success = "Old password is incorrect!"
 
     context = {
-        'teacher': teacher,
-        'students': students,
-        'profile_form': profile_form,
-        'password_form': password_form,
-        'profile_success': profile_success,
-        'password_success': password_success,
+        "teacher": teacher_profile,
+        "profile_success": profile_success,
+        "password_success": password_success,
     }
-    return render(request, 'attendance_app/teacher_profile.html', context)
-
+    return render(request, "attendance_app/teacher_profile.html", context)
 
 
 
@@ -1892,52 +1912,57 @@ def resend_sms(request, sms_id):
 
     return redirect('teacher_sms_logs')
 
+
+
+
 @never_cache
 @login_required
+@user_passes_test(lambda u: u.role == 'admin')
 def admin_profile(request):
-    profile, _ = TeacherProfile.objects.get_or_create(user=request.user)
-
-    # Forms
-    user_form = UserUpdateForm(request.POST or None, instance=request.user)
-    profile_form = TeacherProfileForm(
-        request.POST or None,
-        request.FILES or None,
-        instance=profile,
-        user=request.user
-    )
-
-    settings_obj, _ = SchoolSettings.objects.get_or_create(id=1)
-    settings_form = SchoolSettingsForm(
-        request.POST or None,
-        request.FILES or None,
-        instance=settings_obj
-    )
 
     if request.method == 'POST':
-        if user_form.is_valid() and profile_form.is_valid() and settings_form.is_valid():
-            user_form.save()
-            profile_form.save()
-            settings_form.save()
+        # PROFILE UPDATE
+        if 'update_profile' in request.POST:
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            email = request.POST.get('email', '').strip()
+            username = request.POST.get('username', '').strip()
+            phone_number = request.POST.get('phone_number', '').strip()
+
+            # Update user model
+            user = request.user
+            user.first_name = first_name
+            user.last_name = last_name
+            user.email = email
+            user.username = username
+            user.save()
+
             messages.success(request, "Profile updated successfully!")
-        else:
-            messages.error(request, "Please fix the errors below.")
+            return redirect('admin_profile')
+
+        # PASSWORD CHANGE
+        elif 'change_password' in request.POST:
+            old_password = request.POST.get('old_password')
+            new_password1 = request.POST.get('new_password1')
+            new_password2 = request.POST.get('new_password2')
+
+            if not request.user.check_password(old_password):
+                messages.error(request, "Old password is incorrect.")
+            elif new_password1 != new_password2:
+                messages.error(request, "New passwords do not match.")
+            else:
+                request.user.set_password(new_password1)
+                request.user.save()
+                update_session_auth_hash(request, request.user)  # prevent logout
+                messages.success(request, "Password changed successfully!")
+            return redirect('admin_profile')
 
     context = {
-        'user_form': user_form,
-        'profile_form': profile_form,
-        'settings_form': settings_form,
-        'profile': profile,  # for direct access in template
     }
     return render(request, 'attendance_app/admin_profile.html', context)
 
 
 
-from django.core.files.storage import default_storage
-from django.contrib import messages
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.cache import never_cache
-import os
 
 @never_cache
 @login_required

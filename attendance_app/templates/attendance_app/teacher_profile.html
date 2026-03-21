@@ -1,7 +1,6 @@
 {% extends "attendance_app/teacher_base.html" %}
 
 {% load static %}
-{% load widget_tweaks %}
 
 {% block title %}Teacher Profile{% endblock %}
 
@@ -14,13 +13,7 @@
         <div class="col-md-6">
             <div class="card shadow-sm p-4">
 
-                <div class="text-center mb-4">
-                    {% if teacher.profile_picture %}
-                        <img src="{{ teacher.profile_picture.url }}" class="img-fluid rounded-circle" width="120" height="120" alt="Profile Picture">
-                    {% else %}
-                        <img src="https://via.placeholder.com/120" class="img-fluid rounded-circle" width="120" height="120" alt="Profile Picture">
-                    {% endif %}
-                </div>
+                
 
                 <!-- TABS -->
                 <ul class="nav nav-tabs mb-3" id="profileTab" role="tablist">
@@ -33,16 +26,16 @@
                 </ul>
 
                 <!-- MESSAGES -->
-                {% if messages %}
-                    <div class="mb-3">
-                        {% for message in messages %}
-                            <div class="alert 
-                                        {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %} 
-                                        alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
+                {% if profile_success %}
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        {{ profile_success }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endif %}
+                {% if password_success %}
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        {{ password_success }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endif %}
 
@@ -51,26 +44,30 @@
                     <div class="tab-pane fade show active" id="profile" role="tabpanel">
                         <form method="POST" enctype="multipart/form-data">
                             {% csrf_token %}
-                            {{ profile_form.non_field_errors }}
 
-                            <div class="mb-3 text-center">
-                                {{ profile_form.profile_picture.label_tag }}
-                                {{ profile_form.profile_picture|add_class:"form-control form-control-sm" }}
+                            <div class="mb-3">
+                                <label for="first_name" class="form-label">First Name</label>
+                                <input type="text" name="first_name" id="first_name" class="form-control form-control-sm" value="{{ request.user.first_name }}">
                             </div>
 
                             <div class="mb-3">
-                                {{ profile_form.username.label_tag }}
-                                {{ profile_form.username|add_class:"form-control form-control-sm" }}
+                                <label for="last_name" class="form-label">Last Name</label>
+                                <input type="text" name="last_name" id="last_name" class="form-control form-control-sm" value="{{ request.user.last_name }}">
                             </div>
 
                             <div class="mb-3">
-                                {{ profile_form.email.label_tag }}
-                                {{ profile_form.email|add_class:"form-control form-control-sm" }}
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" name="username" id="username" class="form-control form-control-sm" value="{{ request.user.username }}">
                             </div>
 
                             <div class="mb-3">
-                                {{ profile_form.phone_number.label_tag }}
-                                {{ profile_form.phone_number|add_class:"form-control form-control-sm" }}
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" name="email" id="email" class="form-control form-control-sm" value="{{ request.user.email }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="phone_number" class="form-label">Phone Number</label>
+                                <input type="text" name="phone_number" id="phone_number" class="form-control form-control-sm" value="{{ teacher.phone_number }}">
                             </div>
 
                             <button type="submit" name="update_profile" class="btn btn-primary w-100">
@@ -83,19 +80,18 @@
                     <div class="tab-pane fade" id="password" role="tabpanel">
                         <form method="POST">
                             {% csrf_token %}
-                            {{ password_form.non_field_errors }}
 
                             <div class="mb-3">
-                                {{ password_form.old_password.label_tag }}
-                                {{ password_form.old_password|add_class:"form-control form-control-sm" }}
+                                <label for="old_password" class="form-label">Old Password</label>
+                                <input type="password" name="old_password" id="old_password" class="form-control form-control-sm">
                             </div>
                             <div class="mb-3">
-                                {{ password_form.new_password1.label_tag }}
-                                {{ password_form.new_password1|add_class:"form-control form-control-sm" }}
+                                <label for="new_password1" class="form-label">New Password</label>
+                                <input type="password" name="new_password1" id="new_password1" class="form-control form-control-sm">
                             </div>
                             <div class="mb-3">
-                                {{ password_form.new_password2.label_tag }}
-                                {{ password_form.new_password2|add_class:"form-control form-control-sm" }}
+                                <label for="new_password2" class="form-label">Confirm New Password</label>
+                                <input type="password" name="new_password2" id="new_password2" class="form-control form-control-sm">
                             </div>
 
                             <button type="submit" name="change_password" class="btn btn-warning w-100">
@@ -112,50 +108,22 @@
 </div>
 
 <style>
-.card {
-    border-radius: 12px;
-}
-
-.card .form-control {
-    border-radius: 6px;
-}
-
-.btn-primary {
-    background-color: #4f46e5;
-    border: none;
-}
-
-.btn-primary:hover {
-    background-color: #4338ca;
-}
-
-.btn-warning {
-    background-color: #f59e0b;
-    border: none;
-    color: #fff;
-}
-
-.btn-warning:hover {
-    background-color: #d97706;
-}
-
-img.rounded-circle {
-    object-fit: cover;
-}
+.card { border-radius: 12px; }
+.card .form-control { border-radius: 6px; }
+.btn-primary { background-color: #4f46e5; border: none; }
+.btn-primary:hover { background-color: #4338ca; }
+.btn-warning { background-color: #f59e0b; border: none; color: #fff; }
+.btn-warning:hover { background-color: #d97706; }
+img.rounded-circle { object-fit: cover; }
 </style>
 
 <!-- AUTO SWITCH TAB IF MESSAGE COMES FROM PASSWORD CHANGE -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    {% if messages %}
-        {% for message in messages %}
-            {% if 'Password' in message %}
-                var passwordTab = new bootstrap.Tab(document.getElementById('password-tab'));
-                passwordTab.show();
-            {% endif %}
-        {% endfor %}
+    {% if password_success %}
+        var passwordTab = new bootstrap.Tab(document.getElementById('password-tab'));
+        passwordTab.show();
     {% endif %}
 });
 </script>
-
 {% endblock %}
