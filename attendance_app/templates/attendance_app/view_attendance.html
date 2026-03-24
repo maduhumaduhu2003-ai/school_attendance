@@ -5,8 +5,11 @@
 <div class="card shadow-sm">
     <div class="card-body">
 
-        <h4 class="mb-4">
+        <h4 class="mb-4 text-danger">
             Attendance Records : {{ classroom.name }} ({{ classroom.year }})
+            {% if stream %}
+                            : {{ stream.name }}
+                        {% endif %}
         </h4>
 
         <!-- ================= EXPORT BUTTONS ================= -->
@@ -108,7 +111,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted">
+                        <td colspan="6" class="text-center text-danger">
                             No attendance records found
                         </td>
                     </tr>

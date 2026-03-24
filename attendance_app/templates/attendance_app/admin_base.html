@@ -228,12 +228,12 @@ body {
         {% else %}
             <img src="{% static 'img/default-logo.png' %}" class="school-logo">
         {% endif %}
-        <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
+        <span class="school-name text-danger">{{ school_settings.school_name|default:"My School" }}</span>
     </div>
 
     <div class="profile-section dropdown">
     <!-- Display only the name as dropdown toggle -->
-    <span class="profile-name dropdown-toggle" 
+    <span class="profile-name dropdown-toggle text-danger" 
           role="button" 
           id="profileDropdown" 
           data-bs-toggle="dropdown" 

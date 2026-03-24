@@ -33,7 +33,7 @@
 
             <!-- PAGE TITLE & ADD BUTTON -->
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
-                <h2 class="mb-2 mb-md-0">Manage Teachers</h2>
+                <h2 class="mb-2 mb-md-0 text-danger">Manage Teachers</h2>
                 <a href="{% url 'register_teacher' %}" class="btn btn-primary btn-sm">
     Register New Teacher
 </a>
@@ -87,7 +87,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted">No teachers registered</td>
+                            <td colspan="6" class="text-center text-danger">No teachers registered</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -128,64 +128,7 @@
 
 </div>
 
-<!-- MODAL: REGISTER TEACHER -->
-<div class="modal fade" id="registerTeacherModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content p-3">
-      <form id="teacherForm" method="POST" action="{% url 'register_teacher' %}">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title">Register New Teacher</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-            <div class="container-fluid">
-                <div class="row g-3">
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control form-control-sm" name="username" required>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label">Phone Number</label>
-                        <input type="text" class="form-control form-control-sm" name="phone_number" placeholder="+255712345678" required>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label">First Name</label>
-                        <input type="text" class="form-control form-control-sm" name="first_name" required>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label">Last Name</label>
-                        <input type="text" class="form-control form-control-sm" name="last_name" required>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label">Classroom</label>
-                        <select class="form-select form-select-sm" id="classroom" name="classroom" required>
-                            <option value="" selected>Select Classroom</option>
-                            {% for c in classrooms %}
-                                <option value="{{ c.id }}">{{ c.name }} ({{ c.year }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label">Stream</label>
-                        <select class="form-select form-select-sm" id="stream" name="stream" required>
-                            <option value="" selected>Select Stream</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <small class="text-muted">Password will be set automatically: <strong>Teacher@123</strong></small>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer flex-wrap justify-content-end">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-primary btn-sm">Register</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
+
 
 <!-- MODAL: DELETE TEACHER -->
 <div class="modal fade" id="deleteTeacherModal" tabindex="-1" aria-hidden="true">

@@ -4,13 +4,14 @@
 {% block extra_css %}
 <style>
 /* =========================
-   Dashboard Summary Cards
+   Dashboard Summary Cards (Admin Style)
 ========================= */
 .card-summary {
     border-radius: 0.75rem;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     transition: transform 0.2s, box-shadow 0.2s;
     cursor: default;
+    color: #fff;
 }
 
 .card-summary:hover {
@@ -20,13 +21,19 @@
 
 .card-summary h6 {
     font-weight: 600;
-    color: #6b7280; /* muted gray for titles */
+    color: #e0e7ff; /* light text for titles */
 }
 
 .card-summary h2, .card-summary h5 {
     font-weight: 700;
-    color: #4f46e5; /* primary color */
 }
+
+/* =========================
+   Card Colors (like Admin)
+========================= */
+.bg-card-students { background-color: #4f46e5; } /* Indigo */
+.bg-card-attendance { background-color: #22c55e; } /* Green */
+.bg-card-classstream { background-color: #0ea5e9; } /* Blue */
 
 /* =========================
    Card Tables
@@ -51,7 +58,7 @@
 }
 
 .table tbody tr:hover {
-    background-color: rgba(79, 70, 229, 0.05);
+    background-color: rgba(79, 70, 229, 0.08);
 }
 
 .table td, .table th {
@@ -60,40 +67,20 @@
 }
 
 /* Badges */
-.badge-success {
-    background-color: #22c55e;
-    font-weight: 500;
-}
-.badge-danger {
-    background-color: #ef4444;
-    font-weight: 500;
-}
+.badge-success { background-color: #22c55e; font-weight: 500; }
+.badge-danger { background-color: #ef4444; font-weight: 500; }
 
-/* Section Headers */
-h5 {
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: #1e293b;
-}
+/* Headings & Section Titles */
+h5 { font-weight: 600; color: #4f46e5; }
 
 /* Responsive adjustments */
 @media (max-width: 992px) {
-    .card-summary h2 {
-        font-size: 1.5rem;
-    }
-    .card-summary h5 {
-        font-size: 1.15rem;
-    }
-    .table td, .table th {
-        padding: 0.45rem;
-        font-size: 0.85rem;
-    }
-    .card-summary {
-        margin-bottom: 1rem;
-    }
+    .card-summary h2 { font-size: 1.5rem; }
+    .card-summary h5 { font-size: 1.15rem; }
+    .table td, .table th { padding: 0.45rem; font-size: 0.85rem; }
+    .card-summary { margin-bottom: 1rem; }
 }
 
-/* Extra small devices: stack cards vertically, allow table scroll */
 @media (max-width: 576px) {
     .card-summary h2 { font-size: 1.25rem; }
     .card-summary h5 { font-size: 1rem; }
@@ -109,7 +96,7 @@ h5 {
 <!-- Dashboard summary cards -->
 <div class="row g-3 mb-4">
     <div class="col-md-4 col-12">
-        <div class="card card-summary text-center">
+        <div class="card card-summary text-center bg-card-students">
             <div class="card-body">
                 <h6>Total Students</h6>
                 <h2>{{ total_students }}</h2>
@@ -118,7 +105,7 @@ h5 {
     </div>
 
     <div class="col-md-4 col-12">
-        <div class="card card-summary text-center">
+        <div class="card card-summary text-center bg-card-attendance">
             <div class="card-body">
                 <h6>Total Attendance Records</h6>
                 <h2>{{ total_attendance }}</h2>
@@ -126,28 +113,29 @@ h5 {
         </div>
     </div>
 
- <div class="col-md-4 col-12">
-    <div class="card card-summary text-center">
-        <div class="card-body">
-            <h6>Class and Stream</h6>
-            <h5>
-                {% if classroom %}
-                    {{ classroom.name }} ({{ classroom.year }})
-                    {% if stream %}
-                        : {{ stream.name }}
+    <div class="col-md-4 col-12">
+        <div class="card card-summary text-center bg-card-classstream">
+            <div class="card-body">
+                <h6>Class and Stream</h6>
+                <h5 class="text-success">
+                    {% if classroom %}
+                        {{ classroom.name }} ({{ classroom.year }})
+                        {% if stream %}
+                            : {{ stream.name }}
+                        {% endif %}
+                    {% else %}
+                        <span class="text-warning">Not Assigned</span>
                     {% endif %}
-                {% else %}
-                    Not Assigned
-                {% endif %}
-            </h5>
+                </h5>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Students Table Card -->
-<div class="card card-table mb-4">
+<div class="card card-table mb-4 shadow-sm">
     <div class="card-body">
-        <h5>My Students</h5>
+        <h5 class="text-danger">My Students</h5>
         <div class="table-responsive">
             <table class="table table-bordered table-striped align-middle">
                 <thead>
@@ -160,13 +148,13 @@ h5 {
                 <tbody>
                     {% for student in students %}
                     <tr>
-                        <td class="text-center">{{ forloop.counter }}</td>
-                        <td class="text-center">{{ student.admission_number }}</td>
-                        <td>{{ student.user.first_name }} {{ student.user.last_name }}</td>
+                        <td class="text-center text-indigo fw-bold">{{ forloop.counter }}</td>
+                        <td class="text-center fw-bold">{{ student.admission_number }}</td>
+                        <td class="fw-semibold">{{ student.user.first_name }} {{ student.user.last_name }}</td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="3" class="text-center">No students found</td>
+                        <td colspan="3" class="text-center text-danger">No students found</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -176,9 +164,9 @@ h5 {
 </div>
 
 <!-- SMS Logs Table Card -->
-<div class="card card-table">
+<div class="card card-table shadow-sm">
     <div class="card-body">
-        <h5>Recent SMS Logs</h5>
+        <h5 class="text-danger">Recent SMS Logs</h5>
         <div class="table-responsive">
             <table class="table table-bordered table-striped align-middle text-center">
                 <thead>
@@ -195,8 +183,8 @@ h5 {
                 <tbody>
                     {% for log in sms_logs %}
                     <tr>
-                        <td class="text-center">{{ forloop.counter }}</td>
-                        <td>{{ log.student.user.get_full_name }}</td>
+                        <td class="text-center text-indigo fw-bold">{{ forloop.counter }}</td>
+                        <td class="text-primary fw-semibold">{{ log.student.user.get_full_name }}</td>
                         <td>{{ log.parent.user.get_full_name }}</td>
                         <td>{{ log.parent.user.phone_number }}</td>
                         <td class="text-start">{{ log.message }}</td>
@@ -211,7 +199,7 @@ h5 {
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center">No SMS logs found</td>
+                        <td colspan="7" class="text-center text-danger">No SMS logs found</td>
                     </tr>
                     {% endfor %}
                 </tbody>

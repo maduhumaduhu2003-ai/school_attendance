@@ -15,14 +15,14 @@
 {% endif %}
 
 
-    <h4 class="mb-3">
-        Register Student – {{ teacher_classroom.name }}
+    <h4 class="mb-4 text-danger">
+        Register Student  {{ teacher_classroom.name }} ({{teacher_classroom.year}})
     </h4>
 
     <!-- ================= IMPORT EXCEL ================= -->
     <div class="card mb-4 shadow-sm">
         <div class="card-body">
-            <h5>Import Students via Excel</h5>
+            <h5 class="text-primary">Import Students via Excel</h5>
             <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control mb-2" required>
@@ -30,14 +30,14 @@
                     Import Excel
                 </button>
             </form>
-            <small class="text-muted">Excel format: first_name, last_name, gender, admission_number, parent_full_name, parent_phone</small>
+            <small class="text-danger">Excel format: first_name, last_name, gender, admission_number, parent_full_name, parent_phone</small>
         </div>
     </div>
 
     <!-- ================= MANUAL ENTRY ================= -->
     <div class="card shadow-sm">
         <div class="card-body">
-            <h5>Register Manually</h5>
+            <h5 class="text-primary">Register Manually</h5>
             <form method="post">
                 {% csrf_token %}
                 <div class="row">

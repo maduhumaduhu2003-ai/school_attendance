@@ -9,7 +9,7 @@
         <div class="card-body">
 
             <!-- Page Title -->
-            <h4 class="mb-4">{{ classroom.name }} - Attendance</h4>
+            <h4 class="mb-4 text-danger">{{ classroom.name }} - Attendance</h4>
 
             <!-- Filter Form -->
             <form method="get" class="row g-3 mb-4 align-items-end flex-wrap">
@@ -70,7 +70,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted">No attendance records</td>
+                            <td colspan="6" class="text-center text-danger">No attendance records</td>
                         </tr>
                         {% endfor %}
                     </tbody>

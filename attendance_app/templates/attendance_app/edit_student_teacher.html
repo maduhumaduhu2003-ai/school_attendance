@@ -5,7 +5,7 @@
 <div class="card shadow-sm">
     <div class="card-body">
 
-        <h4 class="mb-4">Edit Student: {{ student.user.get_full_name }}</h4>
+        <h4 class="mb-4 text-primary">Edit Student: {{ student.user.get_full_name }}</h4>
 
         <form method="post">
             {% csrf_token %}
@@ -60,8 +60,8 @@
                 </select>
             </div>
             {% else %}
-            <p><strong>Classroom:</strong> {{ student.classroom.name }}</p>
-            <p><strong>Stream:</strong> {{ student.stream.name }}</p>
+            <p class="text-danger"><strong>Classroom:</strong> {{ student.classroom.name }}</p>
+            <p class="text-danger"><strong>Stream:</strong> {{ student.stream.name }}</p>
             {% endif %}
 
             <!-- parent info -->

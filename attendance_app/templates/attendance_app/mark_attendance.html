@@ -9,8 +9,11 @@
 
         <!-- Page Header -->
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
-            <h4 class="mb-2 mb-md-0">
+            <h4 class="mb-2 mb-md-0 text-danger">
                 Mark Attendance : {{ classroom.name }} ({{ classroom.year }})
+                {% if stream %}
+                            : {{ stream.name }}
+                        {% endif %}
             </h4>
         </div>
 
@@ -63,7 +66,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted">
+                            <td colspan="4" class="text-center text-muted text-danger">
                                 No students found
                             </td>
                         </tr>

@@ -243,11 +243,11 @@ body {
             {% else %}
                 <img src="{% static 'img/default-logo.png' %}" class="school-logo">
             {% endif %}
-            <span class="school-name">{{ school_settings.school_name|default:"My School" }}</span>
+            <span class="school-name text-danger">{{ school_settings.school_name|default:"My School" }}</span>
         </div>
 
         <div class="profile-section dropdown">
-            <span class="profile-name dropdown-toggle" data-bs-toggle="dropdown">
+            <span class="profile-name dropdown-toggle text-danger" data-bs-toggle="dropdown">
                 {{ request.user.get_full_name|default:request.user.username }}
             </span>
             <ul class="dropdown-menu dropdown-menu-end">

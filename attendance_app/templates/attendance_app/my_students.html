@@ -6,8 +6,11 @@
 <div class="card shadow-sm">
     <div class="card-body">
 
-        <h4 class="mb-4">
+        <h4 class="mb-4 text-danger">
             My Students : {{ classroom.name }} ({{ classroom.year }})
+            {% if stream %}
+                            : {{ stream.name }}
+                        {% endif %}
         </h4>
 
         <!-- ================= SEARCH & EXPORT ================= -->
@@ -114,7 +117,7 @@
 
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center text-muted">
+                        <td colspan="7" class="text-center text-danger">
                             No students found
                         </td>
                     </tr>

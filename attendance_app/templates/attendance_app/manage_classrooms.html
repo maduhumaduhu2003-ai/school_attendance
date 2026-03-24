@@ -8,7 +8,7 @@
         <div class="card-body">
 
             <!-- PAGE TITLE -->
-            <h4 class="mb-4">Manage Classrooms</h4>
+            <h4 class="mb-4 text-danger">Manage Classrooms</h4>
 
             <!-- ADD CLASSROOM BUTTON -->
             <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addClassroomModal">
@@ -22,7 +22,7 @@
                         <form method="POST" action="{% url 'manage_classrooms' %}">
                             {% csrf_token %}
                             <div class="modal-header">
-                                <h5 class="modal-title">Add Classroom</h5>
+                                <h5 class="modal-title text-danger">Add Classroom</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
@@ -71,11 +71,11 @@
                                     {% for stream in c.streams.all %}
                                         <li>{{ stream.name }}</li>
                                     {% empty %}
-                                        <li class="text-muted">No streams yet</li>
+                                        <li class="text-danger">No streams yet</li>
                                     {% endfor %}
                                 </ul>
                             </td>
-                            <td>
+                            <td class="text-success">
                                 {{ c.year.year_start }}/{{ c.year.year_end }}
                                 {% if c.year.is_active %}(Active){% endif %}
                             </td>
@@ -93,7 +93,7 @@
                                     <form method="POST" action="{% url 'edit_classroom' c.id %}">
                                         {% csrf_token %}
                                         <div class="modal-header">
-                                            <h5 class="modal-title">Edit Classroom</h5>
+                                            <h5 class="modal-title text-danger">Edit Classroom</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body">
@@ -128,7 +128,7 @@
                                     <form method="POST" action="{% url 'add_stream' c.id %}">
                                         {% csrf_token %}
                                         <div class="modal-header">
-                                            <h5 class="modal-title">Add Stream to {{ c.name }}</h5>
+                                            <h5 class="modal-title text-danger">Add Stream to {{ c.name }}</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body">
@@ -171,7 +171,7 @@
 
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted">No classrooms found</td>
+                            <td colspan="4" class="text-center text-danger">No classrooms found</td>
                         </tr>
                         {% endfor %}
                     </tbody>

@@ -7,7 +7,7 @@
     <div class="card shadow-sm">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                <h4 class="mb-0">Sent SMS</h4>
+                <h4 class="mb-0 text-danger">Sent SMS</h4>
             </div>
 
             <!-- Responsive Table -->
@@ -37,7 +37,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted">No SMS sent yet</td>
+                            <td colspan="6" class="text-center text-danger">No SMS sent yet</td>
                         </tr>
                         {% endfor %}
                     </tbody>
