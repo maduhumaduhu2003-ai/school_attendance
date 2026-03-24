@@ -43,26 +43,32 @@ body {
     overflow-y: auto; 
     box-shadow: 2px 0 6px rgba(0,0,0,0.05);
 }
-.sidebar-header { 
-    padding: 0 1.5rem 1rem; 
-    margin-bottom: 1rem;
+
+.sidebar-header {
+    padding: 0 1.5rem 1rem;
+    font-weight: 700;
+    font-size: 1.15rem;
 }
+
 .sidebar-logo {
     text-decoration: none;
     color: var(--sidebar-text);
 }
-.nav-link { 
-    color: var(--sidebar-text); 
-    text-decoration: none; 
-    display: flex; 
-    align-items: center; 
-    gap: 0.75rem; 
-    padding: 0.65rem 1rem; 
-    border-radius: 8px; 
-    transition: all 0.2s; 
+
+.nav-link {
+    color: var(--sidebar-text);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
     font-weight: 500;
+    transition: 0.2s;
 }
-.nav-link i { font-size: 1.05rem; color: #6b7280; }
+
+.nav-link i {
+    color: #6b7280;
+}
 .nav-link:hover { background: var(--sidebar-hover); color: var(--primary-color); }
 .nav-link.active { background: rgba(79,70,229,0.15); color: var(--primary-color); border-left: 3px solid var(--primary-color); }
 
@@ -70,6 +76,7 @@ body {
     padding: 1rem; 
     margin-top: auto; 
 }
+
 .logout-link { 
     display: flex; 
     align-items: center; 
@@ -79,68 +86,67 @@ body {
     color: #b91c1c; 
     border-radius: 8px; 
     font-weight: 500; 
+    font-size: 0.95rem; /* match Teacher base */
     text-decoration: none; 
     transition: all 0.2s ease;
 }
+
 .logout-link:hover { 
     background: rgba(220,53,69,0.2); 
     color: #f87171; 
-    transform: translateX(5px); 
 }
 
 /* CONTENT */
-.content { 
-    margin-left: var(--sidebar-width); 
-    transition: margin-left 0.3s ease; 
-    min-height: 100vh; 
-    padding: 20px; 
-    box-sizing: border-box; 
+.content {
+    margin-left: var(--sidebar-width);
+    padding: 20px;
+    transition: margin-left 0.3s ease;
 }
 
 /* TOPBAR */
 .topbar { 
     background: #ffffff; 
-    padding: 0.8rem 1.2rem; 
+    padding: 0.75rem 1rem; 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12); 
-    position: sticky; 
-    top: 0; 
-    z-index: 100; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
     border-radius: 8px; 
     margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
-.school-info { display: flex; align-items: center; gap: 0.5rem; }
-.school-logo { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
-.school-name { font-weight: 600; color: #1e293b; font-size: 1.05rem; }
-.profile-section { display: flex; align-items: center; gap: 0.5rem; }
-.profile-name { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
-.profile-img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: none; cursor: pointer; }
 
+.school-info { display: flex; align-items: center; gap: 0.5rem; }
+.school-logo { width: 38px; height: 38px; object-fit: cover; border-radius: 6px; }
+.school-name { font-weight: 600; font-size: 0.95rem; color: #1e293b; }
+
+.profile-section { display: flex; align-items: center; gap: 0.5rem; }
+.profile-name { font-weight: 600; font-size: 0.9rem; color: #1e293b; cursor: pointer; }
+.profile-img { width: 38px; height: 38px; object-fit: cover; border-radius: 50%; }
+
+/* TOGGLE & OVERLAY */
 .sidebar-toggle { 
     display: none; 
+    position: fixed; 
+    top: 12px; 
+    left: 12px; 
     background: var(--primary-color); 
-    color: #fff; 
+    color: white; 
     border: none; 
-    font-size: 1.3rem; 
-    cursor: pointer; 
+    font-size: 1.25rem; 
     padding: 6px 10px; 
     border-radius: 6px; 
-    position: fixed; 
-    top: 10px; 
-    left: 10px; 
     z-index: 1300;
 }
 
-/* OVERLAY */
 #sidebar-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.3);
+    background: rgba(0,0,0,0.4);
     z-index: 1150;
-    transition: all 0.3s;
 }
 
 /* MOBILE */
@@ -165,7 +171,7 @@ body {
 <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <a href="{% url 'admin_dashboard' %}" class="sidebar-logo justify-content-center">
-    <i class="bi bi-shield-lock-fill text-primary"></i>
+    <i class="bi bi-mortarboard-fill text-primary"></i>
     <span class="sidebar-logo-text">Admin Panel</span>
 </a>
 
@@ -175,10 +181,12 @@ body {
         <a href="{% url 'admin_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
             <i class="bi bi-speedometer2"></i><span class="nav-text">Dashboard</span>
         </a>
-        <a href="{% url 'register_teacher' %}" class="nav-link {% if request.resolver_match.url_name == 'register_teacher' %}active{% endif %}">
+        <a href="{% url 'manage_teacher' %}" 
+           class="nav-link {% if request.resolver_match.url_name in 'manage_teacher register_teacher edit_teacher' %}active{% endif %}">
             <i class="bi bi-person-badge"></i><span class="nav-text">Teachers</span>
         </a>
-        <a href="{% url 'register_student' %}" class="nav-link {% if request.resolver_match.url_name == 'register_student' %}active{% endif %}">
+        <a href="{% url 'manage_student' %}" 
+          class="nav-link {% if request.resolver_match.url_name in 'manage_student register_student_admin edit_student_page' %}active{% endif %}">
             <i class="bi bi-people"></i><span class="nav-text">Students</span>
         </a>
         <a href="{% url 'manage_classrooms' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_classrooms' %}active{% endif %}">

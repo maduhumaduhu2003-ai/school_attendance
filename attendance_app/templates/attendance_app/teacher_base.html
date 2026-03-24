@@ -177,23 +177,14 @@ body {
 }
 
 /* ================= MOBILE ================= */
-@media (max-width: 992px) {
-    .sidebar {
-        transform: translateX(-100%);
-    }
-    .sidebar.show {
-        transform: translateX(0);
-    }
-    .content {
-        margin-left: 0;
-        padding: 15px;
-    }
-    .sidebar-toggle {
-        display: block;
-    }
-    .sidebar-overlay.show {
-        display: block;
-    }
+/* MOBILE */
+@media (max-width: 992px){
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.show { transform: translateX(0); }
+    .content { margin-left: 0; padding: 15px; }
+    .sidebar-toggle { display: block; }
+    #sidebar-overlay.show { display: block; }
+    .profile-name { display: none; }
 }
 </style>
 </head>
@@ -225,7 +216,7 @@ body {
         <a href="{% url 'my_students' %}" class="nav-link {% if request.resolver_match.url_name == 'my_students' %}active{% endif %}">
             <i class="bi bi-people"></i> My Students
         </a>
-        <a href="{% url 'register_student' %}" class="nav-link {% if request.resolver_match.url_name == 'register_student' %}active{% endif %}">
+        <a href="{% url 'register_student_teacher' %}" class="nav-link {% if request.resolver_match.url_name == 'register_student_teacher' %}active{% endif %}">
             <i class="bi bi-person-plus-fill"></i> Register Student
         </a>
         <a href="{% url 'teacher_sms_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_sms_logs' %}active{% endif %}">

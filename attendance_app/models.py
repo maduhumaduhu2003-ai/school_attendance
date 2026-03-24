@@ -80,10 +80,6 @@ class TeacherProfile(models.Model):
         
 
 
-
-
-
-
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     classroom = models.ForeignKey(

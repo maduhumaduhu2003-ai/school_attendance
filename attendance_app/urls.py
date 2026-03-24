@@ -34,14 +34,19 @@ urlpatterns = [
     path('parent-dashboard/', views.login_view, name='parent_dashboard'),
 
     path('logout/', views.logout_view, name='logout'),
+    path('manage-teacher/', views.manage_teacher, name='manage_teacher'),
     path('register-teacher/', views.register_teacher, name='register_teacher'),
     path('edit_teacher/<int:id>/',views.edit_teacher, name='edit_teacher'),
     path('delete_teacher/<int:id>/',views.delete_teacher, name='delete_teacher'),
     path('delete-teacher/<int:teacher_id>/', views.delete_teacher, name='delete_teacher'),
 
 
-    path('register_student/', views.register_student, name='register_student'),
-    path('students/edit/<int:student_id>/', views.edit_student, name='edit_student'),
+    path('register_student_admin/', views.register_student_admin, name='register_student_admin'),
+    path('register_student_teacher/', views.register_student_teacher, name='register_student_teacher'),
+    path('manage_student/', views.manage_student, name='manage_student'),
+    path('manage_student/', views.manage_student, name='manage_student'),
+    
+    path('students/edit/<int:student_id>/', views.edit_student_page, name='edit_student_page'),
     path('students/delete/<int:student_id>/', views.delete_student, name='delete_student'),
 
     path('manage_classrooms/', views.manage_classrooms, name='manage_classrooms'),
