@@ -1146,7 +1146,6 @@ def delete_student(request, student_id):
 
 
 
-
 @never_cache
 def forgot_password(request):
     if request.method == "POST":
@@ -1157,10 +1156,13 @@ def forgot_password(request):
                 messages.error(request, "Enter email or phone number")
                 return redirect("forgot_password")
 
+            # ================= FORMAT PHONE =================
+            formatted_phone = format_phone_number(identifier)
+
             # ================= FIND USER =================
             user = (
                 User.objects.filter(email=identifier).first()
-                or User.objects.filter(phone_number=identifier).first()
+                or User.objects.filter(phone_number=formatted_phone).first()
             )
 
             if not user:
@@ -1176,15 +1178,7 @@ def forgot_password(request):
 
             # ================= SEND SMS (PRIMARY) =================
             if user.phone_number:
-                phone = user.phone_number.strip()
-
-                # Normalize Tanzania number
-                if phone.startswith("0") and len(phone) == 10:
-                    phone = "+255" + phone[1:]
-                elif phone.startswith(("6", "7")) and len(phone) == 9:
-                    phone = "+255" + phone
-                elif not phone.startswith("+"):
-                    phone = "+255" + phone
+                phone = format_phone_number(user.phone_number)  # 👈 HAPA NDIO CALL
 
                 try:
                     sms_sent = send_sms(
@@ -1202,24 +1196,6 @@ def forgot_password(request):
             else:
                 logger.warning("No phone number, SMS skipped")
 
-            # ================= SEND EMAIL (OPTIONAL) =================
-           # if user.email:
-            #    try:
-            #        send_mail(
-             #           subject="Password Reset Code",
-              #          message=f"Your password reset code is {code}",
-              #          from_email=settings.DEFAULT_FROM_EMAIL,
-               #         recipient_list=[user.email],
-                #        fail_silently=True  
-               #     )
-               #     logger.info(f"Password reset email sent to {user.email}")
-               # except Exception as email_error:
-               #     logger.warning(f"Email error: {email_error}")
-
-          #  messages.success(
-             #   request,
-           #     "Reset code sent via SMS and Email (if available)"
-           # )
             return redirect("verify_reset")
 
         except Exception as e:
@@ -1227,7 +1203,6 @@ def forgot_password(request):
             messages.error(request, "Something went wrong. Try again.")
             return redirect("forgot_password")
 
-    # ================= GET REQUEST =================
     return render(request, "attendance_app/forgot_password.html")
 
 
