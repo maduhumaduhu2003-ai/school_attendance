@@ -1,0 +1,88 @@
+{% extends "attendance_app/teacher_base.html" %}
+{% block title %}Edit Student{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <h4 class="mb-4">Edit Student: {{ student.user.get_full_name }}</h4>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label>First Name</label>
+                <input type="text" name="first_name" class="form-control" 
+                       value="{{ student.user.first_name }}">
+            </div>
+
+            <div class="mb-3">
+                <label>Last Name</label>
+                <input type="text" name="last_name" class="form-control" 
+                       value="{{ student.user.last_name }}">
+            </div>
+
+            <div class="mb-3">
+                <label>Gender</label>
+                <select name="gender" class="form-control">
+                    <option value="male" {% if student.user.gender == 'male' %}selected{% endif %}>Male</option>
+                    <option value="female" {% if student.user.gender == 'female' %}selected{% endif %}>Female</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label>Admission Number</label>
+                <input type="text" name="admission_number" class="form-control" 
+                       value="{{ student.admission_number }}">
+            </div>
+
+            <!-- class & stream only admin -->
+            {% if is_admin %}
+            <div class="mb-3">
+                <label>Classroom</label>
+                <select name="classroom" class="form-control">
+                    {% for c in classrooms %}
+                    <option value="{{ c.id }}" {% if c.id == student.classroom.id %}selected{% endif %}>
+                        {{ c.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label>Stream</label>
+                <select name="stream" class="form-control">
+                    {% for s in streams %}
+                    <option value="{{ s.id }}" {% if s.id == student.stream.id %}selected{% endif %}>
+                        {{ s.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <p><strong>Classroom:</strong> {{ student.classroom.name }}</p>
+            <p><strong>Stream:</strong> {{ student.stream.name }}</p>
+            {% endif %}
+
+            <!-- parent info -->
+            {% if parent %}
+            <div class="mb-3">
+                <label>Parent Full Name</label>
+                <input type="text" name="parent_full_name" class="form-control"
+                       value="{{ parent.user.get_full_name }}">
+            </div>
+
+            <div class="mb-3">
+                <label>Parent Phone</label>
+                <input type="text" name="parent_phone" class="form-control"
+                       value="{{ parent.user.phone_number }}">
+            </div>
+            {% endif %}
+
+            <button class="btn btn-primary">Save Changes</button>
+            <a href="{% url 'my_students' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+
+    </div>
+</div>
+{% endblock %}

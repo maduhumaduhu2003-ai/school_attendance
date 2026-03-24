@@ -1124,6 +1124,60 @@ def edit_student_page(request, student_id):
         'classrooms': classrooms,
         'parent': parent,
     })
+    
+
+@login_required
+@user_passes_test(lambda u: u.role in ['teacher', 'admin'])
+def edit_student_teacher(request, student_id):
+    student = get_object_or_404(StudentProfile, id=student_id)
+    streams = Stream.objects.all()
+    classrooms = Classroom.objects.all()
+    parent = student.parents.first() if student.parents.exists() else None
+
+    if request.method == 'POST':
+        # ---------------- student info ----------------
+        student.user.first_name = request.POST.get('first_name', student.user.first_name)
+        student.user.last_name = request.POST.get('last_name', student.user.last_name)
+        student.user.gender = request.POST.get('gender', student.user.gender)
+        student.admission_number = request.POST.get('admission_number', student.admission_number)
+
+        # ---------------- class & stream only admin ----------------
+        if request.user.role == 'admin':
+            classroom_id = request.POST.get('classroom')
+            student.classroom = Classroom.objects.get(id=classroom_id) if classroom_id else student.classroom
+
+            stream_id = request.POST.get('stream')
+            student.stream = Stream.objects.get(id=stream_id) if stream_id else student.stream
+
+        student.user.save()
+        student.save()
+
+        # ---------------- parent info ----------------
+        if parent:
+            full_name = request.POST.get('parent_full_name', '').strip()
+            if full_name:
+                names = full_name.split(' ', 1)
+                parent.user.first_name = names[0]
+                parent.user.last_name = names[1] if len(names) > 1 else ''
+
+            raw_phone = request.POST.get('parent_phone')
+            if raw_phone:
+                try:
+                    parent.user.phone_number = format_phone_number(raw_phone)
+                except Exception:
+                    pass
+
+            parent.user.save()
+
+        return redirect('my_students')  # or wherever teacher list is
+
+    return render(request, 'attendance_app/edit_student_teacher.html', {
+        'student': student,
+        'streams': streams,
+        'classrooms': classrooms,
+        'parent': parent,
+        'is_admin': request.user.role == 'admin',
+    })
 
 
 @never_cache
@@ -1142,7 +1196,10 @@ def delete_student(request, student_id):
     student.user.delete()  
 
     messages.success(request, "Student and associated parent(s) deleted successfully.")
-    return redirect('manage_student')
+    if request.user.role == "teacher":
+        return redirect("my_students")   
+    else:
+        return redirect("manage_student")
 
 
 

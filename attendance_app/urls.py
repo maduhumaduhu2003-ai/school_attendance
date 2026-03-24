@@ -25,6 +25,7 @@ urlpatterns = [
     path('teacher/sms-logs/delete/<int:sms_id>/', views.delete_sms_log, name='delete_sms_log'),
 
     path('my_students/', views.my_students, name='my_students'),
+    path('edit-student-teacher/<int:student_id>/', views.edit_student_teacher, name='edit_student_teacher'),
     path("student-profile/<int:pk>/", views.student_profile_modal, name="student_profile_modal"),
     path("export-students-excel/", views.export_students_excel, name="export_students_excel"),
     path("export-students-pdf/", views.export_students_pdf, name="export_students_pdf"),

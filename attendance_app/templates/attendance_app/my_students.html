@@ -30,10 +30,10 @@
             <div class="col-12 col-md-6 text-md-end">
                 <label class="form-label d-none d-md-block">&nbsp;</label>
                 <div class="d-flex gap-2 justify-content-md-end">
-                    <a href="{% url 'export_students_excel' %}" class="btn btn-success btn-sm w-100 w-md-auto">
+                    <a href="{% url 'export_students_excel' %}" class="btn btn-success btn-sm">
                         Excel
                     </a>
-                    <a href="{% url 'export_students_pdf' %}" class="btn btn-danger btn-sm w-100 w-md-auto">
+                    <a href="{% url 'export_students_pdf' %}" class="btn btn-danger btn-sm">
                         PDF
                     </a>
                 </div>
@@ -63,18 +63,58 @@
                         <td>{{ student.classroom.name }}</td>
                         <td>{{ student.user.gender|title }}</td>
                         <td>{{ student.parents.first.user.phone_number|default:"—" }}</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-primary w-100 w-md-auto"
+
+                        <td class="text-center d-flex gap-2 justify-content-center">
+
+                            <!-- EDIT BUTTON -->
+                            <a href="{% url 'edit_student_teacher' student.id %}" 
+                               class="btn btn-sm btn-warning">
+                                Edit
+                            </a>
+
+                            <!-- DELETE BUTTON -->
+                            <button class="btn btn-sm btn-danger"
                                     data-bs-toggle="modal"
-                                    data-bs-target="#studentModal"
-                                    data-id="{{ student.id }}">
-                                View
+                                    data-bs-target="#deleteModal{{ student.id }}">
+                                Delete
                             </button>
+
                         </td>
                     </tr>
+
+                    <!-- ================= DELETE MODAL ================= -->
+                    <div class="modal fade" id="deleteModal{{ student.id }}" tabindex="-1">
+                      <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                          
+                          <div class="modal-header">
+                            <h5 class="modal-title">Confirm Delete</h5>
+                            <button class="btn-close" data-bs-dismiss="modal"></button>
+                          </div>
+
+                          <div class="modal-body text-center">
+                            Are you sure you want to delete 
+                            <strong>{{ student.user.get_full_name }}</strong>?
+                          </div>
+
+                          <div class="modal-footer">
+                            <button class="btn btn-secondary" data-bs-dismiss="modal">
+                                Cancel
+                            </button>
+
+                            <a href="{% url 'delete_student' student.id %}" 
+                               class="btn btn-danger">
+                                Yes, Delete
+                            </a>
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted">
+                        <td colspan="7" class="text-center text-muted">
                             No students found
                         </td>
                     </tr>
@@ -131,29 +171,6 @@
     </div>
 </div>
 
-<!-- ================= STUDENT MODAL ================= -->
-<div class="modal fade" id="studentModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content"></div>
-    </div>
-</div>
-
-<!-- ================= SCRIPT ================= -->
-<script>
-const modal = document.getElementById("studentModal");
-
-modal.addEventListener("show.bs.modal", function (event) {
-    const button = event.relatedTarget;
-    const studentId = button.getAttribute("data-id");
-
-    fetch(`/student-profile/${studentId}/`)
-        .then(response => response.text())
-        .then(html => {
-            modal.querySelector(".modal-content").innerHTML = html;
-        });
-});
-</script>
-
 <!-- ================= STYLES ================= -->
 <style>
 .table-hover tbody tr:hover {
@@ -165,9 +182,7 @@ modal.addEventListener("show.bs.modal", function (event) {
     border-color:#e5e7eb;
 }
 
-.btn-primary,
-.btn-success,
-.btn-danger {
+.btn {
     border-radius:6px;
     font-weight:500;
 }
@@ -182,7 +197,6 @@ modal.addEventListener("show.bs.modal", function (event) {
     color:#4f46e5;
 }
 
-/* MOBILE */
 @media (max-width:768px){
     h4{font-size:1.1rem}
     .table th,.table td{
