@@ -14,10 +14,24 @@
   <form method="POST">
     {% csrf_token %}
     <div class="row g-3">
-      <div class="col-md-6"><label>First Name</label><input type="text" name="first_name" class="form-control" required></div>
-      <div class="col-md-6"><label>Last Name</label><input type="text" name="last_name" class="form-control" required></div>
-      <div class="col-md-6"><label>Admission Number</label><input type="text" name="admission_number" class="form-control" required></div>
-      <div class="col-md-6"><label>Academic Year</label>
+
+      <div class="col-md-6">
+        <label>First Name</label>
+        <input type="text" name="first_name" class="form-control" required>
+      </div>
+
+      <div class="col-md-6">
+        <label>Last Name</label>
+        <input type="text" name="last_name" class="form-control" required>
+      </div>
+
+      <div class="col-md-6">
+        <label>Admission Number</label>
+        <input type="text" name="admission_number" class="form-control" required>
+      </div>
+
+      <div class="col-md-6">
+        <label>Academic Year</label>
         <select name="academic_year" class="form-select" required>
           {% for year in academic_years %}
           <option value="{{ year.id }}" {% if active_year and year.id == active_year.id %}selected{% endif %}>
@@ -26,32 +40,80 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-6"><label>Classroom</label>
-        <select name="classroom" class="form-select" required>
+
+      <!-- ✅ CLASSROOM -->
+      <div class="col-md-6">
+        <label>Classroom</label>
+        <select name="classroom" id="classroom" class="form-select" required>
+          <option value="">Select Classroom</option>
           {% for classroom in classrooms %}
           <option value="{{ classroom.id }}">{{ classroom.name }} ({{ classroom.year }})</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-6"><label>Stream</label>
-        <select name="stream" class="form-select" required>
-          {% for stream in streams %}
-          <option value="{{ stream.id }}">{{ stream.name }}</option>
-          {% endfor %}
+
+      <!-- ✅ STREAM (EMPTY MWANZO) -->
+      <div class="col-md-6">
+        <label>Stream</label>
+        <select name="stream" id="stream" class="form-select" required>
+          <option value="">Select Stream</option>
         </select>
       </div>
-      <div class="col-md-6"><label>Gender</label>
+
+      <div class="col-md-6">
+        <label>Gender</label>
         <select name="gender" class="form-select" required>
           <option value="">Select Gender</option>
           <option value="male">Male</option>
           <option value="female">Female</option>
         </select>
       </div>
-      <div class="col-md-6"><label>Parent Full Name</label><input type="text" name="parent_full_name" class="form-control" required></div>
-      <div class="col-md-6"><label>Parent Phone</label><input type="text" name="parent_phone" class="form-control" required></div>
+
+      <div class="col-md-6">
+        <label>Parent Full Name</label>
+        <input type="text" name="parent_full_name" class="form-control" required>
+      </div>
+
+      <div class="col-md-6">
+        <label>Parent Phone</label>
+        <input type="text" name="parent_phone" class="form-control" required>
+      </div>
+
     </div>
 
     <button type="submit" class="btn btn-primary mt-3">Register Student</button>
   </form>
 </div>
+
+<!-- ✅ JAVASCRIPT YA AUTO FILTER STREAM -->
+<script>
+document.getElementById("classroom").addEventListener("change", function () {
+    let classroomId = this.value;
+
+    let streamSelect = document.getElementById("stream");
+
+    // Reset kwanza
+    streamSelect.innerHTML = '<option value="">Loading...</option>';
+
+    if (classroomId === "") {
+        streamSelect.innerHTML = '<option value="">Select Stream</option>';
+        return;
+    }
+
+    fetch(`/get-streams/${classroomId}/`)
+        .then(response => response.json())
+        .then(data => {
+            streamSelect.innerHTML = '<option value="">Select Stream</option>';
+
+            data.streams.forEach(function(stream) {
+                streamSelect.innerHTML += `<option value="${stream.id}">${stream.name}</option>`;
+            });
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            streamSelect.innerHTML = '<option value="">Error loading streams</option>';
+        });
+});
+</script>
+
 {% endblock %}

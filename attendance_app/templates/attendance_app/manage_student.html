@@ -3,159 +3,151 @@
 
 {% block content %}
 
-<div class="container mt-5 manage-students-page">
+<div class="container mt-4">
 
-    <!-- TOAST MESSAGES -->
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="toast align-items-center text-white 
-                    {% if message.tags == 'success' %}bg-success
-                    {% elif message.tags == 'error' %}bg-danger
-                    {% else %}bg-info{% endif %} 
-                    border-0 mb-2" 
-                    role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
-                    
-                    <div class="d-flex">
-                        <div class="toast-body">{{ message }}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                    </div>
-                </div>
-            {% endfor %}
-        {% endif %}
+    <!-- TOAST -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index:2000;">
+        {% for message in messages %}
+        <div class="toast text-white 
+            {% if message.tags == 'success' %}bg-success
+            {% elif message.tags == 'error' %}bg-danger
+            {% else %}bg-info{% endif %} border-0 mb-2">
+            <div class="d-flex">
+                <div class="toast-body">{{ message }}</div>
+                <button class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 
+    <!-- BIG CARD -->
     <div class="card shadow-sm">
         <div class="card-body">
-            <h4 class="mb-4 text-danger">Manage Students</h4>
+
+            <h3 class="mb-4 text-danger">Manage Students</h3>
 
             <!-- FILTERS -->
-            <form method="GET" class="row g-3 mb-3">
+            <form method="GET" class="row g-3 mb-4">
+
+                <!-- NEW: Filter by Student Name -->
                 <div class="col-md-3">
-                    <select class="form-select" name="classroom">
+                    <input type="text" name="student_name" value="{{ request.GET.student_name|default:'' }}" 
+                           class="form-control" placeholder="Search by student name">
+                </div>
+
+                <div class="col-md-3">
+                    <select class="form-select" name="classroom" id="classroomFilter">
                         <option value="">All Classrooms</option>
-                        {% for classroom in classrooms %}
-                        <option value="{{ classroom.id }}" {% if request.GET.classroom == classroom.id|stringformat:"s" %}selected{% endif %}>
-                            {{ classroom.name }} ({{ classroom.year }})
+                        {% for c in classrooms %}
+                        <option value="{{ c.id }}" {% if request.GET.classroom == c.id|stringformat:"s" %}selected{% endif %}>
+                            {{ c.name }} ({{ c.year }})
                         </option>
                         {% endfor %}
                     </select>
                 </div>
 
                 <div class="col-md-3">
-                    <select class="form-select" name="stream">
+                    <select class="form-select" name="stream" id="streamFilter">
                         <option value="">All Streams</option>
-                        {% for stream in streams %}
-                        <option value="{{ stream.id }}" {% if request.GET.stream == stream.id|stringformat:"s" %}selected{% endif %}>
-                            {{ stream.name }}
-                        </option>
-                        {% endfor %}
                     </select>
                 </div>
 
                 <div class="col-md-3">
                     <select name="academic_year" class="form-select">
                         <option value="">All Academic Years</option>
-                        {% for year in academic_years %}
-                        <option value="{{ year.id }}" {% if request.GET.academic_year == year.id|stringformat:"s" %}selected{% endif %}>
-                            {{ year.year_start }}/{{ year.year_end }}
+                        {% for y in academic_years %}
+                        <option value="{{ y.id }}" {% if request.GET.academic_year == y.id|stringformat:"s" %}selected{% endif %}>
+                            {{ y.year_start }}/{{ y.year_end }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
 
                 <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Filter</button>
+                    <button class="btn btn-primary">Filter</button>
                     <a href="{% url 'manage_student' %}" class="btn btn-secondary">Reset</a>
                 </div>
             </form>
 
             <!-- ADD STUDENT -->
-            <a href="{% url 'register_student_admin' %}" class="btn btn-primary mb-3">
-                Register New Student
-            </a>
+            <a href="{% url 'register_student_admin' %}" class="btn btn-primary mb-4">Register New Student</a>
 
-            <!-- TABLE -->
+            <!-- CLASS CARDS -->
+            <div class="row g-4">
+                {% for c in classrooms %}
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card shadow-sm card-hover text-center"
+                         onclick="location.href='?classroom={{ c.id }}'">
+                        <div class="card-body">
+                            <i class="bi bi-mortarboard" style="font-size:2rem;color:#4f46e5;"></i>
+                            <h5 class="card-title fw-bold mt-2">{{ c.name }}</h5>
+                            <p class="card-text text-muted mb-2">Year: {{ c.year }}</p>
+                            <span class="badge bg-primary rounded-pill">{{ c.students.count }} Students</span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <p class="text-danger text-center">No classrooms available</p>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- STUDENT TABLE -->
+            {% if request.GET.classroom %}
+            <hr class="my-4">
+            <h5 class="mb-3">Students List</h5>
             <div class="table-responsive">
-                <table class="table table-bordered table-hover table-striped align-middle">
-                    <thead style="background-color: #4f46e5; color: white;">
+                <table class="table table-bordered table-striped align-middle">
+                    <thead style="background:#4f46e5;color:white;">
                         <tr class="text-center">
                             <th>No</th>
-                            <th>Admission Number</th>
-                            <th>First Name</th>
-                            <th>Last Name</th>
+                            <th>Adm No</th>
+                            <th>Name</th>
                             <th>Gender</th>
-                            <th>Classroom</th>
                             <th>Stream</th>
-                            <th>Academic Year</th>
+                            <th>Year</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
-
                     <tbody class="text-center">
-                        {% for student in students %}
+                        {% for s in students %}
                         <tr>
                             <td>{{ forloop.counter }}</td>
-                            <td>{{ student.admission_number }}</td>
-                            <td>{{ student.user.first_name }}</td>
-                            <td>{{ student.user.last_name }}</td>
-                            <td>{{ student.user.gender }}</td>
-
+                            <td>{{ s.admission_number }}</td>
+                            <td>{{ s.user.first_name }} {{ s.user.last_name }}</td>
+                            <td>{{ s.user.gender }}</td>
+                            <td>{{ s.stream.name }}</td>
+                            <td>{{ s.academic_year }}</td>
                             <td>
-                                {% if student.classroom %}
-                                    {{ student.classroom.name }} ({{ student.classroom.year }})
-                                {% else %}N/A{% endif %}
-                            </td>
-
-                            <td>
-                                {% if student.stream %}
-                                    {{ student.stream.name }}
-                                {% else %}N/A{% endif %}
-                            </td>
-
-                            <td>{{ student.academic_year }}</td>
-
-                            <td>
-                                <a href="{% url 'edit_student_page' student.id %}" 
-                                   class="btn btn-sm btn-warning me-1">
-                                    Edit
-                                </a>
-
+                                <a href="{% url 'edit_student_page' s.id %}" class="btn btn-sm btn-warning">Edit</a>
                                 <button class="btn btn-sm btn-danger deleteStudentBtn"
-                                    data-href="{% url 'delete_student' student.id %}">
-                                    Delete
-                                </button>
+                                        data-href="{% url 'delete_student' s.id %}">Delete</button>
                             </td>
                         </tr>
-
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center text-danger">
-                                No students found.
-                            </td>
+                            <td colspan="7" class="text-danger">No students found</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% endif %}
 
         </div>
     </div>
 </div>
 
 <!-- DELETE MODAL -->
-<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
-  <div class="modal-dialog modal-md modal-dialog-centered">
+<div class="modal fade" id="deleteConfirmModal">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">Confirm Delete</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <h5>Confirm Delete</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-
-      <div class="modal-body text-center">
-        Are you sure you want to delete this student?
-      </div>
-
+      <div class="modal-body text-center">Are you sure?</div>
       <div class="modal-footer justify-content-center">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <a href="#" id="deleteStudentBtn" class="btn btn-danger">Delete</a>
@@ -164,69 +156,77 @@
   </div>
 </div>
 
-<!-- SCOPED CSS -->
+<!-- CSS -->
 <style>
-.manage-students-page .table th,
-.manage-students-page .table td {
-    font-size: 14px;
-    vertical-align: middle;
+.card-hover {
+    border-radius: 1rem;
+    transition: all 0.25s ease-in-out;
+    cursor: pointer;
 }
-
-.manage-students-page .btn-primary {
-    background-color:#4f46e5;
-    border:none;
-    color:white;
+.card-hover:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
-
-.manage-students-page .btn-warning {
-    background-color:#f59e0b;
-    border:none;
-    color:white;
+.card-title {
+    font-size: 1.2rem;
+    color: #333;
 }
-
-.manage-students-page .btn-danger {
-    background-color:#e92b2b;
-    border:none;
-    color:white;
+.card-text {
+    font-size: 0.95rem;
 }
-
-.manage-students-page .btn-secondary {
-    background-color:#94a3b8;
-    border:none;
-    color:white;
-}
-
-.manage-students-page .card {
-    border-radius: 6px;
-}
-
-@media (max-width:768px){
-    .manage-students-page .table th,
-    .manage-students-page .table td {
-        font-size:13px;
-        padding:6px;
-    }
+.badge {
+    font-size: 0.9rem;
+    padding: 0.5em 0.8em;
 }
 </style>
 
+<!-- SCRIPT -->
 <script>
-document.addEventListener('DOMContentLoaded',function(){
+document.addEventListener('DOMContentLoaded', function(){
 
     // Toasts
     document.querySelectorAll('.toast')
         .forEach(t => new bootstrap.Toast(t).show());
 
-    // Delete
+    // Delete modal
     const deleteBtns = document.querySelectorAll('.deleteStudentBtn'),
-          deleteModal = document.getElementById('deleteConfirmModal'),
-          deleteBtn = document.getElementById('deleteStudentBtn');
+          deleteBtn = document.getElementById('deleteStudentBtn'),
+          modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
 
     deleteBtns.forEach(btn=>{
-        btn.addEventListener('click',function(){
-            deleteBtn.setAttribute('href', this.dataset.href);
-            new bootstrap.Modal(deleteModal).show();
-        });
+        btn.onclick = () => {
+            deleteBtn.href = btn.dataset.href;
+            modal.show();
+        }
     });
+
+    // STREAM FILTER DEPENDENT
+    const classroom = document.getElementById("classroomFilter");
+    const stream = document.getElementById("streamFilter");
+
+    function loadStreams(id, selected=null){
+        if(!id){
+            stream.innerHTML='<option value="">All Streams</option>';
+            return;
+        }
+        fetch(`/get-streams/${id}/`)
+        .then(r=>r.json())
+        .then(data=>{
+            stream.innerHTML='<option value="">All Streams</option>';
+            data.streams.forEach(s=>{
+                stream.innerHTML += `<option value="${s.id}" ${selected==s.id?'selected':''}>${s.name}</option>`;
+            });
+        });
+    }
+
+    classroom.addEventListener("change", ()=> loadStreams(classroom.value));
+
+    const selectedClass = "{{ request.GET.classroom|default:'' }}";
+    const selectedStream = "{{ request.GET.stream|default:'' }}";
+
+    if(selectedClass){
+        loadStreams(selectedClass, selectedStream);
+    }
 
 });
 </script>

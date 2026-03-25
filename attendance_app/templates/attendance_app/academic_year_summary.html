@@ -4,81 +4,103 @@
 {% block content %}
 <div class="container mt-4">
 
-    <h3 class="mb-4 text-danger">Academic Year Summary</h3>
+    <!-- BIG CARD -->
+    <div class="card shadow-sm">
+        <div class="card-body">
 
-    <!-- ================= FILTER FORM ================= -->
-    <form method="get" class="mb-4 d-flex flex-wrap align-items-center gap-2">
-        <div class="d-flex align-items-center gap-2">
-            <label for="year" class="mb-0">Select Academic Year:</label>
-            <select name="year" id="year" class="form-select w-auto">
-                {% for y in years %}
-                    <option value="{{ y.id }}" {% if active_year and y.id == active_year.id %}selected{% endif %}>
-                        {{ y }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
+            <h3 class="mb-4 text-danger">Academic Year Summary</h3>
 
-        <div class="d-flex align-items-center gap-2 ms-3">
-            <label for="term" class="mb-0">Select Term:</label>
-            <select name="term" id="term" class="form-select w-auto">
-                <option value="">All Terms</option>
-                {% for t in terms %}
-                    <option value="{{ t.0 }}" {% if selected_term == t.0 %}selected{% endif %}>{{ t.1 }}</option>
-                {% endfor %}
-            </select>
-        </div>
+            <!-- ================= FILTER FORM ================= -->
+            <form method="get" class="mb-4 d-flex flex-wrap align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <label for="year" class="mb-0">Select Academic Year:</label>
+                    <select name="year" id="year" class="form-select w-auto">
+                        {% for y in years %}
+                            <option value="{{ y.id }}" {% if active_year and y.id == active_year.id %}selected{% endif %}>
+                                {{ y }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-        <button type="submit" class="btn btn-primary btn-sm ms-2">View</button>
-    </form>
+                <div class="d-flex align-items-center gap-2 ms-3">
+                    <label for="term" class="mb-0">Select Term:</label>
+                    <select name="term" id="term" class="form-select w-auto">
+                        <option value="">All Terms</option>
+                        {% for t in terms %}
+                            <option value="{{ t.0 }}" {% if selected_term == t.0 %}selected{% endif %}>{{ t.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-    <!-- ================= SUMMARY DATA ================= -->
-    {% if summary_data %}
-        <div class="row g-3">
-            {% for data in summary_data %}
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="card shadow-sm h-100 summary-card">
-                    <div class="card-header bg-primary text-white">
-                        {{ data.classroom.name }} - Students: {{ data.students_count }}
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Teachers:</strong>
-                            {% for teacher in data.teachers %}
-                                {{ teacher.user.get_full_name }}{% if not forloop.last %}, {% endif %}
-                            {% empty %}
-                                No teachers assigned
-                            {% endfor %}
-                        </p>
+                <button type="submit" class="btn btn-primary btn-sm ms-2">View</button>
+            </form>
 
-                        <p><strong>Attendance Summary:</strong></p>
-                        <ul class="mb-0">
-                            <li>Present: {{ data.total_present }} ({{ data.present_percentage }}%)</li>
-                            <li>Absent: {{ data.total_absent }} ({{ data.absent_percentage }}%)</li>
-                            <li>Sick: {{ data.total_sick }} ({{ data.sick_percentage }}%)</li>
-                        </ul>
+            <!-- ================= SUMMARY DATA ================= -->
+            {% if summary_data %}
+            <div class="row g-4">
+                {% for data in summary_data %}
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card shadow-sm card-hover h-100">
+                        <div class="card-header bg-primary text-white fw-bold">
+                            {{ data.classroom.name }} - Students: {{ data.students_count }}
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Teachers:</strong>
+                                {% for teacher in data.teachers %}
+                                    {{ teacher.user.get_full_name }}{% if not forloop.last %}, {% endif %}
+                                {% empty %}
+                                    No teachers assigned
+                                {% endfor %}
+                            </p>
+
+                            <p><strong>Attendance Summary:</strong></p>
+                            <ul class="mb-0">
+                                <li>Present: {{ data.total_present }} ({{ data.present_percentage }}%)</li>
+                                <li>Absent: {{ data.total_absent }} ({{ data.absent_percentage }}%)</li>
+                                <li>Sick: {{ data.total_sick }} ({{ data.sick_percentage }}%)</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="text-muted">No data found for the selected academic year/term.</p>
-    {% endif %}
+            {% else %}
+            <p class="text-danger">No data found for the selected academic year/term.</p>
+            {% endif %}
 
+        </div>
+    </div>
 </div>
 
 <!-- ================= STYLES ================= -->
 <style>
-/* Card hover effect */
-.summary-card:hover {
-    transform: translateY(-4px);
-    transition: all 0.3s ease;
+.card-hover {
+    border-radius: 1rem;
+    transition: all 0.25s ease-in-out;
+    cursor: pointer;
 }
 
-/* Responsive adjustments */
+.card-hover:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.card-header {
+    font-size: 1rem;
+}
+
+.card-body p, .card-body ul {
+    font-size: 0.95rem;
+}
+
+.card-body ul li {
+    margin-bottom: 0.25rem;
+}
+
 @media (max-width:768px){
-    .form-select { font-size: 12px; }
-    button.btn { font-size: 12px; padding: 4px 8px; }
+    .form-select { font-size: 0.9rem; }
+    button.btn { font-size: 0.85rem; padding: 4px 10px; }
 }
 </style>
 {% endblock %}
