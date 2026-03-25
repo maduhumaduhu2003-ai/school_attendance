@@ -35,4 +35,6 @@ def auto_lock_expired_academic_year():
         active_year.is_locked = True
         active_year.save()
         print(f"Academic Year {active_year} locked.")
+        
+
 

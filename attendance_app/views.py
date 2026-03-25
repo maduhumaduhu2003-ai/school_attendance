@@ -100,6 +100,7 @@ from math import radians, cos, sin, sqrt, atan2
 from django.core.files.storage import default_storage
 
 
+
 logger = logging.getLogger(__name__)
 
 from django.contrib.auth import get_user_model
@@ -2327,48 +2328,187 @@ def delete_academic_year(request, id):
         return redirect('academic_years')
 
     return redirect('academic_years')
+        
+from django.db import transaction
 
 
+from django.db.models import ProtectedError
+import logging
 
+# Initialize logger
+logger = logging.getLogger(__name__)
 
-@never_cache
-@login_required
-def generate_academic_year(request):
-    current_year = timezone.now().year
-    last_year = AcademicYear.objects.order_by('-year_start').first()
+# Define promotion mapping (Badilisha majina haya yafanane na database yako)
+# utils.py
+CLASS_PROMOTION = {
+    'form I': 'form II',
+    'form II': 'form III',
+    'form III': 'form IV',
+    'form IV': None  # Graduating students
+}
 
-    # determine new_start
-    if last_year:
-        # only allow to generate same year as current if not exists
-        if last_year.year_start >= current_year:
-            messages.error(request, "You cannot generate an academic year beyond the current year.")
-            return redirect('academic_years')
-        new_start = last_year.year_start + 1
-    else:
-        new_start = current_year
+def archive_attendance_for_year(year):
+    """Archives attendance records to history table before starting new year"""
+    from .models import Attendance, ClassAttendanceHistory
+    attendances = Attendance.objects.select_related(
+        'student', 'student__classroom', 'student__stream', 'marked_by'
+    ).filter(student__academic_year=year)
 
-    new_end = new_start + 1
+    history_objects = []
+    for att in attendances:
+        history_objects.append(
+            ClassAttendanceHistory(
+                student=att.student,
+                classroom=att.student.classroom,
+                stream=att.student.stream,
+                academic_year=att.student.academic_year,
+                date=att.date,
+                status=att.status,
+                marked_by=att.marked_by
+            )
+        )
 
-    # prevent duplicate years
-    if AcademicYear.objects.filter(year_start=new_start, year_end=new_end).exists():
-        messages.error(request, f"Academic Year {new_start}/{new_end} already exists")
-        return redirect('academic_years')
-
-    # lock previous active year
-    AcademicYear.objects.filter(is_active=True).update(is_active=False, is_locked=True)
-
-    # create new academic year
-    AcademicYear.objects.create(
-        year_start=new_start,
-        year_end=new_end,
-        is_active=True,
-        is_locked=False
+    ClassAttendanceHistory.objects.bulk_create(
+        history_objects,
+        ignore_conflicts=True
     )
 
-    messages.success(request, f"Academic Year {new_start}/{new_end} generated successfully")
-    return redirect('academic_years')
+@transaction.atomic
+def generate_academic_year(request):
+    """Generate new academic year with proper promotion logic"""
+    
+    last_year = AcademicYear.objects.order_by('-year_start').first()
+    current_date = timezone.now()
+    
+    # Validation checks
+    if last_year and last_year.year_start >= current_date.year + 1:
+        messages.error(request, "Cannot generate beyond the near future.")
+        return redirect('academic_years')
+    
+    if last_year and last_year.is_active and not last_year.is_locked:
+        messages.error(request, "Please lock the current academic year before generating a new one.")
+        return redirect('academic_years')
+    
+    new_start = last_year.year_start + 1 if last_year else current_date.year
+    new_end = new_start + 1
+    
+    if AcademicYear.objects.filter(year_start=new_start).exists():
+        messages.error(request, f"Academic Year {new_start}/{new_end} already exists.")
+        return redirect('academic_years')
+    
+    try:
+        with transaction.atomic():
+            old_year = AcademicYear.objects.filter(is_active=True).first()
+            
+            # 1️⃣ ARCHIVE & LOCK OLD YEAR
+            if old_year:
+                archive_attendance_for_year(old_year)
+                old_year.is_active = False
+                old_year.is_locked = True
+                old_year.save()
+            
+            # 2️⃣ CREATE NEW ACADEMIC YEAR
+            new_year = AcademicYear.objects.create(
+                year_start=new_start,
+                year_end=new_end,
+                is_active=True,
+                is_locked=False
+            )
+            
+            # 3️⃣ CREATE NEW CLASSROOMS & STREAMS FOR NEW YEAR
+            # Hii inahakikisha data za zamani zinabaki na madarasa yake (Archives)
+            if old_year:
+                for old_class in Classroom.objects.filter(year=old_year):
+                    new_class_obj, _ = Classroom.objects.get_or_create(
+                        name=old_class.name,
+                        year=new_year
+                    )
+                    # Create streams for this new class
+                    for old_stream in Stream.objects.filter(classroom=old_class):
+                        Stream.objects.get_or_create(
+                            name=old_stream.name,
+                            classroom=new_class_obj
+                        )
 
+            # 4️⃣ PROMOTE STUDENTS
+            students_promoted = 0
+            students_graduated = 0
+            students_skipped = 0
+            
+            if old_year:
+                active_students = StudentProfile.objects.filter(academic_year=old_year, status='Active')
+                for student in active_students:
+                    try:
+                        if not student.classroom:
+                            students_skipped += 1
+                            continue
+                        
+                        next_class_name = CLASS_PROMOTION.get(student.classroom.name)
+                        
+                        # Handle Graduation
+                        if next_class_name is None:
+                            student.status = 'Graduated'
+                            student.save()
+                            students_graduated += 1
+                            continue
+                        
+                        # Find the target classroom in the NEW year
+                        target_class = Classroom.objects.filter(name=next_class_name, year=new_year).first()
+                        
+                        if target_class:
+                            # Find target stream
+                            target_stream = None
+                            if student.stream:
+                                target_stream = Stream.objects.filter(name=student.stream.name, classroom=target_class).first()
+                            
+                            # Create new profile record for the new year
+                            StudentProfile.objects.create(
+                                user=student.user,
+                                academic_year=new_year,
+                                classroom=target_class,
+                                stream=target_stream,
+                                date_of_birth=student.date_of_birth,
+                                admission_number=student.admission_number,
+                                status='Active'
+                            )
+                            
+                            # Mark old record as Promoted
+                            student.status = 'Promoted'
+                            student.save()
+                            students_promoted += 1
+                        else:
+                            students_skipped += 1
+                            
+                    except Exception as e:
+                        logger.error(f"Error promoting student {student.id}: {e}")
+                        students_skipped += 1
 
+            # 5️⃣ PROMOTE TEACHERS (Move them to the next class too)
+            teachers_updated = 0
+            for teacher in TeacherProfile.objects.all():
+                if teacher.classroom:
+                    # Logic: Teacher moves with students (e.g. from Form 1 to Form 2)
+                    next_class_for_teacher = CLASS_PROMOTION.get(teacher.classroom.name)
+                    
+                    if next_class_for_teacher:
+                        new_teacher_class = Classroom.objects.filter(name=next_class_for_teacher, year=new_year).first()
+                        if new_teacher_class:
+                            teacher.classroom = new_teacher_class
+                            # Match stream
+                            if teacher.stream:
+                                teacher.stream = Stream.objects.filter(name=teacher.stream.name, classroom=new_teacher_class).first()
+                            teacher.save()
+                            teachers_updated += 1
+
+            # Success Feedback
+            msg = f"Year {new_year} Generated. Promoted: {students_promoted}, Graduated: {students_graduated}, Teachers Moved: {teachers_updated}"
+            messages.success(request, msg)
+            return redirect('academic_years')
+
+    except Exception as e:
+        logger.error(f"Critical error during year generation: {e}")
+        messages.error(request, f"System Error: {str(e)}")
+        return redirect('academic_years')
 
 @never_cache
 @login_required

@@ -81,13 +81,13 @@ class TeacherProfile(models.Model):
 
 
 class StudentProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  
     classroom = models.ForeignKey(
-        Classroom, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        Classroom,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        related_name='students'  
+        related_name='students'
     )
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
@@ -95,8 +95,11 @@ class StudentProfile(models.Model):
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, related_name='students')
     status = models.CharField(max_length=10, default='Active')
 
+    class Meta:
+        unique_together = ('user', 'academic_year')  
+
     def __str__(self):
-        return self.user.get_full_name()
+        return f"{self.user.get_full_name()} - {self.academic_year}"
 
 
 
@@ -169,6 +172,25 @@ class SchoolSettings(models.Model):
         super().save(*args, **kwargs)
 
 
+class ClassAttendanceHistory(models.Model):
+    STATUS_CHOICES = [
+        ('present', 'Present'),
+        ('absent', 'Absent'),
+        ('sick', 'Sick'),
+    ]
 
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
+    classroom = models.ForeignKey(Classroom, on_delete=models.PROTECT)
+    stream = models.ForeignKey(Stream, on_delete=models.PROTECT, null=True, blank=True)
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT)
+    date = models.DateField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    marked_by = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        unique_together = ('student', 'date', 'classroom', 'stream', 'academic_year')
+
+    def __str__(self):
+        return f"{self.date} - {self.student.user.username} ({self.classroom.name}/{self.stream.name if self.stream else 'No Stream'})"
 
 
