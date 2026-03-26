@@ -59,7 +59,7 @@
                         <th>Username</th>
                         <th>Full Name</th>
                         <th>Classroom</th>
-                        <th>Profile Picture</th>
+                        <th>Stream</th>
                     </tr>
                 </thead>
                 <tbody class="bg-light">
@@ -76,12 +76,14 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if teacher.profile_picture %}
-                                <img src="{{ teacher.profile_picture.url }}" alt="Profile" class="rounded-circle profile-img">
-                            {% else %}
-                                <img src="https://via.placeholder.com/50" alt="No Image" class="rounded-circle profile-img">
-                            {% endif %}
-                        </td>
+                         
+                          {% if teacher.stream %}
+                            <span class="text-primary">{{ teacher.stream.name }}</span>
+                           {% else %}
+                          <span class="text-danger">N/A</span>
+                             {% endif %}
+                     </td>
+                        
                     </tr>
                     {% empty %}
                     <tr>
