@@ -1,0 +1,44 @@
+{% extends "attendance_app/teacher_base.html" %}
+{% block title %}Edit SMS Log{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h4 class="mb-3">Edit SMS Log</h4>
+
+            <form method="post" action="">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label">Student</label>
+                    <input type="text" class="form-control" value="{{ sms_log.student.user.get_full_name }}" readonly>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Parent</label>
+                    <input type="text" class="form-control" value="{{ sms_log.parent.user.get_full_name }} ({{ sms_log.parent.user.phone_number }})" readonly>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="message">Message</label>
+                    <textarea class="form-control" id="message" name="message" rows="4">{{ sms_log.message }}</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="status">Status</label>
+                    <select id="status" name="status" class="form-select">
+                        <option value="sent" {% if sms_log.status == 'sent' %}selected{% endif %}>Sent</option>
+                        <option value="failed" {% if sms_log.status == 'failed' %}selected{% endif %}>Failed</option>
+                        <option value="pending" {% if sms_log.status == 'pending' %}selected{% endif %}>Pending</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Update</button>
+                <a href="{% url 'teacher_sms_logs' %}" class="btn btn-secondary ms-2">Cancel</a>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
