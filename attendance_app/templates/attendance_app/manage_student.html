@@ -83,7 +83,7 @@
 
                             <!-- ✅ FIX COUNT -->
                             <span class="badge bg-primary rounded-pill">
-                                {{ c.enrollment_set.count }} Students
+                                {{ c.class_enrollments.count }} Students
                             </span>
                         </div>
                     </div>
@@ -116,7 +116,7 @@
 
                     <tbody class="text-center">
                         {% for s in students %}
-                        {% with e=s.enrollments.first %}
+                        {% with e=s.enrollments.all|first %}
                         <tr>
                             <td>{{ forloop.counter }}</td>
                             <td>{{ s.admission_number }}</td>

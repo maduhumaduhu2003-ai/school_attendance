@@ -213,10 +213,9 @@ def format_phone_number(phone):
         return phone
 
     return None
-
 @never_cache
 def register_admin(request):
-
+    # Zuia usajili kama admin tayari yupo
     if User.objects.filter(role='admin').exists():
         messages.warning(request, "Admin already exists! Please login.")
         return redirect('login')
@@ -228,9 +227,6 @@ def register_admin(request):
         phone_number = request.POST.get('phone_number', '').strip()
         password1 = request.POST.get('password1')
         password2 = request.POST.get('password2')
-
-        classroom_id = request.POST.get('classroom')
-        stream_id = request.POST.get('stream')
 
         # ✅ VALIDATIONS
         if not all([first_name, last_name, email, phone_number, password1, password2]):
@@ -245,11 +241,10 @@ def register_admin(request):
             messages.error(request, "Email already exists!")
             return redirect('register_admin')
 
-        formatted_phone = format_phone_number(phone_number)
-        if not formatted_phone:
-            messages.error(request, "Invalid Tanzanian phone number!")
-            return redirect('register_admin')
-
+        # Hapa unatumia function yako ya format_phone_number au normalize_phone
+        formatted_phone = format_phone_number(phone_number) 
+        # Kumbuka kuongeza validate_phone kama unaitaji logic ya +255
+        
         if User.objects.filter(phone_number=formatted_phone).exists():
             messages.error(request, "Phone already used!")
             return redirect('register_admin')
@@ -267,22 +262,16 @@ def register_admin(request):
             is_superuser=True
         )
 
-        classroom = Classroom.objects.filter(id=classroom_id).first()
-        stream = Stream.objects.filter(id=stream_id).first()
-
+        # ✅ CREATE TEACHER PROFILE (Hapa ndipo palikuwa na kosa)
+        # Tumeondoa classroom na stream kwa sababu hazipo kwenye model ya TeacherProfile
         TeacherProfile.objects.create(
-            user=admin_user,
-            classroom=classroom,
-            stream=stream
+            user=admin_user
         )
 
         messages.success(request, "Admin created successfully!")
         return redirect('login')
 
-    return render(request, 'attendance_app/register_admin.html', {
-        'classrooms': Classroom.objects.all(),
-        'streams': Stream.objects.all(),
-    })
+    return render(request, 'attendance_app/register_admin.html')
 
 @never_cache
 @login_required
@@ -316,9 +305,7 @@ DEFAULT_PASSWORD = "Teacher@123"
 def manage_teacher(request):
     classrooms = Classroom.objects.all()
 
-    teacher_list = TeacherProfile.objects.select_related(
-        'user', 'classroom', 'stream'
-    ).order_by('user__first_name')
+    teacher_list = TeacherProfile.objects.select_related('user')
 
     paginator = Paginator(teacher_list, 25)
     teachers = paginator.get_page(request.GET.get('page'))
@@ -337,6 +324,7 @@ def manage_teacher(request):
 @user_passes_test(lambda u: u.role == 'admin')
 def register_teacher(request):
     classrooms = Classroom.objects.all()
+    active_year = AcademicYear.objects.filter(is_active=True).first()
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -364,7 +352,7 @@ def register_teacher(request):
             try:
                 stream = Stream.objects.get(id=stream_id, classroom=classroom)
 
-                if TeacherProfile.objects.filter(stream=stream).exists():
+                if Enrollment.objects.filter(stream=stream, academic_year=active_year, class_teacher__isnull=False).exists():
                     messages.warning(request, "This stream already has a teacher.")
                     return redirect('register_teacher')
 
@@ -400,10 +388,14 @@ def register_teacher(request):
                 phone_number=phone_number
             )
 
-            TeacherProfile.objects.create(
-                user=user,
-                classroom=classroom,
-                stream=stream
+            teacher = TeacherProfile.objects.create(user=user)
+
+           # assign kupitia Enrollment
+            Enrollment.objects.create(
+             classroom=classroom,
+             stream=stream,
+             class_teacher=teacher,
+             academic_year=AcademicYear.objects.filter(is_active=True).first()
             )
 
         except IntegrityError:
@@ -450,10 +442,17 @@ def register_teacher(request):
 def get_streams(request, classroom_id):
     streams = Stream.objects.filter(classroom_id=classroom_id)
 
-    # chagua tu streams ambazo hazina teacher
+    # chagua tu streams ambazo hazina teacher katika mwaka huu wa masomo
     available_only = request.GET.get('available_only')
     if available_only == '1':
-        streams = streams.exclude(teacherprofile__isnull=False)
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        # We exclude streams that have an enrollment record 
+        # that has a teacher assigned for the active year.
+        streams = streams.exclude(
+            class_enrollments__class_teacher__isnull=False,
+            class_enrollments__academic_year=active_year
+        )
 
     data = {'streams': [{'id': s.id, 'name': s.name} for s in streams]}
     return JsonResponse(data)
@@ -471,32 +470,34 @@ def get_students_by_teacher_scope(classroom, stream=None, academic_year=None):
         qs = qs.filter(enrollments__academic_year=academic_year)
     return qs.distinct()
 
-
 @never_cache
 @login_required
 def teacher_dashboard(request):
-    # teacher profile
     teacher_profile = TeacherProfile.objects.get(user=request.user)
 
-    classroom = teacher_profile.classroom
-    stream = teacher_profile.stream
-
-    # students under this teacher (via Enrollment relations)
     active_year = AcademicYear.objects.filter(is_active=True).first()
-    students = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
+
+    enrollment = Enrollment.objects.filter(
+        class_teacher=teacher_profile,
+        academic_year=active_year
+    ).first()
+
+    classroom = enrollment.classroom if enrollment else None
+    stream = enrollment.stream if enrollment else None
+
+    students = get_students_by_teacher_scope(
+        classroom, stream, academic_year=active_year
+    )
 
     total_students = students.count()
 
-    # attendance summary (Attendance has classroom/stream/academic_year, but filter from student list keeps consistency)
     total_attendance = Attendance.objects.filter(student__in=students).count()
     present_count = Attendance.objects.filter(student__in=students, status='present').count()
     absent_count = Attendance.objects.filter(student__in=students, status='absent').count()
     sick_count = Attendance.objects.filter(student__in=students, status='sick').count()
 
-    # parents related to students
     parents = ParentProfile.objects.filter(student__in=students)
 
-    # recent SMS logs for these students (last 10)
     sms_logs = SMSLog.objects.filter(student__in=students).order_by('-timestamp')[:10]
 
     context = {
@@ -616,30 +617,49 @@ def register_student_admin(request):
     })
     
     
+from django.db.models import Prefetch
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def manage_student(request):
-    students = StudentProfile.objects.all()
     classrooms = Classroom.objects.all()
     streams = Stream.objects.all()
     academic_years = AcademicYear.objects.all()
+
     active_year = AcademicYear.objects.filter(is_active=True).first()
 
     classroom_id = request.GET.get('classroom')
     stream_id = request.GET.get('stream')
     year_id = request.GET.get('academic_year')
+    search = request.GET.get('student_name')
 
+    enrollments = Enrollment.objects.select_related(
+        'classroom', 'stream', 'academic_year'
+    )
+
+    # Filter enrollments first (IMPORTANT)
     if classroom_id:
-        students = students.filter(enrollments__classroom_id=classroom_id)
+        enrollments = enrollments.filter(classroom_id=classroom_id)
 
     if stream_id:
-        students = students.filter(enrollments__stream_id=stream_id)
+        enrollments = enrollments.filter(stream_id=stream_id)
 
     if year_id:
-        students = students.filter(enrollments__academic_year_id=year_id)
+        enrollments = enrollments.filter(academic_year_id=year_id)
 
-    students = students.distinct()
+    # Prefetch ONLY relevant enrollments
+    students = StudentProfile.objects.prefetch_related(
+        Prefetch('enrollments', queryset=enrollments)
+    ).select_related('user')
+
+    # Search by name
+    if search:
+        students = students.filter(
+            user__first_name__icontains=search
+        ) | students.filter(
+            user__last_name__icontains=search
+        )
 
     return render(request, 'attendance_app/manage_student.html', {
         'students': students,
@@ -981,17 +1001,20 @@ def sms_logs(request):
     })
 
 
+from django.db import transaction
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def edit_teacher(request, id):
-    try:
-        teacher = TeacherProfile.objects.get(id=id)
-    except TeacherProfile.DoesNotExist:
-        messages.error(request, "Teacher does not exist.")
-        return redirect('manage_teacher')
-
+    teacher = get_object_or_404(TeacherProfile, id=id)
     classrooms = Classroom.objects.all()
+    
+    # Get current assignment for the active year
+    active_year = AcademicYear.objects.filter(is_active=True).first()
+    enrollment = teacher.class_enrollments.filter(academic_year=active_year).select_related('classroom', 'stream').first()
 
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -1000,50 +1023,64 @@ def edit_teacher(request, id):
         classroom_id = request.POST.get('classroom')
         stream_id = request.POST.get('stream')
 
-        # update user info
-        teacher.user.username = username
-        teacher.user.first_name = first_name
-        teacher.user.last_name = last_name
-        teacher.user.save()
-
-        # update classroom
         try:
-            classroom = Classroom.objects.get(id=classroom_id)
-            teacher.classroom = classroom
-        except Classroom.DoesNotExist:
-            teacher.classroom = None
+            with transaction.atomic():
+                # Update User details
+                user = teacher.user
+                user.username = username
+                user.first_name = first_name
+                user.last_name = last_name
+                user.full_clean() # Validates phone/regex before saving
+                user.save()
 
-        # update stream
-        if stream_id:
-            try:
-                stream = Stream.objects.get(id=stream_id, classroom=teacher.classroom)
-                teacher.stream = stream
-            except Stream.DoesNotExist:
-                teacher.stream = None
-        else:
-            teacher.stream = None
+                # Get Classroom and Stream
+                classroom = Classroom.objects.filter(id=classroom_id).first()
+                stream = None
+                if stream_id and classroom:
+                    stream = Stream.objects.filter(id=stream_id, classroom=classroom).first()
 
-        teacher.save()
-        messages.success(request, "Teacher updated successfully!")
-        return redirect('manage_teacher')
+                # Update or Create Assignment
+                if enrollment:
+                    enrollment.classroom = classroom
+                    enrollment.stream = stream
+                    enrollment.save()
+                else:
+                    Enrollment.objects.create(
+                        classroom=classroom,
+                        stream=stream,
+                        class_teacher=teacher,
+                        academic_year=active_year,
+                        student=None  # Explicitly None for teacher-only records
+                    )
 
-    # GET request
+            messages.success(request, f"Teacher {user.get_full_name()} updated successfully!")
+            return redirect('manage_teacher')
+        
+        except ValidationError as e:
+            messages.error(request, f"Validation Error: {e}")
+        except Exception as e:
+            messages.error(request, "An unexpected error occurred.")
+
+    # GET logic: Find streams in the selected classroom that don't have a teacher yet
     streams = []
-    if teacher.classroom:
-        # streams available (no teacher)
-        available_streams = Stream.objects.filter(classroom=teacher.classroom).exclude(
-            teacherprofile__isnull=False
+    if enrollment and enrollment.classroom:
+        # Get streams in this classroom that don't have a teacher assigned THIS year
+        available_streams = Stream.objects.filter(
+            classroom=enrollment.classroom
+        ).exclude(
+            class_enrollments__academic_year=active_year,
+            class_enrollments__class_teacher__isnull=False
         )
-        # include current teacher stream
-        if teacher.stream and teacher.stream not in available_streams:
-            streams = list(available_streams) + [teacher.stream]
-        else:
-            streams = list(available_streams)
+
+        streams = list(available_streams)
+        if enrollment.stream and enrollment.stream not in streams:
+            streams.append(enrollment.stream)
 
     return render(request, 'attendance_app/edit_teacher.html', {
         'teacher': teacher,
         'classrooms': classrooms,
-        'streams': streams
+        'streams': streams,
+        'enrollment': enrollment
     })
 
 
@@ -2574,7 +2611,6 @@ def generate_academic_year(request):
             )
             
             # 3️⃣ CREATE NEW CLASSROOMS & STREAMS FOR NEW YEAR
-            # Hii inahakikisha data za zamani zinabaki na madarasa yake (Archives)
             if old_year:
                 existing_classes = set()
                 for old_class in Classroom.objects.filter(year=old_year):
@@ -2591,6 +2627,22 @@ def generate_academic_year(request):
                         )
                 
                 # Create promoted classrooms if they don't exist
+                CLASS_PROMOTION = {
+                    'Form 1': 'Form 2',
+                    'Form 2': 'Form 3', 
+                    'Form 3': 'Form 4',
+                    'Form 4': None,  # Graduation
+                    'Form 5': 'Form 6',
+                    'Form 6': None,  # Graduation
+                    'Standard 1': 'Standard 2',
+                    'Standard 2': 'Standard 3',
+                    'Standard 3': 'Standard 4',
+                    'Standard 4': 'Standard 5',
+                    'Standard 5': 'Standard 6',
+                    'Standard 6': 'Standard 7',
+                    'Standard 7': 'Form 1',
+                }
+                
                 for old_class in Classroom.objects.filter(year=old_year):
                     next_class_name = CLASS_PROMOTION.get(old_class.name)
                     if next_class_name and next_class_name not in existing_classes:
@@ -2599,8 +2651,7 @@ def generate_academic_year(request):
                             year=new_year
                         )
                         existing_classes.add(next_class_name)
-                        # Create streams for promoted class (copy from old if possible, or default)
-                        # For simplicity, create a default stream or copy
+                        # Create streams for promoted class
                         for old_stream in Stream.objects.filter(classroom=old_class):
                             Stream.objects.get_or_create(
                                 name=old_stream.name,
@@ -2613,19 +2664,24 @@ def generate_academic_year(request):
             students_skipped = 0
             
             if old_year:
-                active_students = StudentProfile.objects.filter(academic_year=old_year, status='Active')
-                for student in active_students:
+                # Get active enrollments from old year
+                active_enrollments = Enrollment.objects.filter(
+                    academic_year=old_year,
+                    status='Active'
+                ).select_related('student', 'classroom', 'stream')
+                
+                for enrollment in active_enrollments:
                     try:
-                        if not student.classroom:
+                        if not enrollment.classroom:
                             students_skipped += 1
                             continue
                         
-                        next_class_name = CLASS_PROMOTION.get(student.classroom.name)
+                        next_class_name = CLASS_PROMOTION.get(enrollment.classroom.name)
                         
                         # Handle Graduation
                         if next_class_name is None:
-                            student.status = 'Graduated'
-                            student.save()
+                            enrollment.status = 'Graduated'
+                            enrollment.save()
                             students_graduated += 1
                             continue
                         
@@ -2635,47 +2691,72 @@ def generate_academic_year(request):
                         if target_class:
                             # Find target stream
                             target_stream = None
-                            if student.stream:
-                                target_stream = Stream.objects.filter(name=student.stream.name, classroom=target_class).first()
+                            if enrollment.stream:
+                                target_stream = Stream.objects.filter(
+                                    name=enrollment.stream.name, 
+                                    classroom=target_class
+                                ).first()
                             
-                            # Create new profile record for the new year
-                            StudentProfile.objects.create(
-                                user=student.user,
-                                academic_year=new_year,
+                            # Create new enrollment for the new year
+                            Enrollment.objects.create(
+                                student=enrollment.student,
                                 classroom=target_class,
                                 stream=target_stream,
-                                date_of_birth=student.date_of_birth,
-                                admission_number=student.admission_number,
-                                status='Active'
+                                academic_year=new_year,
+                                status='Active',
+                                class_teacher=target_class.teachers.first() if target_class.teachers.exists() else None
                             )
                             
-                            # Mark old record as Promoted
-                            student.status = 'Promoted'
-                            student.save()
+                            # Mark old enrollment as Promoted
+                            enrollment.status = 'Promoted'
+                            enrollment.save()
                             students_promoted += 1
                         else:
                             students_skipped += 1
                             
                     except Exception as e:
-                        logger.error(f"Error promoting student {student.id}: {e}")
+                        logger.error(f"Error promoting student {enrollment.student.id}: {e}")
                         students_skipped += 1
 
-            # 5️⃣ PROMOTE TEACHERS (Move them to the next class too)
+            # 5️⃣ PROMOTE TEACHERS (Based on their assigned enrollment/class)
             teachers_updated = 0
-            for teacher in TeacherProfile.objects.all():
+            
+            # OPTION A: If teachers are assigned to specific classrooms via Enrollment
+            teacher_assignments = {}
+            for enrollment in Enrollment.objects.filter(academic_year=old_year, class_teacher__isnull=False):
+                teacher = enrollment.class_teacher
+                if teacher not in teacher_assignments:
+                    teacher_assignments[teacher] = enrollment.classroom
+            
+            for teacher, old_classroom in teacher_assignments.items():
+                next_class_name = CLASS_PROMOTION.get(old_classroom.name)
+                if next_class_name:
+                    new_classroom = Classroom.objects.filter(name=next_class_name, year=new_year).first()
+                    if new_classroom:
+                        # Update any enrollments where this teacher is assigned
+                        Enrollment.objects.filter(
+                            academic_year=new_year,
+                            classroom=new_classroom
+                        ).update(class_teacher=teacher)
+                        teachers_updated += 1
+            
+            # OPTION B: If you add classroom field to TeacherProfile (after migration)
+            # Uncomment this if you add classroom field to TeacherProfile
+            """
+            for teacher in TeacherProfile.objects.select_related('classroom').all():
                 if teacher.classroom:
-                    # Logic: Teacher moves with students (e.g. from Form 1 to Form 2)
                     next_class_for_teacher = CLASS_PROMOTION.get(teacher.classroom.name)
                     
                     if next_class_for_teacher:
                         new_teacher_class = Classroom.objects.filter(name=next_class_for_teacher, year=new_year).first()
                         if new_teacher_class:
                             teacher.classroom = new_teacher_class
-                            # Match stream
+                            # Match stream if needed
                             if teacher.stream:
                                 teacher.stream = Stream.objects.filter(name=teacher.stream.name, classroom=new_teacher_class).first()
                             teacher.save()
                             teachers_updated += 1
+            """
 
             # Success Feedback
             msg = f"Year {new_year} Generated. Promoted: {students_promoted}, Graduated: {students_graduated}, Teachers Moved: {teachers_updated}"

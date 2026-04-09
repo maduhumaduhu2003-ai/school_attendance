@@ -9,9 +9,9 @@ from cloudinary.models import CloudinaryField
 from cloudinary.uploader import destroy
 
 
-# --------------------------
+
 # Utility functions
-# --------------------------
+
 def normalize_phone(value):
     return re.sub(r"[^\d+]", "", value)
 
@@ -26,9 +26,8 @@ def validate_phone_number(value):
         )
 
 
-# --------------------------
 # User model
-# --------------------------
+
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('admin', 'Admin'),
@@ -54,9 +53,8 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
 
 
-# --------------------------
+
 # Academic Year
-# --------------------------
 class AcademicYear(models.Model):
     year_start = models.IntegerField(unique=True)
     year_end = models.IntegerField()
@@ -76,17 +74,19 @@ class AcademicYear(models.Model):
                 old = AcademicYear.objects.select_for_update().get(pk=self.pk)
                 if old.is_locked:
                     raise ValidationError("This academic year is locked and cannot be modified.")
+
             if self.is_active:
                 AcademicYear.objects.select_for_update().update(is_active=False)
+
             super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.year_start}/{self.year_end}"
 
 
-# --------------------------
+
 # Classroom & Stream
-# --------------------------
+
 class Classroom(models.Model):
     name = models.CharField(max_length=50)
     year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, related_name='classrooms')
@@ -113,25 +113,16 @@ class Stream(models.Model):
         return f"{self.name} ({self.classroom.name})"
 
 
-# --------------------------
+
 # Teacher Profile
-# --------------------------
 class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
-    classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True)
-    stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
-
-    def clean(self):
-        if self.stream and self.classroom and self.stream.classroom != self.classroom:
-            raise ValidationError("Stream must belong to selected classroom")
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
 
 
-# --------------------------
 # Student Profile
-# --------------------------
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     admission_number = models.CharField(max_length=20, unique=True, db_index=True)
@@ -141,9 +132,8 @@ class StudentProfile(models.Model):
         return f"{self.admission_number} - {self.user.get_full_name()}"
 
 
-# --------------------------
-# Enrollment
-# --------------------------
+
+# Enrollment 
 class Enrollment(models.Model):
     STATUS_CHOICES = [
         ('Active', 'Active'),
@@ -152,10 +142,28 @@ class Enrollment(models.Model):
         ('Inactive', 'Inactive'),
     ]
 
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
-    classroom = models.ForeignKey(Classroom, on_delete=models.PROTECT, null=True, blank=True)
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments', null=True, blank=True)
+    classroom = models.ForeignKey(Classroom, on_delete=models.PROTECT, null=True, blank=True, related_name='class_enrollments')
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, null=True, blank=True)
+
+    # Teacher assigned per year (FIXED)
+    class_teacher = models.ForeignKey(
+        TeacherProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='class_enrollments'
+    )
+    
+    stream = models.ForeignKey(
+        Stream, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='class_enrollments' 
+    )
+
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='Active', db_index=True)
 
     class Meta:
@@ -173,12 +181,11 @@ class Enrollment(models.Model):
             raise ValidationError("Stream must belong to selected classroom")
 
     def __str__(self):
-        return f"{self.student} in {self.classroom} ({self.academic_year})"
+        return f"{self.student} - {self.classroom} ({self.academic_year})"
 
 
-# --------------------------
+
 # Parent Profile
-# --------------------------
 class ParentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='parent_profile')
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='parents')
@@ -192,9 +199,8 @@ class ParentProfile(models.Model):
         return f"{self.user.get_full_name()} (Parent of {self.student.user.get_full_name()})"
 
 
-# --------------------------
+
 # Attendance
-# --------------------------
 class Attendance(models.Model):
     STATUS_CHOICES = [
         ('present', 'Present'),
@@ -202,10 +208,9 @@ class Attendance(models.Model):
         ('sick', 'Sick'),
     ]
 
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='attendances')
-    classroom = models.ForeignKey(Classroom, on_delete=models.PROTECT, null=True, blank=True)
-    stream = models.ForeignKey(Stream, on_delete=models.PROTECT, null=True, blank=True)
-    academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, null=True, blank=True)
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='attendances', null=True, blank=True)
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name='attendances', null=True, blank=True)
+
     date = models.DateField(db_index=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     marked_by = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
@@ -213,19 +218,17 @@ class Attendance(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['student', 'date', 'academic_year'],
-                name='unique_attendance_per_day_per_year'
+                fields=['student', 'date', 'enrollment'],
+                name='unique_attendance_per_day'
             )
         ]
         indexes = [
             models.Index(fields=['date']),
-            models.Index(fields=['academic_year']),
         ]
 
 
-# --------------------------
+
 # SMS Logs
-# --------------------------
 class SMSLog(models.Model):
     STATUS_CHOICES = [
         ('sent', 'Sent'),
@@ -246,9 +249,8 @@ class SMSLog(models.Model):
         ]
 
 
-# --------------------------
+
 # School Settings
-# --------------------------
 class SchoolSettings(models.Model):
     school_name = models.CharField(max_length=200)
     logo = CloudinaryField('school_logo', blank=True, null=True)
@@ -286,3 +288,7 @@ class SchoolSettings(models.Model):
                 pass
 
         super().save(*args, **kwargs)
+        
+        
+        
+        

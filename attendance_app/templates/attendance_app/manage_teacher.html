@@ -59,18 +59,22 @@
                             <td data-label="Username">{{ teacher.user.username }}</td>
                             <td data-label="Full Name">{{ teacher.user.get_full_name }}</td>
                             <td data-label="Classroom">
-                                {% if teacher.classroom %}
-                                    {{ teacher.classroom.name }}
-                                {% else %}
-                                    <span class="text-danger">N/A</span>
-                                {% endif %}
+                                {% with teacher.class_enrollments.first as enrollment %}
+    {% if enrollment and enrollment.classroom %}
+        {{ enrollment.classroom.name }}
+    {% else %}
+        <span class="text-danger">N/A</span>
+    {% endif %}
+{% endwith %}
                             </td>
                             <td data-label="Stream">
-                                {% if teacher.stream %}
-                                    {{ teacher.stream.name }}
-                                {% else %}
-                                    <span class="text-danger">N/A</span>
-                                {% endif %}
+                               {% with teacher.class_enrollments.first as enrollment %}
+    {% if enrollment and enrollment.stream %}
+        {{ enrollment.stream.name }}
+    {% else %}
+        <span class="text-danger">N/A</span>
+    {% endif %}
+{% endwith %}
                             </td>
                             <td data-label="Actions">
                                 <div class="d-flex flex-wrap justify-content-center gap-1">
