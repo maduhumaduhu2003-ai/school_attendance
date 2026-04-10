@@ -31,13 +31,22 @@
                 </div>
             </form>
 
+            <!-- FIXED: Show total students count -->
+            <div class="alert alert-info mb-3">
+                <strong>Total Students:</strong> {{ attendance_records|length|add:students_without_attendance|length|default:0 }}
+                {% if selected_stream_id %}
+                    (Filtered by stream)
+                {% endif %}
+            </div>
+
             <!-- Attendance Table -->
             <div class="table-responsive touch-scroll">
                 <table class="table table-bordered table-striped align-middle mb-0 text-nowrap">
                     <thead class="bg-primary text-white text-center">
                         <tr>
                             <th>No</th>
-                            <th>Student</th>
+                            <th>Admission No</th>
+                            <th>Student Name</th>
                             <th>Stream</th>
                             <th>Date</th>
                             <th>Status</th>
@@ -47,11 +56,13 @@
                     <tbody>
                         {% for a in attendance_records %}
                         <tr>
-                            <td>{{ forloop.counter }}</td>
+                            <td class="text-center">{{ forloop.counter }}</td>
+                            <td class="text-center">{{ a.student.admission_number }}</td>
                             <td>{{ a.student.user.get_full_name }}</td>
                             <td class="text-center">
-                                {% if a.student.stream %}
-                                    {{ a.student.stream.name }}
+                                <!-- FIXED: Get stream from enrollment -->
+                                {% if a.enrollment and a.enrollment.stream %}
+                                    {{ a.enrollment.stream.name }}
                                 {% else %}
                                     -
                                 {% endif %}
@@ -66,12 +77,37 @@
                                     <span class="badge bg-success">Present</span>
                                 {% endif %}
                             </td>
-                            <td>{{ a.marked_by.user.get_full_name }}</td>
+                            <td class="text-center">{{ a.marked_by.user.get_full_name|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- FIXED: Show students without attendance -->
+                        {% for student in students_without_attendance %}
+                        <tr>
+                            <td class="text-center">{{ forloop.counter|add:attendance_records|length }}</td>
+                            <td class="text-center">{{ student.admission_number }}</td>
+                            <td>{{ student.user.get_full_name }}</td>
+                            <td class="text-center">
+                                {% with enrollment=student.enrollments.first %}
+                                    {% if enrollment and enrollment.stream %}
+                                        {{ enrollment.stream.name }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="text-center">{{ selected_date }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">Not Marked</span>
+                            </td>
+                            <td class="text-center">—</td>
                         </tr>
                         {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center text-danger">No attendance records</td>
-                        </tr>
+                            {% if not attendance_records %}
+                            <tr>
+                                <td colspan="7" class="text-center text-danger">No attendance records found for this date</td>
+                            </tr>
+                            {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>

@@ -18,39 +18,6 @@
 {% endblock %}
 
 {% block content %}
-
-<!-- ================= TOAST MESSAGES ================= -->
-{% if messages %}
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-    {% for message in messages %}
-    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" 
-         data-bs-delay="5000" 
-         style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#dc3545{% elif message.tags == 'success' %}#198754{% elif message.tags == 'warning' %}#ffc107{% else %}#0d6efd{% endif %}; color: white; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-        <div class="toast-header" style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#bd2130{% elif message.tags == 'success' %}#146c43{% elif message.tags == 'warning' %}#e6a800{% else %}#084298{% endif %}; color: white; border: none;">
-            <i class="bi {% if message.tags == 'error' or message.tags == 'danger' %}bi-exclamation-circle{% elif message.tags == 'success' %}bi-check-circle{% elif message.tags == 'warning' %}bi-exclamation-triangle{% else %}bi-info-circle{% endif %}" style="margin-right: 0.5rem;"></i>
-            <strong class="me-auto">
-                {% if message.tags == 'error' or message.tags == 'danger' %}Error{% elif message.tags == 'success' %}Success{% elif message.tags == 'warning' %}Warning{% else %}Info{% endif %}
-            </strong>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body" style="padding: 1rem;">
-            {{ message }}
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toastEl) {
-        const bsToast = new bootstrap.Toast(toastEl);
-        bsToast.show();
-    });
-});
-</script>
-{% endif %}
-
 <div class="container mt-4">
     <h3 class="mb-4 text-danger">My Profile</h3>
 
@@ -96,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             <div class="mb-3">
                                 <label class="form-label">Phone Number</label>
-                                <input type="text" name="phone_number" class="form-control form-control-sm" value="{{ profile.phone_number|default:'' }}">
+                                <input type="text" name="phone_number" class="form-control form-control-sm" value="{{ request.user.phone_number|default:'' }}">
                             </div>
 
                             <button type="submit" name="update_profile" class="btn btn-primary w-100">Update Profile</button>
@@ -140,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener("DOMContentLoaded", function() {
     {% if messages %}
         {% for message in messages %}
-            {% if 'Password' in message %}
+            {% if 'Password' in message.message %}
                 var passwordTab = new bootstrap.Tab(document.getElementById('password-tab'));
                 passwordTab.show();
             {% endif %}

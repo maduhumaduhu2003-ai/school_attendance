@@ -31,8 +31,9 @@
                                 Year: {{ c.year }}
                             </p>
 
+                            <!-- FIXED: Use total_students from context instead of enrollment_set -->
                             <span class="badge bg-primary rounded-pill">
-                                {{ c.enrollment_set.count }} Students
+                                {{ c.total_students|default:0 }} Students
                             </span>
 
                         </div>

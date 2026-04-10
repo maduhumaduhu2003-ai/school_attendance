@@ -86,7 +86,7 @@ body {
     color: #b91c1c; 
     border-radius: 8px; 
     font-weight: 500; 
-    font-size: 0.95rem; /* match Teacher base */
+    font-size: 0.95rem;
     text-decoration: none; 
     transition: all 0.2s ease;
 }
@@ -149,6 +149,11 @@ body {
     z-index: 1150;
 }
 
+/* Toast container - positioned to be visible */
+.toast-container {
+    z-index: 9999;
+}
+
 /* MOBILE */
 @media (max-width: 992px){
     .sidebar { transform: translateX(-100%); }
@@ -157,11 +162,40 @@ body {
     .sidebar-toggle { display: block; }
     #sidebar-overlay.show { display: block; }
     .profile-name { display: none; }
+    
+    /* Adjust toast position on mobile */
+    .toast-container {
+        top: 60px !important;
+        right: 10px !important;
+        left: auto !important;
+    }
 }
 </style>
 </head>
 
 <body>
+
+<!-- ================= TOAST MESSAGES - ONLY HERE IN BASE TEMPLATE ================= -->
+{% if messages %}
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    {% for message in messages %}
+    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" 
+         data-bs-delay="5000" 
+         style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#dc3545{% elif message.tags == 'success' %}#198754{% elif message.tags == 'warning' %}#ffc107{% else %}#0d6efd{% endif %}; color: white; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <div class="toast-header" style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#bd2130{% elif message.tags == 'success' %}#146c43{% elif message.tags == 'warning' %}#e6a800{% else %}#084298{% endif %}; color: white; border: none;">
+            <i class="bi {% if message.tags == 'error' or message.tags == 'danger' %}bi-exclamation-circle{% elif message.tags == 'success' %}bi-check-circle{% elif message.tags == 'warning' %}bi-exclamation-triangle{% else %}bi-info-circle{% endif %}" style="margin-right: 0.5rem;"></i>
+            <strong class="me-auto">
+                {% if message.tags == 'error' or message.tags == 'danger' %}Error{% elif message.tags == 'success' %}Success{% elif message.tags == 'warning' %}Warning{% else %}Info{% endif %}
+            </strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" style="padding: 1rem;">
+            {{ message }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- Toggle button & overlay -->
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
@@ -171,11 +205,10 @@ body {
 <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <a href="{% url 'admin_dashboard' %}" class="sidebar-logo justify-content-center">
-    <i class="bi bi-mortarboard-fill text-primary"></i>
-    <span class="sidebar-logo-text">Admin Panel</span>
-</a>
-
- </div>
+            <i class="bi bi-mortarboard-fill text-primary"></i>
+            <span class="sidebar-logo-text">Admin Panel</span>
+        </a>
+    </div>
 
     <nav class="sidebar-nav">
         <a href="{% url 'admin_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
@@ -186,7 +219,7 @@ body {
             <i class="bi bi-person-badge"></i><span class="nav-text">Teachers</span>
         </a>
         <a href="{% url 'manage_student' %}" 
-          class="nav-link {% if request.resolver_match.url_name in 'manage_student register_student_admin edit_student_page' %}active{% endif %}">
+           class="nav-link {% if request.resolver_match.url_name in 'manage_student register_student_admin edit_student_page' %}active{% endif %}">
             <i class="bi bi-people"></i><span class="nav-text">Students</span>
         </a>
         <a href="{% url 'manage_classrooms' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_classrooms' %}active{% endif %}">
@@ -221,34 +254,32 @@ body {
 
 <!-- CONTENT -->
 <div class="content">
-   <div class="topbar">
-    <div class="school-info">
-        {% if school_settings.logo %}
-            <img src="{% if school_settings.logo %}{{ school_settings.logo.url }}{% else %}{% static 'img/default-logo.png' %}{% endif %}" class="school-logo">
-        {% else %}
-            <img src="{% static 'img/default-logo.png' %}" class="school-logo">
-        {% endif %}
-        <span class="school-name text-danger">{{ school_settings.school_name|default:"My School" }}</span>
+    <div class="topbar">
+        <div class="school-info">
+            {% if school_settings.logo %}
+                <img src="{{ school_settings.logo.url }}" class="school-logo">
+            {% else %}
+                <img src="{% static 'img/default-logo.png' %}" class="school-logo">
+            {% endif %}
+            <span class="school-name text-danger">{{ school_settings.school_name|default:"My School" }}</span>
+        </div>
+
+        <div class="profile-section dropdown">
+            <span class="profile-name dropdown-toggle text-danger" 
+                  role="button" 
+                  id="profileDropdown" 
+                  data-bs-toggle="dropdown" 
+                  aria-expanded="false">
+                {{ request.user.get_full_name|default:request.user.username }}
+            </span>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
+                <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
+            </ul>
+        </div>
     </div>
-
-    <div class="profile-section dropdown">
-    <!-- Display only the name as dropdown toggle -->
-    <span class="profile-name dropdown-toggle text-danger" 
-          role="button" 
-          id="profileDropdown" 
-          data-bs-toggle="dropdown" 
-          aria-expanded="false">
-        {{ request.user.get_full_name|default:request.user.username }}
-    </span>
-    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-        <li><a class="dropdown-item" href="{% url 'admin_profile' %}">My Profile</a></li>
-        <li><a class="dropdown-item" href="{% url 'school_settings' %}">School Settings</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">Logout</a></li>
-    </ul>
-</div>
-</div>
-
 
     <div class="main-content">
         {% block content %}{% endblock %}
@@ -257,19 +288,19 @@ body {
 
 <!-- LOGOUT MODAL -->
 <div class="modal fade" id="logoutModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Confirm Logout</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">Are you sure you want to logout?</div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
-      </div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Logout</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">Are you sure you want to logout?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <script>
@@ -288,6 +319,19 @@ document.querySelectorAll('.sidebar .nav-link, .logout-link').forEach(link => {
         if(window.innerWidth < 992) { 
             closeSidebar();
         }
+    });
+});
+
+// Auto-hide toasts after 5 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    const toasts = document.querySelectorAll('.toast');
+    toasts.forEach(function(toastEl) {
+        setTimeout(function() {
+            const bsToast = bootstrap.Toast.getInstance(toastEl);
+            if (bsToast) {
+                bsToast.hide();
+            }
+        }, 5000);
     });
 });
 </script>

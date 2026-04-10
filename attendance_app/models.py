@@ -144,7 +144,6 @@ class Enrollment(models.Model):
 
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments', null=True, blank=True)
     classroom = models.ForeignKey(Classroom, on_delete=models.PROTECT, null=True, blank=True, related_name='class_enrollments')
-    stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, null=True, blank=True)
 
     # Teacher assigned per year (FIXED)

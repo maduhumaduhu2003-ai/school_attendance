@@ -23,7 +23,6 @@ urlpatterns = [
     
     path('teacher_sms_logs/', views.teacher_sms_logs, name='teacher_sms_logs'),
     path('teacher/sms-logs/delete/<int:sms_id>/', views.delete_sms_log, name='delete_sms_log'),
-    path('teacher/sms-logs/edit/<int:sms_id>/', views.edit_sms_log, name='edit_sms_log'),
 
     path('my_students/', views.my_students, name='my_students'),
     path('edit-student-teacher/<int:student_id>/', views.edit_student_teacher, name='edit_student_teacher'),

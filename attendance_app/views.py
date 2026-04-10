@@ -18,11 +18,14 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.views.decorators.cache import never_cache
-from django.db import IntegrityError
-from django.db.models import Q
+from django.db import IntegrityError, transaction
+from django.db.models import Q, Prefetch
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.utils.timezone import now
+from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
+from django.template.loader import render_to_string
 
 # ===============================
 # Python standard library
@@ -32,7 +35,9 @@ import random
 import time
 import re
 import os
+import logging
 from datetime import date, datetime
+from math import radians, cos, sin, sqrt, atan2
 
 # ===============================
 # Third-party libraries
@@ -41,9 +46,11 @@ from reportlab.pdfgen import canvas
 import openpyxl
 from openpyxl.styles import Font, Alignment
 import africastalking
+import pandas as pd
+from xhtml2pdf import pisa
 
 # ===============================
-# Local app imports (models)
+# Local app imports
 # ===============================
 from .models import (
     User,
@@ -56,61 +63,23 @@ from .models import (
     SMSLog,
     Stream,
     SchoolSettings,
+    Enrollment,
 )
-
-# ===============================
-# Local app imports (forms)
-# ===============================
 from .forms import (
     SchoolSettingsForm,
     UserUpdateForm,
     AcademicYearForm,
 )
-from django.template.loader import render_to_string
-from xhtml2pdf import pisa
+from .utils import auto_lock_expired_academic_year, send_sms
 
-
-# ===============================
-# Local app imports (utils)
-# ===============================
-from .utils import auto_lock_expired_academic_year
-
-
-
-import random
-import time
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.contrib.auth.models import User
-from attendance_app.utils import send_sms
-
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.http import JsonResponse
-from django.views.decorators.cache import never_cache
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.hashers import make_password
-from django.conf import settings
-
-from .models import TeacherProfile, Classroom, Stream, User, Enrollment
-
-import africastalking
-import logging
-from math import radians, cos, sin, sqrt, atan2
-from django.core.files.storage import default_storage
-
-
-
+# Initialize logger
 logger = logging.getLogger(__name__)
 
-from django.contrib.auth import get_user_model
-User = get_user_model()
-
-
-# School GPS coordinates
+# Constants
 SCHOOL_LAT = -6.92673
 SCHOOL_LNG = 37.56749
 MAX_DISTANCE_METERS = 1000
+DEFAULT_PASSWORD = "Teacher@123"
 
 
 def distance_in_meters(lat1, lon1, lat2, lon2):
@@ -137,7 +106,7 @@ def login_view(request):
         lat = request.POST.get('lat')
         lng = request.POST.get('lng')
 
-        # ✅ VALIDATE LOCATION INPUT
+        #  VALIDATE LOCATION INPUT
         try:
             lat = float(lat)
             lng = float(lng)
@@ -145,7 +114,7 @@ def login_view(request):
             messages.error(request, "Location error: allow GPS access.")
             return redirect('login')
 
-        # ✅ CALCULATE DISTANCE
+        # CALCULATE DISTANCE
         distance = distance_in_meters(lat, lng, SCHOOL_LAT, SCHOOL_LNG)
 
         if distance is None:
@@ -156,21 +125,21 @@ def login_view(request):
             messages.error(request, "Access denied: you are outside school area.")
             return redirect('login')
 
-        # ✅ AUTHENTICATE USER
+        #  AUTHENTICATE USER
         user = authenticate(request, username=username, password=password)
 
         if not user:
             messages.error(request, "Invalid username or password!")
             return redirect('login')
 
-        # ✅ FIX ROLE FOR SUPERUSER
+        #  FIX ROLE FOR SUPERUSER
         if user.is_superuser and user.role != 'admin':
             user.role = 'admin'
             user.save()
 
         login(request, user)
 
-        # ✅ ROLE REDIRECTION
+        #  ROLE REDIRECTION
         role_redirects = {
             'admin': 'admin_dashboard',
             'teacher': 'teacher_dashboard',
@@ -228,7 +197,7 @@ def register_admin(request):
         password1 = request.POST.get('password1')
         password2 = request.POST.get('password2')
 
-        # ✅ VALIDATIONS
+        #  VALIDATIONS
         if not all([first_name, last_name, email, phone_number, password1, password2]):
             messages.error(request, "All fields are required!")
             return redirect('register_admin')
@@ -249,7 +218,7 @@ def register_admin(request):
             messages.error(request, "Phone already used!")
             return redirect('register_admin')
 
-        # ✅ CREATE ADMIN USER
+        #  CREATE ADMIN USER
         admin_user = User.objects.create(
             username=email,
             email=email,
@@ -262,7 +231,7 @@ def register_admin(request):
             is_superuser=True
         )
 
-        # ✅ CREATE TEACHER PROFILE (Hapa ndipo palikuwa na kosa)
+        # CREATE TEACHER PROFILE (Hapa ndipo palikuwa na kosa)
         # Tumeondoa classroom na stream kwa sababu hazipo kwenye model ya TeacherProfile
         TeacherProfile.objects.create(
             user=admin_user
@@ -293,10 +262,6 @@ def admin_dashboard(request):
 
     return render(request, 'attendance_app/admin_dashboard.html', context)
 
-
-logger = logging.getLogger(__name__)
-
-DEFAULT_PASSWORD = "Teacher@123"
 
 
 @never_cache
@@ -459,7 +424,7 @@ def get_streams(request, classroom_id):
 
 
 def get_students_by_teacher_scope(classroom, stream=None, academic_year=None):
-    """Return students linked to the class/stream via Enrollment (not direct student fields)."""
+    """Return students linked to the class/stream via Enrollment."""
     qs = StudentProfile.objects.filter(
         enrollments__classroom=classroom,
         enrollments__status='Active'
@@ -562,7 +527,7 @@ def register_student_admin(request):
             messages.error(request, "Admission number already exists.")
             return redirect('register_student_admin')
 
-        # ✅ CREATE STUDENT USER
+        #  CREATE STUDENT USER
         student_user = User.objects.create(
             username=admission_number,
             first_name=first_name,
@@ -572,13 +537,13 @@ def register_student_admin(request):
             password=make_password(password)
         )
 
-        # ✅ CREATE PROFILE (NO CLASSROOM HERE)
+        #  CREATE PROFILE (NO CLASSROOM HERE)
         student_profile = StudentProfile.objects.create(
             user=student_user,
             admission_number=admission_number
         )
 
-        # ✅ CREATE ENROLLMENT (HAPA NDIPO CLASS INAWEKWA)
+        #  CREATE ENROLLMENT (HAPA NDIPO CLASS INAWEKWA)
         Enrollment.objects.create(
             student=student_profile,
             classroom=classroom,
@@ -617,7 +582,6 @@ def register_student_admin(request):
     })
     
     
-from django.db.models import Prefetch
 
 @never_cache
 @login_required
@@ -633,33 +597,39 @@ def manage_student(request):
     stream_id = request.GET.get('stream')
     year_id = request.GET.get('academic_year')
     search = request.GET.get('student_name')
-
-    enrollments = Enrollment.objects.select_related(
-        'classroom', 'stream', 'academic_year'
-    )
-
-    # Filter enrollments first (IMPORTANT)
-    if classroom_id:
-        enrollments = enrollments.filter(classroom_id=classroom_id)
-
-    if stream_id:
-        enrollments = enrollments.filter(stream_id=stream_id)
-
-    if year_id:
-        enrollments = enrollments.filter(academic_year_id=year_id)
-
-    # Prefetch ONLY relevant enrollments
-    students = StudentProfile.objects.prefetch_related(
-        Prefetch('enrollments', queryset=enrollments)
-    ).select_related('user')
-
-    # Search by name
+    
+    students = StudentProfile.objects.select_related('user')
+    
+    
+        # Filter by enrollment criteria
+    if classroom_id or stream_id or year_id:
+        enrollments = Enrollment.objects.all()
+        
+        if classroom_id:
+            enrollments = enrollments.filter(classroom_id=classroom_id)
+        if stream_id:
+            enrollments = enrollments.filter(stream_id=stream_id)
+        if year_id:
+            enrollments = enrollments.filter(academic_year_id=year_id)
+            
+           # Get student IDs from filtered enrollments
+        student_ids = enrollments.values_list('student_id', flat=True).distinct()
+        students = students.filter(id__in=student_ids)
+        
+        # Search by name
     if search:
         students = students.filter(
-            user__first_name__icontains=search
-        ) | students.filter(
-            user__last_name__icontains=search
+            Q(user__first_name__icontains=search) |
+            Q(user__last_name__icontains=search) |
+            Q(admission_number__icontains=search)
         )
+    
+        # IMPORTANT: Use .count() on the student queryset, not enrollments!
+    total_students = students.count()  # ← This should give correct count
+    
+    # For debugging - print to console
+    print(f"Total students: {total_students}")
+    print(f"Student IDs: {list(students.values_list('id', flat=True))}")
 
     return render(request, 'attendance_app/manage_student.html', {
         'students': students,
@@ -667,35 +637,52 @@ def manage_student(request):
         'streams': streams,
         'academic_years': academic_years,
         'active_year': active_year,
-    })
+        'total_students': total_students,  # ← Add this to context
+    })         
+
 
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher'])
 def register_student_teacher(request):
-    # Support both names during transition to avoid AttributeError
-    teacher = getattr(request.user, 'teacher_profile', None) or getattr(request.user, 'teacherprofile', None)
-
-    if not teacher:
-        messages.error(request, "Teacher profile not found. Contact admin to complete your account setup.")
-        return redirect('teacher_dashboard')
-
-    classroom = teacher.classroom
-    stream = teacher.stream
-
-    if not classroom or not stream:
-        messages.error(request, "You are not properly assigned.")
-        return redirect('teacher_dashboard')
-
+    teacher = get_object_or_404(TeacherProfile, user=request.user)
+    
+    # Get the active academic year
     active_year = AcademicYear.objects.filter(is_active=True).first()
+    
+    if not active_year:
+        messages.error(request, "No active academic year found. Please contact admin.")
+        return redirect('teacher_dashboard')
+    
+    # Get teacher's enrollment for the active year
+    teacher_enrollment = Enrollment.objects.filter(
+        class_teacher=teacher,
+        academic_year=active_year
+    ).select_related('classroom', 'stream').first()
+    
+    if not teacher_enrollment:
+        messages.error(request, "You are not assigned to any classroom for the current academic year.")
+        return redirect('teacher_dashboard')
+    
+    classroom = teacher_enrollment.classroom
+    stream = teacher_enrollment.stream
+    
+    if not classroom:
+        messages.error(request, "You are not properly assigned to a classroom.")
+        return redirect('teacher_dashboard')
+    
     academic_years = AcademicYear.objects.all()
 
-    #  LIST STUDENTS USING ENROLLMENT
+    # LIST STUDENTS USING ENROLLMENT
     students = StudentProfile.objects.filter(
         enrollments__classroom=classroom,
-        enrollments__stream=stream
+        enrollments__academic_year=active_year
     ).distinct()
+    
+    # If stream exists, filter by it
+    if stream:
+        students = students.filter(enrollments__stream=stream)
 
     if request.method == 'POST':
         # ================= EXCEL IMPORT =================
@@ -723,11 +710,10 @@ def register_student_teacher(request):
                     admission_number=admission_number
                 )
 
-                
                 Enrollment.objects.create(
                     student=student_profile,
                     classroom=classroom,
-                    stream=stream,
+                    stream=stream,  # Will be None if no stream
                     academic_year=active_year,
                     status='Active'
                 )
@@ -737,9 +723,13 @@ def register_student_teacher(request):
 
         # ================= MANUAL =================
         admission_number = request.POST.get('admission_number')
+        
+        if not admission_number:
+            messages.error(request, "Admission number is required.")
+            return redirect('register_student_teacher')
 
         if User.objects.filter(username=admission_number).exists():
-            messages.error(request, "Admission number exists.")
+            messages.error(request, "Admission number already exists.")
             return redirect('register_student_teacher')
 
         student_user = User.objects.create(
@@ -759,7 +749,7 @@ def register_student_teacher(request):
         Enrollment.objects.create(
             student=student_profile,
             classroom=classroom,
-            stream=stream,
+            stream=stream,  # Will be None if no stream
             academic_year=active_year,
             status='Active'
         )
@@ -798,7 +788,7 @@ def register_student_teacher(request):
             else:
                 messages.warning(request, 'Invalid parent phone number format. Student saved, but parent not linked.')
 
-        messages.success(request, "Student registered successfully.")
+        messages.success(request, f"Student {student_user.get_full_name()} registered successfully.")
         return redirect('register_student_teacher')
 
     return render(request, 'attendance_app/register_student_teacher.html', {
@@ -1000,10 +990,6 @@ def sms_logs(request):
         'sms_logs': logs
     })
 
-
-from django.db import transaction
-from django.contrib import messages
-from django.shortcuts import get_object_or_404, redirect, render
 
 @never_cache
 @login_required
@@ -1452,21 +1438,31 @@ def send_absent_sms(student, teacher=None):
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def mark_attendance(request):
-
     teacher = get_object_or_404(TeacherProfile, user=request.user)
-    classroom = teacher.classroom
-    stream = teacher.stream
-
-    if not classroom or not stream:
-        messages.error(
-            request,
-            "You are not assigned to a classroom or stream."
-        )
-        return redirect('teacher_dashboard')
-
-    # FILTER BY CLASSROOM AND STREAM via Enrollment
+    
     active_year = AcademicYear.objects.filter(is_active=True).first()
-    students_list = get_students_by_teacher_scope(classroom, stream, academic_year=active_year).order_by('admission_number')
+    
+    if not active_year:
+        messages.error(request, "No active academic year found.")
+        return redirect('teacher_dashboard')
+    
+    # Get teacher's enrollment
+    teacher_enrollment = Enrollment.objects.filter(
+        class_teacher=teacher,
+        academic_year=active_year
+    ).select_related('classroom', 'stream').first()
+
+    if not teacher_enrollment or not teacher_enrollment.classroom:
+        messages.error(request, "You are not assigned to a classroom or stream.")
+        return redirect('teacher_dashboard')
+    
+    classroom = teacher_enrollment.classroom
+    stream = teacher_enrollment.stream
+
+    # Get students
+    students_list = get_students_by_teacher_scope(
+        classroom, stream, academic_year=active_year
+    ).order_by('admission_number')
 
     paginator = Paginator(students_list, 25)
     page_number = request.GET.get('page')
@@ -1475,33 +1471,29 @@ def mark_attendance(request):
     if request.method == "POST":
         today = timezone.localdate()
 
+        for student in students:
+            status = request.POST.get(f'attendance_{student.id}', 'present')
 
-        for student in students:  # PAGINATED LOOP
-            status = request.POST.get(
-                f'attendance_{student.id}', 'present'
-            )
+            # Get or create enrollment for this student
+            student_enrollment = Enrollment.objects.filter(
+                student=student,
+                academic_year=active_year
+            ).first()
 
+            # Use update_or_create with only the fields that exist in Attendance model
             Attendance.objects.update_or_create(
                 student=student,
                 date=today,
-                academic_year=active_year,
+                enrollment=student_enrollment,  # Use enrollment instead of academic_year
                 defaults={
                     'status': status,
                     'marked_by': teacher,
-                    'classroom': classroom,
-                    'stream': stream,
-                    'academic_year': active_year
                 }
             )
 
-            # ===== ABSENT SMS LOGIC =====
             if status == 'absent':
-                start = timezone.now().replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
-                end = timezone.now().replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
+                start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
 
                 sms_exists = SMSLog.objects.filter(
                     student=student,
@@ -1512,11 +1504,11 @@ def mark_attendance(request):
                     try:
                         sms_ok = send_absent_sms(student, teacher=teacher)
                         if not sms_ok:
-                            messages.warning(request, f"Could not send absent SMS for {student.user.get_full_name()}. Check parent number or SMS service.")
+                            messages.warning(request, f"Could not send absent SMS for {student.user.get_full_name()}")
                     except Exception as e:
-                        logger.error(f"Unexpected error sending absent SMS for {student.id}: {e}")
-                        messages.warning(request, f"Could not send absent SMS for {student.user.get_full_name()}. Check system logs.")
+                        logger.error(f"Error sending absent SMS for {student.id}: {e}")
 
+        messages.success(request, f"Attendance marked successfully for {today}")
         return redirect('view_attendance')
 
     return render(request, 'attendance_app/mark_attendance.html', {
@@ -1532,27 +1524,36 @@ def mark_attendance(request):
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def teacher_sms_logs(request):
-
     teacher = get_object_or_404(TeacherProfile, user=request.user)
-    classroom = teacher.classroom
-    stream = teacher.stream
-
-    if not classroom or not stream:
-        messages.error(
-            request,
-            "You are not assigned to a classroom or stream."
-        )
-        return redirect('teacher_dashboard')
-
+    
+    # Get the active academic year
     active_year = AcademicYear.objects.filter(is_active=True).first()
+    
+    if not active_year:
+        messages.error(request, "No active academic year found.")
+        return redirect('teacher_dashboard')
+    
+    # Get teacher's enrollment for the active year
+    teacher_enrollment = Enrollment.objects.filter(
+        class_teacher=teacher,
+        academic_year=active_year
+    ).select_related('classroom', 'stream').first()
+    
+    if not teacher_enrollment or not teacher_enrollment.classroom:
+        messages.error(request, "You are not assigned to a classroom or stream for the current academic year.")
+        return redirect('teacher_dashboard')
+    
+    classroom = teacher_enrollment.classroom
+    stream = teacher_enrollment.stream
+    
     students_in_class = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
-
+    
     logs = SMSLog.objects.filter(
         student__in=students_in_class
     ).select_related(
         'student', 'parent'
     ).order_by('-timestamp')
-
+    
     return render(request, 'attendance_app/teacher_sms_logs.html', {
         'logs': logs,
         'teacher': teacher,
@@ -1567,25 +1568,46 @@ def teacher_sms_logs(request):
 @user_passes_test(lambda u: u.role == 'teacher')
 def delete_sms_log(request, sms_id):
     teacher = get_object_or_404(TeacherProfile, user=request.user)
-    classroom = teacher.classroom
-    stream = teacher.stream
+    
+    # Get the active academic year
     active_year = AcademicYear.objects.filter(is_active=True).first()
+    
+    if not active_year:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'No active academic year'})
+        return redirect('teacher_dashboard')
+    
+    # Get teacher's enrollment
+    teacher_enrollment = Enrollment.objects.filter(
+        class_teacher=teacher,
+        academic_year=active_year
+    ).select_related('classroom', 'stream').first()
+    
+    if not teacher_enrollment or not teacher_enrollment.classroom:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Teacher not assigned to a classroom'})
+        return redirect('teacher_dashboard')
+    
+    classroom = teacher_enrollment.classroom
+    stream = teacher_enrollment.stream
+    
     students_in_class = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
-
+    
     try:
         sms_log = get_object_or_404(SMSLog, id=sms_id, student__in=students_in_class)
         sms_log.delete()
-
-        # check if AJAX request
+        
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True})
         else:
+            messages.success(request, "SMS log deleted successfully.")
             return redirect('teacher_sms_logs')
-
+            
     except SMSLog.DoesNotExist:
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': 'SMS log not found'})
         else:
+            messages.error(request, "SMS log not found.")
             return redirect('teacher_sms_logs')
 
 
@@ -1595,8 +1617,26 @@ def delete_sms_log(request, sms_id):
 @login_required
 def view_attendance(request):
     teacher = get_object_or_404(TeacherProfile, user=request.user)
-    classroom = teacher.classroom
-    stream = teacher.stream
+    
+    # Get the active academic year
+    active_year = AcademicYear.objects.filter(is_active=True).first()
+    
+    if not active_year:
+        messages.error(request, "No active academic year found.")
+        return redirect('teacher_dashboard')
+    
+    # Get teacher's enrollment/assignment for the active year
+    teacher_enrollment = Enrollment.objects.filter(
+        class_teacher=teacher,
+        academic_year=active_year
+    ).select_related('classroom', 'stream').first()
+    
+    if not teacher_enrollment or not teacher_enrollment.classroom:
+        messages.error(request, "You are not assigned to any classroom for the current academic year.")
+        return redirect('teacher_dashboard')
+    
+    classroom = teacher_enrollment.classroom
+    stream = teacher_enrollment.stream
 
     # =================== DATE FILTER (TZ SAFE) ===================
     raw_date = request.GET.get("date")
@@ -1604,25 +1644,24 @@ def view_attendance(request):
 
     if raw_date:
         try:
-            selected_date = datetime.strptime(
-                raw_date, "%Y-%m-%d"
-            ).date()
+            selected_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
         except ValueError:
             selected_date = timezone.localdate()
     else:
         selected_date = timezone.localdate()
 
-    # =================== BASE STUDENTS QUERYSET (Enrollment relation) ===================
-    active_year = AcademicYear.objects.filter(is_active=True).first()
+    # =================== BASE STUDENTS QUERYSET ===================
     students_qs = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
 
     # =================== ATTENDANCE QUERYSET ===================
+    # Get attendance records for these students on the selected date
     attendance_qs = Attendance.objects.filter(
         student__in=students_qs,
         date=selected_date
     ).select_related(
         "student",
-        "student__user"
+        "student__user",
+        "enrollment"  # Add this to prefetch enrollment
     ).order_by(
         "student__user__first_name"
     )
@@ -1957,19 +1996,35 @@ def edit_attendance(request, pk):
 
 
 
-
 @never_cache
 @login_required
 def my_students(request):
     try:
         teacher = get_object_or_404(TeacherProfile, user=request.user)
-
-        classroom = teacher.classroom
-        stream = teacher.stream
+        
+        # Get the active academic year
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_year:
+            messages.error(request, "No active academic year found. Please contact admin.")
+            return redirect('teacher_dashboard')
+        
+        # Get the teacher's enrollment/assignment for the active year
+        teacher_enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
+        
+        if not teacher_enrollment:
+            messages.warning(request, "You are not assigned to any classroom for the current academic year.")
+            return redirect('teacher_dashboard')
+        
+        classroom = teacher_enrollment.classroom
+        stream = teacher_enrollment.stream
+        
         search = request.GET.get("search", "")
 
-        active_year = AcademicYear.objects.filter(is_active=True).first()
-
+        # Get students using the function (which already uses Enrollment)
         students_qs = get_students_by_teacher_scope(
             classroom=classroom,
             stream=stream,
@@ -1988,7 +2043,10 @@ def my_students(request):
             )
 
         students_qs = students_qs.order_by("user__first_name")
-
+        
+        # Get total count BEFORE pagination
+        total_count = students_qs.count()
+        
         students_list = []
         for student in students_qs:
             enrollment = student.enrollments.filter(academic_year=active_year).first()
@@ -2003,16 +2061,18 @@ def my_students(request):
                 'phone': student.parents.first().user.phone_number if student.parents.exists() else '—',
             })
 
-        paginator = Paginator(students_list, 25)  # 25 per page
+        paginator = Paginator(students_list, 25)
         page_number = request.GET.get("page")
         students = paginator.get_page(page_number)
 
         context = {
             "students": students,
             "classroom": classroom,
+            "stream": stream,
             'teacher': teacher,
             "search": search,
-            "active_year": active_year
+            "active_year": active_year,
+            "total_students": total_count,
         }
         return render(request, "attendance_app/my_students.html", context)
 
@@ -2218,7 +2278,7 @@ def resend_sms(request, sms_id):
 
     sms_log = get_object_or_404(SMSLog, id=sms_id, student__in=students_in_class)
 
-    # ✅ VALIDATION: Check parent phone number
+    # VALIDATION: Check parent phone number
     if not sms_log.parent or not sms_log.parent.user.phone_number:
         messages.error(request, f"Parent phone number missing for {sms_log.student.user.get_full_name()}.")
         return redirect('teacher_sms_logs')
@@ -2228,19 +2288,19 @@ def resend_sms(request, sms_id):
         return redirect('teacher_sms_logs')
 
     try:
-        # ✅ USE UTILITY FUNCTION
+        #  USE UTILITY FUNCTION
         parent_phone = sms_log.parent.user.phone_number
         sms_sent = send_sms(parent_phone, sms_log.message)
 
         if sms_sent:
-            # ✅ UPDATE SMS LOG - SENT
+            #  UPDATE SMS LOG - SENT
             sms_log.status = "sent"
             sms_log.timestamp = timezone.now()
             sms_log.save()
             logger.info(f"SMS resent for {sms_log.student.user.get_full_name()} to {parent_phone}")
             messages.success(request, "SMS resent successfully!")
         else:
-            # ✅ UPDATE SMS LOG - FAILED
+            #  UPDATE SMS LOG - FAILED
             sms_log.status = "failed"
             sms_log.save()
             logger.warning(f"SMS resend failed for {sms_log.student.user.get_full_name()} to {parent_phone}")
@@ -2255,35 +2315,6 @@ def resend_sms(request, sms_id):
     return redirect('teacher_sms_logs')
 
 
-@never_cache
-@login_required
-@user_passes_test(lambda u: u.role == 'teacher')
-def edit_sms_log(request, sms_id):
-    teacher = get_object_or_404(TeacherProfile, user=request.user)
-    classroom = teacher.classroom
-    stream = teacher.stream
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    students_in_class = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
-
-    sms_log = get_object_or_404(SMSLog, id=sms_id, student__in=students_in_class)
-
-    if request.method == 'POST':
-        new_message = request.POST.get('message', sms_log.message).strip()
-        new_status = request.POST.get('status', sms_log.status)
-
-        if new_status not in ['sent', 'failed', 'pending']:
-            messages.error(request, 'Invalid SMS status.')
-            return redirect('teacher_sms_logs')
-
-        sms_log.message = new_message
-        sms_log.status = new_status
-        sms_log.save()
-        messages.success(request, 'SMS log updated successfully.')
-        return redirect('teacher_sms_logs')
-
-    return render(request, 'attendance_app/edit_sms_log.html', {
-        'sms_log': sms_log
-    })
 
 
 @never_cache
@@ -2333,15 +2364,6 @@ def admin_profile(request):
     return render(request, 'attendance_app/admin_profile.html', context)
 
 
-
-
-from django.views.decorators.cache import never_cache
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.core.files.storage import default_storage
-from .models import SchoolSettings
-from .forms import SchoolSettingsForm
 
 
 @never_cache
@@ -2403,9 +2425,34 @@ def attendance_report_cards(request):
     Clicking a card navigates to detailed attendance of that class.
     """
     classrooms = Classroom.objects.all().order_by('year', 'name')
+    
+    # Get active academic year
+    active_year = AcademicYear.objects.filter(is_active=True).first()
+    
+    # Add attendance summary for each classroom
+    for classroom in classrooms:
+        # Get students in this classroom for active year
+        students = StudentProfile.objects.filter(
+            enrollments__classroom=classroom,
+            enrollments__academic_year=active_year
+        ).distinct()
+        
+        classroom.total_students = students.count()
+        
+        # Get today's attendance summary
+        today = now().date()
+        attendance_today = Attendance.objects.filter(
+            student__in=students,
+            date=today
+        )
+        
+        classroom.present_today = attendance_today.filter(status='present').count()
+        classroom.absent_today = attendance_today.filter(status='absent').count()
+        classroom.sick_today = attendance_today.filter(status='sick').count()
 
     context = {
-        "classrooms": classrooms
+        "classrooms": classrooms,
+        "active_year": active_year,
     }
     return render(request, "attendance_app/attendance_report_cards.html", context)
 
@@ -2430,19 +2477,53 @@ def view_class_attendance(request, classroom_id):
         except ValueError:
             selected_date = now().date()
 
-        attendance_qs = Attendance.objects.filter(classroom=classroom, date=selected_date)
-
+        # Find which academic year this date belongs to
+        active_year = AcademicYear.objects.filter(
+            year_start__lte=selected_date.year,
+            year_end__gte=selected_date.year
+        ).first()
+        
+        if not active_year:
+            active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_year:
+            messages.error(request, "No academic year found for this date.")
+            return redirect('attendance_report_cards')
+        
+        # Get all students enrolled in this classroom for that academic year
+        students_in_class = StudentProfile.objects.filter(
+            enrollments__classroom=classroom,
+            enrollments__academic_year=active_year
+        ).distinct()
+        
+        # If stream is selected, filter further
         if selected_stream_id:
-            attendance_qs = attendance_qs.filter(stream_id=selected_stream_id)
-
-        attendance_qs = attendance_qs.select_related("student__user", "marked_by__user").order_by("student__user__first_name")
-
+            students_in_class = students_in_class.filter(
+                enrollments__stream_id=selected_stream_id
+            )
+        
+        # Get attendance records for these students on the selected date
+        attendance_qs = Attendance.objects.filter(
+            student__in=students_in_class,
+            date=selected_date
+        ).select_related(
+            "student__user", 
+            "marked_by__user",
+            "enrollment__stream"  # Prefetch stream through enrollment
+        ).order_by("student__user__first_name")
+        
+        # Get students who don't have attendance records for this date
+        students_with_attendance = attendance_qs.values_list('student_id', flat=True)
+        students_without_attendance = students_in_class.exclude(id__in=students_with_attendance)
+        
         context = {
             "classroom": classroom,
             "attendance_records": attendance_qs,
+            "students_without_attendance": students_without_attendance,
             "streams": streams,
             "selected_date": selected_date.strftime("%Y-%m-%d"),
-            "selected_stream_id": int(selected_stream_id) if selected_stream_id else None
+            "selected_stream_id": int(selected_stream_id) if selected_stream_id else None,
+            "active_year": active_year,
         }
 
         return render(request, "attendance_app/view_class_attendance.html", context)
@@ -2451,8 +2532,8 @@ def view_class_attendance(request, classroom_id):
         logger.error(f"Error in view_class_attendance for class {classroom_id}: {e}")
         messages.error(request, "Could not load attendance data. Please try again or contact support.")
         return redirect('attendance_report_cards')
-
-
+    
+    
 @never_cache
 @login_required
 def add_academic_year(request):
@@ -2524,14 +2605,9 @@ def delete_academic_year(request, id):
 
     return redirect('academic_years')
         
-from django.db import transaction
 
 
-from django.db.models import ProtectedError
-import logging
 
-# Initialize logger
-logger = logging.getLogger(__name__)
 
 # Define promotion mapping (Badilisha majina haya yafanane na database yako)
 # utils.py
@@ -2542,31 +2618,6 @@ CLASS_PROMOTION = {
     'Form IV': None  # Graduating students
 }
 
-def archive_attendance_for_year(year):
-    """Archives attendance records to history table before starting new year"""
-    from .models import Attendance, ClassAttendanceHistory
-    attendances = Attendance.objects.select_related(
-        'student', 'student__classroom', 'student__stream', 'marked_by'
-    ).filter(student__academic_year=year)
-
-    history_objects = []
-    for att in attendances:
-        history_objects.append(
-            ClassAttendanceHistory(
-                student=att.student,
-                classroom=att.student.classroom,
-                stream=att.student.stream,
-                academic_year=att.student.academic_year,
-                date=att.date,
-                status=att.status,
-                marked_by=att.marked_by
-            )
-        )
-
-    ClassAttendanceHistory.objects.bulk_create(
-        history_objects,
-        ignore_conflicts=True
-    )
 
 @transaction.atomic
 def generate_academic_year(request):
@@ -2595,14 +2646,14 @@ def generate_academic_year(request):
         with transaction.atomic():
             old_year = AcademicYear.objects.filter(is_active=True).first()
             
-            # 1️⃣ ARCHIVE & LOCK OLD YEAR
+            #  ARCHIVE & LOCK OLD YEAR
             if old_year:
                 archive_attendance_for_year(old_year)
                 old_year.is_active = False
                 old_year.is_locked = True
                 old_year.save()
             
-            # 2️⃣ CREATE NEW ACADEMIC YEAR
+            #  CREATE NEW ACADEMIC YEAR
             new_year = AcademicYear.objects.create(
                 year_start=new_start,
                 year_end=new_end,
@@ -2610,7 +2661,7 @@ def generate_academic_year(request):
                 is_locked=False
             )
             
-            # 3️⃣ CREATE NEW CLASSROOMS & STREAMS FOR NEW YEAR
+            #  CREATE NEW CLASSROOMS & STREAMS FOR NEW YEAR
             if old_year:
                 existing_classes = set()
                 for old_class in Classroom.objects.filter(year=old_year):
@@ -2658,7 +2709,7 @@ def generate_academic_year(request):
                                 classroom=promoted_class
                             )
 
-            # 4️⃣ PROMOTE STUDENTS
+            #  PROMOTE STUDENTS
             students_promoted = 0
             students_graduated = 0
             students_skipped = 0
@@ -2718,7 +2769,7 @@ def generate_academic_year(request):
                         logger.error(f"Error promoting student {enrollment.student.id}: {e}")
                         students_skipped += 1
 
-            # 5️⃣ PROMOTE TEACHERS (Based on their assigned enrollment/class)
+            #  PROMOTE TEACHERS (Based on their assigned enrollment/class)
             teachers_updated = 0
             
             # OPTION A: If teachers are assigned to specific classrooms via Enrollment
