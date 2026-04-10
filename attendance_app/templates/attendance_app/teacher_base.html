@@ -176,8 +176,54 @@ body {
     z-index: 1150;
 }
 
+/* ================= TOAST STYLES ================= */
+.toast-container {
+    z-index: 9999;
+}
+
+.toast {
+    border: none !important;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast-header {
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.toast-body {
+    font-weight: 500;
+    line-height: 1.5;
+    padding: 1rem;
+}
+
+.btn-close-white:focus {
+    opacity: 1;
+}
+
+.toast-container {
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+}
+
 /* ================= MOBILE ================= */
-/* MOBILE */
 @media (max-width: 992px){
     .sidebar { transform: translateX(-100%); }
     .sidebar.show { transform: translateX(0); }
@@ -185,10 +231,66 @@ body {
     .sidebar-toggle { display: block; }
     #sidebar-overlay.show { display: block; }
     .profile-name { display: none; }
+    
+    /* Mobile toast adjustments */
+    .toast-container {
+        top: 60px !important;
+        right: 10px !important;
+        left: auto !important;
+    }
+    
+    .toast {
+        width: 280px !important;
+        margin-bottom: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .toast-container {
+        right: 5px !important;
+        top: 50px !important;
+    }
+    
+    .toast {
+        width: 260px !important;
+        font-size: 0.85rem;
+    }
+    
+    .toast-header {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+    
+    .toast-body {
+        padding: 0.75rem;
+        font-size: 0.85rem;
+    }
 }
 </style>
 </head>
 <body>
+
+<!-- ================= TOAST MESSAGES ================= -->
+{% if messages %}
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    {% for message in messages %}
+    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" 
+         data-bs-delay="5000" 
+         style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#dc3545{% elif message.tags == 'success' %}#198754{% elif message.tags == 'warning' %}#ffc107{% else %}#0d6efd{% endif %}; color: white; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <div class="toast-header" style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#bd2130{% elif message.tags == 'success' %}#146c43{% elif message.tags == 'warning' %}#e6a800{% else %}#084298{% endif %}; color: white; border: none;">
+            <i class="bi {% if message.tags == 'error' or message.tags == 'danger' %}bi-exclamation-circle{% elif message.tags == 'success' %}bi-check-circle{% elif message.tags == 'warning' %}bi-exclamation-triangle{% else %}bi-info-circle{% endif %}" style="margin-right: 0.5rem;"></i>
+            <strong class="me-auto">
+                {% if message.tags == 'error' or message.tags == 'danger' %}Error{% elif message.tags == 'success' %}Success{% elif message.tags == 'warning' %}Warning{% else %}Info{% endif %}
+            </strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            {{ message }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- TOGGLE & OVERLAY -->
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
@@ -290,6 +392,19 @@ document.querySelectorAll('.sidebar .nav-link, .logout-link').forEach(link => {
         if(window.innerWidth < 992) {
             toggleSidebar();
         }
+    });
+});
+
+// Auto-hide toasts after 5 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    const toasts = document.querySelectorAll('.toast');
+    toasts.forEach(function(toastEl) {
+        setTimeout(function() {
+            const bsToast = bootstrap.Toast.getInstance(toastEl);
+            if (bsToast) {
+                bsToast.hide();
+            }
+        }, 5000);
     });
 });
 </script>

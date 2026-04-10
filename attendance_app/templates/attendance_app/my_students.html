@@ -3,47 +3,14 @@
 
 {% block content %}
 
-<!-- ================= TOAST MESSAGES ================= -->
-{% if messages %}
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-    {% for message in messages %}
-    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" 
-         data-bs-delay="5000" 
-         style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#dc3545{% elif message.tags == 'success' %}#198754{% elif message.tags == 'warning' %}#ffc107{% else %}#0d6efd{% endif %}; color: white; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-        <div class="toast-header" style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#bd2130{% elif message.tags == 'success' %}#146c43{% elif message.tags == 'warning' %}#e6a800{% else %}#084298{% endif %}; color: white; border: none;">
-            <i class="bi {% if message.tags == 'error' or message.tags == 'danger' %}bi-exclamation-circle{% elif message.tags == 'success' %}bi-check-circle{% elif message.tags == 'warning' %}bi-exclamation-triangle{% else %}bi-info-circle{% endif %}" style="margin-right: 0.5rem;"></i>
-            <strong class="me-auto">
-                {% if message.tags == 'error' or message.tags == 'danger' %}Error{% elif message.tags == 'success' %}Success{% elif message.tags == 'warning' %}Warning{% else %}Info{% endif %}
-            </strong>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body" style="padding: 1rem;">
-            {{ message }}
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-hide toasts after 5 seconds
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toastEl) {
-        const bsToast = new bootstrap.Toast(toastEl);
-        bsToast.show();
-    });
-});
-</script>
-{% endif %}
-
 <div class="card shadow-sm">
     <div class="card-body">
 
         <h4 class="mb-4 text-danger">
             My Students : {{ classroom.name }} ({{ classroom.year }})
             {% if stream %}
-                            : {{ stream.name }}
-                        {% endif %}
+                : {{ stream.name }}
+            {% endif %}
         </h4>
 
         <!-- ================= SEARCH & EXPORT ================= -->
@@ -111,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <!-- DELETE BUTTON -->
                             <button class="btn btn-sm btn-danger deleteStudentBtn" type="button"
                                     data-href="{% url 'delete_student' student.id %}"
-                                    data-name="{{ student.user.get_full_name }}">
+                                    data-name="{{ student.full_name }}">
                                 Delete
                             </button>
 
@@ -214,7 +181,6 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
-<!-- ================= STYLES ================= -->
 <style>
 .table-hover tbody tr:hover {
     background-color: rgba(79,70,229,0.08);
@@ -246,70 +212,6 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size:.85rem;
         padding:.45rem;
     }
-    
-    /* ===== MOBILE TOAST STYLES ===== */
-    .toast-container {
-        right: 0.5rem !important;
-        left: 0.5rem !important;
-        top: 0.5rem !important;
-    }
-    
-    .toast {
-        width: 100% !important;
-        margin-bottom: 0.5rem;
-    }
-    
-    .toast-body {
-        font-size: 0.9rem;
-        word-wrap: break-word;
-    }
-    
-    .toast-header {
-        font-size: 0.9rem;
-    }
-}
-
-/* ===== TOAST STYLES ===== */
-.toast {
-    border: none !important;
-    animation: slideInRight 0.3s ease-out;
-}
-
-@keyframes slideInRight {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-.toast-header {
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    padding: 0.75rem 1rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-}
-
-.toast-body {
-    font-weight: 500;
-    line-height: 1.5;
-}
-
-.btn-close-white:focus {
-    opacity: 1;
-}
-
-/* ===== ENSURE VISIBILITY ===== */
-.toast-container {
-    pointer-events: none;
-}
-
-.toast {
-    pointer-events: auto;
 }
 </style>
 
