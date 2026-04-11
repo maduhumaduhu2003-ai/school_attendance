@@ -8,42 +8,140 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h4 class="mb-0 text-danger">Sent SMS</h4>
+                
+                <!-- Bulk Delete Button (hidden by default) -->
+                <button id="bulkDeleteBtn" class="btn btn-danger btn-sm" style="display: none;" onclick="confirmBulkDelete()">
+                    <i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">0</span>)
+                </button>
             </div>
 
             <!-- Responsive Table -->
             <div class="table-responsive touch-scroll">
-                <table class="table table-bordered table-striped align-middle mb-0 text-nowrap">
+                <table class="table table-bordered table-striped align-middle mb-0" id="smsTable">
                     <thead class="bg-primary text-white text-center">
                         <tr>
-                            <th>No</th>
-                            <th>Student</th>
-                            <th>Parent</th>
-                            <th>Message</th>
-                            <th>Status</th>
-                            <th>Sent At</th>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAll" class="form-check-input" style="cursor: pointer;">
+                            </th>
+                            <th style="width: 50px;">No</th>
+                            <th style="width: 120px;">Student</th>
+                            <th style="width: 120px;">Parent</th>
+                            <th style="width: 35%;">Message</th>
+                            <th style="width: 80px;">Status</th>
+                            <th style="width: 130px;">Sent At</th>
+                            <th style="width: 60px;">Action</th>
                         </tr>
                     </thead>
                     <tbody style="background-color: #f8fafc;">
                         {% for sms in sms_logs %}
                         <tr>
-                            <td>{{ forloop.counter }}</td>
-                            <td>{{ sms.student.user.get_full_name }}</td>
-                            <td>{{ sms.parent.user.get_full_name }}</td>
-                            <td>{{ sms.message }}</td>
                             <td class="text-center">
-                                <span class="badge bg-success">{{ sms.status|capfirst }}</span>
+                                <input type="checkbox" class="form-check-input sms-checkbox" data-id="{{ sms.id }}" style="cursor: pointer;">
                             </td>
-                            <td class="text-center">{{ sms.timestamp|date:"M d, Y H:i" }}</td>
+                            <td class="text-center">{{ forloop.counter }}</td>
+                            <td class="text-truncate" style="max-width: 120px;" title="{{ sms.student.user.get_full_name }}">
+                                {{ sms.student.user.get_full_name|truncatechars:20 }}
+                            </td>
+                            <td class="text-truncate" style="max-width: 120px;" title="{{ sms.parent.user.get_full_name }}">
+                                {{ sms.parent.user.get_full_name|truncatechars:20 }}
+                            </td>
+                            <td class="message-cell" style="max-width: 300px;">
+                                <div class="message-preview">
+                                    {{ sms.message|truncatechars:80 }}
+                                    {% if sms.message|length > 80 %}
+                                        <button class="btn btn-link btn-sm p-0 ms-1 view-message-btn" 
+                                                data-message="{{ sms.message|escapejs }}"
+                                                data-student="{{ sms.student.user.get_full_name|escapejs }}"
+                                                data-parent="{{ sms.parent.user.get_full_name|escapejs }}">
+                                            View More
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {% if sms.status == 'sent' %}bg-success{% elif sms.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %}">
+                                    {{ sms.status|capfirst }}
+                                </span>
+                            </td>
+                            <td class="text-center" style="white-space: nowrap;">{{ sms.timestamp|date:"M d, Y H:i" }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-danger delete-single" data-id="{{ sms.id }}" data-name="{{ sms.student.user.get_full_name }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center text-danger">No SMS sent yet</td>
+                            <td colspan="8" class="text-center text-danger">No SMS sent yet</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination -->
+            {% if sms_logs.has_other_pages %}
+            <nav class="mt-3">
+                <ul class="pagination justify-content-center">
+                    {% if sms_logs.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ sms_logs.previous_page_number }}">Previous</a></li>
+                    {% endif %}
+                    <li class="page-item active"><span class="page-link">Page {{ sms_logs.number }} of {{ sms_logs.paginator.num_pages }}</span></li>
+                    {% if sms_logs.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ sms_logs.next_page_number }}">Next</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
 
+        </div>
+    </div>
+</div>
+
+<!-- View Message Modal -->
+<div class="modal fade" id="viewMessageModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">SMS Message Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Student:</strong> <span id="modalStudentName"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Parent:</strong> <span id="modalParentName"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Message:</strong>
+                    <div class="alert alert-light mt-2" style="background-color: #f8f9fa; border-left: 4px solid #4f46e5; white-space: pre-wrap; word-wrap: break-word;">
+                        <span id="modalMessage"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">
+                Are you sure you want to delete this SMS log?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
         </div>
     </div>
 </div>
@@ -64,8 +162,37 @@ table.table tbody tr:hover {
     background-color: rgba(79, 70, 229, 0.08);
 }
 
-.table td, .table th {
+.table td {
+    vertical-align: middle;
+}
+
+/* Message column styling */
+.message-cell {
+    max-width: 300px;
+    word-break: break-word;
+}
+
+.message-preview {
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.view-message-btn {
+    font-size: 0.75rem;
+    text-decoration: none;
+    color: #4f46e5;
+}
+
+.view-message-btn:hover {
+    text-decoration: underline;
+    color: #4338ca;
+}
+
+/* Truncate text with ellipsis */
+.text-truncate {
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Touch scroll for mobile */
@@ -74,11 +201,28 @@ table.table tbody tr:hover {
     overflow-x: auto;
 }
 
+/* Checkbox styling */
+.form-check-input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.form-check-input:checked {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+/* Status badges */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+}
+
 /* Full width table on small devices */
 @media (max-width: 767px) {
     .table {
-        min-width: 100%;
-        font-size: 0.95rem;
+        font-size: 0.8rem;
     }
     .container-fluid {
         padding-left: 0.5rem;
@@ -87,6 +231,204 @@ table.table tbody tr:hover {
     h4.mb-0 {
         font-size: 1rem;
     }
+    .message-cell {
+        max-width: 180px;
+    }
+    .message-preview {
+        font-size: 0.75rem;
+    }
+    .view-message-btn {
+        font-size: 0.7rem;
+    }
+    .btn-sm {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .table th, .table td {
+        padding: 0.4rem;
+    }
+    .message-cell {
+        max-width: 140px;
+    }
 }
 </style>
+
+<!-- ================= JAVASCRIPT ================= -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const smsCheckboxes = document.querySelectorAll('.sms-checkbox');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    
+    let currentDeleteId = null;
+    let isBulkDelete = false;
+    let selectedIds = [];
+    
+    // View Message Modal
+    const viewMessageModal = new bootstrap.Modal(document.getElementById('viewMessageModal'));
+    document.querySelectorAll('.view-message-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const message = this.getAttribute('data-message');
+            const studentName = this.getAttribute('data-student');
+            const parentName = this.getAttribute('data-parent');
+            
+            document.getElementById('modalStudentName').textContent = studentName;
+            document.getElementById('modalParentName').textContent = parentName;
+            document.getElementById('modalMessage').textContent = message;
+            
+            viewMessageModal.show();
+        });
+    });
+    
+    // Update bulk delete button visibility and count
+    function updateBulkDeleteButton() {
+        const checkedBoxes = document.querySelectorAll('.sms-checkbox:checked');
+        const count = checkedBoxes.length;
+        
+        if (count > 0) {
+            bulkDeleteBtn.style.display = 'block';
+            selectedCountSpan.textContent = count;
+        } else {
+            bulkDeleteBtn.style.display = 'none';
+            selectedCountSpan.textContent = 0;
+        }
+    }
+    
+    // Select/Deselect All
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            smsCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            updateBulkDeleteButton();
+        });
+    }
+    
+    // Individual checkbox change
+    smsCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateBulkDeleteButton();
+            
+            // Update select all checkbox state
+            if (selectAllCheckbox) {
+                const allChecked = smsCheckboxes.length === document.querySelectorAll('.sms-checkbox:checked').length;
+                selectAllCheckbox.checked = allChecked;
+            }
+        });
+    });
+    
+    // Get selected IDs
+    function getSelectedIds() {
+        const checkedBoxes = document.querySelectorAll('.sms-checkbox:checked');
+        return Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-id')));
+    }
+    
+    // Single delete button click
+    document.querySelectorAll('.delete-single').forEach(button => {
+        button.addEventListener('click', function() {
+            currentDeleteId = this.getAttribute('data-id');
+            const studentName = this.getAttribute('data-name');
+            isBulkDelete = false;
+            document.getElementById('deleteModalBody').innerHTML = `Are you sure you want to delete SMS log for <strong>${studentName}</strong>?`;
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            deleteModal.show();
+        });
+    });
+    
+    // Bulk delete button click
+    window.confirmBulkDelete = function() {
+        const count = document.querySelectorAll('.sms-checkbox:checked').length;
+        if (count === 0) return;
+        
+        isBulkDelete = true;
+        selectedIds = getSelectedIds();
+        document.getElementById('deleteModalBody').innerHTML = `Are you sure you want to delete <strong>${count}</strong> selected SMS log(s)? This action cannot be undone.`;
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        deleteModal.show();
+    };
+    
+    // Confirm delete button
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+        
+        if (isBulkDelete) {
+            // Bulk delete
+            if (selectedIds.length === 0) {
+                deleteModal.hide();
+                return;
+            }
+            
+            fetch('/sms/bulk-delete/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ ids: selectedIds })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+                deleteModal.hide();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting.');
+                deleteModal.hide();
+            });
+        } else {
+            // Single delete
+            if (!currentDeleteId) {
+                deleteModal.hide();
+                return;
+            }
+            
+            fetch(`/sms/delete/${currentDeleteId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+                deleteModal.hide();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting.');
+                deleteModal.hide();
+            });
+        }
+    });
+    
+    // Function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
 {% endblock %}
