@@ -9,14 +9,48 @@
     <div class="card shadow-sm">
         <div class="card-body">
 
-            <h3 class="mb-4 text-danger">Attendance by Class</h3>
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+                <h3 class="text-danger mb-2 mb-md-0">Attendance by Class</h3>
+                
+                <!-- Academic Year Filter Dropdown -->
+                <div class="d-flex align-items-center gap-2">
+                    <label for="academicYearSelect" class="fw-bold mb-0">
+                        <i class="bi bi-calendar-week"></i> Academic Year:
+                    </label>
+                    <select id="academicYearSelect" class="form-select w-auto" onchange="filterByAcademicYear()">
+                        <option value="">-- All Years --</option>
+                        {% for year in all_academic_years %}
+                        <option value="{{ year.id }}" {% if selected_academic_year and selected_academic_year.id == year.id %}selected{% endif %}>
+                            {{ year.year_start }}/{{ year.year_end }}
+                            {% if year.is_active %}
+                            <span class="badge bg-success ms-1">Active</span>
+                            {% endif %}
+                            {% if year.is_locked %}
+                            <span class="badge bg-secondary ms-1">Locked</span>
+                            {% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Selected Year Info -->
+            {% if selected_academic_year %}
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle-fill"></i>
+                Showing attendance for <strong>{{ selected_academic_year.year_start }}/{{ selected_academic_year.year_end }}</strong>
+                {% if selected_academic_year.is_locked %}
+                <span class="badge bg-secondary ms-2">This year is locked (historical data)</span>
+                {% endif %}
+            </div>
+            {% endif %}
 
             <!-- CLASS CARDS -->
             <div class="row g-4">
                 {% for c in classrooms %}
                 <div class="col-sm-6 col-md-4 col-lg-3">
                     <div class="card shadow-sm card-hover"
-                         onclick="location.href='{% url 'view_class_attendance' c.id %}'">
+                         onclick="location.href='{% url 'view_class_attendance' c.id %}?year={{ selected_academic_year.id|default:'' }}'">
 
                         <div class="card-body text-center">
 
@@ -28,20 +62,31 @@
                             <h5 class="card-title fw-bold">{{ c.name }}</h5>
 
                             <p class="card-text text-muted mb-2">
-                                Year: {{ c.year }}
+                                Year: {{ c.year.year_start }}/{{ c.year.year_end }}
                             </p>
 
-                            <!-- FIXED: Use total_students from context instead of enrollment_set -->
+                            <!-- Student Count -->
                             <span class="badge bg-primary rounded-pill">
                                 {{ c.total_students|default:0 }} Students
                             </span>
+                            
+                            <!-- Attendance Summary (if today's data available) -->
+                            {% if c.present_today is not None %}
+                            <div class="mt-2 small">
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                </div>
+                            </div>
+                            {% endif %}
 
                         </div>
                     </div>
                 </div>
                 {% empty %}
                 <div class="col-12">
-                    <p class="text-danger text-center">No classrooms available</p>
+                    <div class="alert alert-warning text-center">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        No classrooms available for the selected academic year.
+                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -77,6 +122,52 @@
     font-size: 0.9rem;
     padding: 0.5em 0.8em;
 }
+
+#academicYearSelect {
+    min-width: 180px;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .card-title {
+        font-size: 1rem;
+    }
+    .badge {
+        font-size: 0.75rem;
+    }
+    #academicYearSelect {
+        min-width: 140px;
+        font-size: 0.85rem;
+    }
+}
 </style>
+
+<script>
+function filterByAcademicYear() {
+    const yearSelect = document.getElementById('academicYearSelect');
+    const selectedYear = yearSelect.value;
+    const currentUrl = new URL(window.location.href);
+    
+    if (selectedYear) {
+        currentUrl.searchParams.set('year', selectedYear);
+    } else {
+        currentUrl.searchParams.delete('year');
+    }
+    
+    window.location.href = currentUrl.toString();
+}
+
+// Load saved academic year from URL on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const yearParam = urlParams.get('year');
+    if (yearParam) {
+        const yearSelect = document.getElementById('academicYearSelect');
+        if (yearSelect) {
+            yearSelect.value = yearParam;
+        }
+    }
+});
+</script>
 
 {% endblock %}

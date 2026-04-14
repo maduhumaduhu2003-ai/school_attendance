@@ -9,10 +9,37 @@
         <div class="card-body">
 
             <!-- Page Title -->
-            <h4 class="mb-4 text-danger">{{ classroom.name }} - Attendance</h4>
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+                <h4 class="text-danger mb-2 mb-md-0">{{ classroom.name }} - Attendance</h4>
+                
+                <!-- Academic Year Filter Dropdown -->
+                <div class="d-flex align-items-center gap-2">
+                    <label for="academicYearSelect" class="fw-bold mb-0">
+                        <i class="bi bi-calendar-week"></i> Academic Year:
+                    </label>
+                    <select id="academicYearSelect" class="form-select w-auto" onchange="filterByAcademicYear()">
+                        {% for year in all_academic_years %}
+                        <option value="{{ year.id }}" {% if active_year and active_year.id == year.id %}selected{% endif %}>
+                            {{ year.year_start }}/{{ year.year_end }}
+                            {% if year.is_active %}(Active){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Current Year Info -->
+            <div class="alert alert-secondary mb-3">
+                <i class="bi bi-info-circle-fill"></i>
+                Showing data for <strong>{{ active_year.year_start }}/{{ active_year.year_end }}</strong>
+                {% if active_year.is_locked %}
+                <span class="badge bg-secondary ms-2">Historical Data (Read Only)</span>
+                {% endif %}
+            </div>
 
             <!-- Filter Form -->
             <form method="get" class="row g-3 mb-4 align-items-end flex-wrap">
+                <input type="hidden" name="year" value="{{ active_year.id }}">
                 <div class="col-12 col-md-3">
                     <label for="date" class="form-label">Date</label>
                     <input type="date" id="date" name="date" class="form-control" value="{{ selected_date }}">
@@ -31,11 +58,14 @@
                 </div>
             </form>
 
-            <!-- FIXED: Show total students count -->
+            <!-- Summary -->
             <div class="alert alert-info mb-3">
                 <strong>Total Students:</strong> {{ attendance_records|length|add:students_without_attendance|length|default:0 }}
                 {% if selected_stream_id %}
                     (Filtered by stream)
+                {% endif %}
+                {% if active_year.is_locked %}
+                <span class="badge bg-secondary ms-2">⚠️ This is historical data - cannot be modified</span>
                 {% endif %}
             </div>
 
@@ -60,7 +90,6 @@
                             <td class="text-center">{{ a.student.admission_number }}</td>
                             <td>{{ a.student.user.get_full_name }}</td>
                             <td class="text-center">
-                                <!-- FIXED: Get stream from enrollment -->
                                 {% if a.enrollment and a.enrollment.stream %}
                                     {{ a.enrollment.stream.name }}
                                 {% else %}
@@ -81,7 +110,7 @@
                         </tr>
                         {% endfor %}
                         
-                        <!-- FIXED: Show students without attendance -->
+                        <!-- Students without attendance -->
                         {% for student in students_without_attendance %}
                         <tr>
                             <td class="text-center">{{ forloop.counter|add:attendance_records|length }}</td>
@@ -113,59 +142,64 @@
                 </table>
             </div>
 
-        </div> <!-- end card-body -->
-    </div> <!-- end card -->
-
+        </div>
+    </div>
 </div>
 
-<!-- ================= STYLES ================= -->
 <style>
 .card {
     border-radius: 0.6rem;
-    transition: transform 0.3s ease;
 }
 
-.card:hover {
-    transform: translateY(-3px);
-}
-
-/* Table Styling */
 .table thead th {
     vertical-align: middle;
 }
+
 .table tbody tr:hover {
     background-color: rgba(79, 70, 229, 0.08);
 }
-.table td, .table th {
-    white-space: nowrap;
+
+#academicYearSelect {
+    min-width: 180px;
+    cursor: pointer;
 }
 
-/* Touch scroll for mobile */
-.table-responsive.touch-scroll {
-    -webkit-overflow-scrolling: touch;
-    overflow-x: auto;
-}
-
-/* Full width table & form on small devices */
-@media (max-width: 767px) {
+@media (max-width: 768px) {
     .table {
-        min-width: 100%;
-        font-size: 0.95rem;
+        font-size: 0.85rem;
     }
-    .container-fluid {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-    form.row.g-3 {
-        gap: 0.5rem 0.5rem;
-    }
-    .form-label {
-        font-size: 0.9rem;
-    }
-    .btn {
-        font-size: 0.9rem;
-        padding: 0.5rem;
+    #academicYearSelect {
+        min-width: 140px;
+        font-size: 0.85rem;
     }
 }
 </style>
+
+<script>
+function filterByAcademicYear() {
+    const yearSelect = document.getElementById('academicYearSelect');
+    const selectedYear = yearSelect.value;
+    const currentUrl = new URL(window.location.href);
+    
+    if (selectedYear) {
+        currentUrl.searchParams.set('year', selectedYear);
+    } else {
+        currentUrl.searchParams.delete('year');
+    }
+    
+    // Preserve other parameters
+    const date = document.getElementById('date')?.value;
+    const stream = document.getElementById('stream')?.value;
+    
+    if (date) {
+        currentUrl.searchParams.set('date', date);
+    }
+    if (stream) {
+        currentUrl.searchParams.set('stream', stream);
+    }
+    
+    window.location.href = currentUrl.toString();
+}
+</script>
+
 {% endblock %}
