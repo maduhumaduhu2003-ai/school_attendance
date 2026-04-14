@@ -13,7 +13,7 @@
             <div class="card shadow-sm text-center p-3 h-100 border-0 rounded-3 bg-light-primary">
                 <div class="card-body">
                     <h6>Total Teachers</h6>
-                    <h3>{{ teachers.count }}</h3>
+                    <h3>{{ total_teachers }}</h3>
                 </div>
             </div>
         </div>
@@ -63,7 +63,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-light">
-                    {% for teacher in teachers %}
+                    {% for teacher in teachers_list %}
                     <tr class="table-row-hover">
                         <td>{{ forloop.counter }}</td>
                         <td>{{ teacher.user.username }}</td>

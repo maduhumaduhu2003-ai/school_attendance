@@ -32,13 +32,14 @@
 
       <div class="col-md-6">
         <label>Academic Year</label>
-        <select name="academic_year" class="form-select" required>
-          {% for year in academic_years %}
-          <option value="{{ year.id }}" {% if active_year and year.id == active_year.id %}selected{% endif %}>
-            {{ year.year_start }}/{{ year.year_end }}
-          </option>
-          {% endfor %}
-        </select>
+<select name="academic_year" class="form-select" required>
+    {% for year in academic_years %}
+    <option value="{{ year.id }}" {% if active_year and year.id == active_year.id %}selected{% endif %}>
+        {{ year.year_start }}/{{ year.year_end }}
+        {% if year.is_active %}(Active){% endif %}
+    </option>
+    {% endfor %}
+</select>
       </div>
 
       <!-- ✅ CLASSROOM -->

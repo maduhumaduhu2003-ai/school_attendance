@@ -78,6 +78,7 @@ urlpatterns = [
     path('sms/delete/<int:sms_id>/', views.delete_sms_log_admin, name='delete_sms_log_admin'),
     path('sms/bulk-delete/', views.bulk_delete_sms_logs, name='bulk_delete_sms_logs'),
     path('teacher/sms/bulk-delete/', views.bulk_delete_sms_logs_teacher, name='bulk_delete_sms_logs_teacher'),
+    path('classroom/<int:classroom_id>/students/', views.classroom_students, name='classroom_students'),
    
 
 ]   

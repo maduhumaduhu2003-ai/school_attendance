@@ -27,7 +27,18 @@
 <div class="container mt-3">
 
     <div class="card shadow-sm p-4">
-        <h3 class="mb-3 text-danger">Register New Teacher</h3>
+        <h3 class="mb-3 text-danger">
+            <i class="bi bi-person-badge"></i> Register New Teacher
+        </h3>
+
+        <!-- Active Year Info -->
+        <div class="alert alert-info mb-4">
+            <i class="bi bi-calendar-check"></i>
+            <strong>Active Academic Year:</strong> {{ active_year.year_start }}/{{ active_year.year_end }}
+            <span class="badge bg-success ms-2">Currently Active</span>
+            <br>
+            <small class="text-muted">Teachers will be assigned to classrooms for this academic year only.</small>
+        </div>
 
         <form method="POST">
             {% csrf_token %}
@@ -35,53 +46,68 @@
             <div class="row g-3">
 
                 <div class="col-md-4">
-                    <label>Email</label>
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
                     <input type="email" name="username" class="form-control" required>
+                    <small class="text-muted">This will be used as username</small>
                 </div>
 
                 <div class="col-md-4">
-                    <label>Phone Number</label>
+                    <label class="form-label">Phone Number <span class="text-danger">*</span></label>
                     <input type="text" name="phone_number" class="form-control" required>
+                    <small class="text-muted">Format: 07XXXXXXXX or +255XXXXXXXXX</small>
                 </div>
 
                 <div class="col-md-4">
-                    <label>First Name</label>
+                    <label class="form-label">First Name <span class="text-danger">*</span></label>
                     <input type="text" name="first_name" class="form-control" required>
                 </div>
 
                 <div class="col-md-4">
-                    <label>Last Name</label>
+                    <label class="form-label">Last Name <span class="text-danger">*</span></label>
                     <input type="text" name="last_name" class="form-control" required>
                 </div>
 
+                <!-- Classroom - Only shows classrooms from ACTIVE year -->
                 <div class="col-md-4">
-                    <label>Classroom</label>
+                    <label class="form-label">Classroom <span class="text-danger">*</span></label>
                     <select name="classroom" id="classroom" class="form-select" required>
-                        <option value="">Select Classroom</option>
+                        <option value="">-- Select Classroom --</option>
                         {% for c in classrooms %}
-                            <option value="{{ c.id }}">{{ c.name }} ({{ c.year }})</option>
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% empty %}
+                            <option value="" disabled>No classrooms available for active year</option>
                         {% endfor %}
                     </select>
+                    <small class="text-muted">Showing only classrooms for active year ({{ active_year.year_start }}/{{ active_year.year_end }})</small>
                 </div>
 
+                <!-- Stream - Loads based on selected classroom -->
                 <div class="col-md-4">
-                    <label>Stream</label>
+                    <label class="form-label">Stream <span class="text-danger">*</span></label>
                     <select name="stream" id="stream" class="form-select" required>
-                        <option value="" selected>Select Stream</option>
+                        <option value="">-- Select Classroom First --</option>
                     </select>
+                    <small class="text-muted">Select a classroom to see available streams</small>
                 </div>
 
             </div>
 
-            <div class="mt-3">
+            <div class="mt-3 p-3 bg-light rounded">
                 <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
                     Default Password: <strong>Teacher@123</strong>
+                    <br>
+                    Teacher will receive SMS with login credentials.
                 </small>
             </div>
 
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Register</button>
-                <a href="{% url 'manage_teacher' %}" class="btn btn-secondary">Back</a>
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Register Teacher
+                </button>
+                <a href="{% url 'manage_teacher' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
             </div>
 
         </form>
@@ -89,12 +115,10 @@
 
 </div>
 
-
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    
- var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+    // Show toasts
+    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
     toastElList.forEach(function(toastEl) {
         try { new bootstrap.Toast(toastEl).show(); } catch(e) {}
     });
@@ -102,37 +126,53 @@ document.addEventListener('DOMContentLoaded', function () {
     const classroomSelect = document.getElementById('classroom');
     const streamSelect = document.getElementById('stream');
 
-    classroomSelect.addEventListener('change', function() {
-        const classroomId = this.value;
+    if (classroomSelect) {
+        classroomSelect.addEventListener('change', function() {
+            const classroomId = this.value;
 
-        if (!classroomId) {
-            streamSelect.innerHTML = '<option value="">Select Stream</option>';
-            return;
-        }
+            if (!classroomId) {
+                streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
+                return;
+            }
 
-        streamSelect.innerHTML = '<option>Loading...</option>';
+            streamSelect.innerHTML = '<option value="">Loading streams...</option>';
 
-        fetch(`/get-streams/${classroomId}/?available_only=1`)
-            .then(res => res.json())
-            .then(data => {
-                let options = '<option value="">Select Stream</option>';
+            fetch(`/get-streams/${classroomId}/?available_only=1`)
+                .then(res => res.json())
+                .then(data => {
+                    let options = '<option value="">-- Select Stream --</option>';
 
-                if (!data.streams || data.streams.length === 0) {
-                    options += '<option disabled>No streams available</option>';
-                } else {
-                    data.streams.forEach(s => {
-                        options += `<option value="${s.id}">${s.name}</option>`;
-                    });
-                }
+                    if (!data.streams || data.streams.length === 0) {
+                        options += '<option value="" disabled>No streams available for this classroom</option>';
+                    } else {
+                        data.streams.forEach(s => {
+                            options += `<option value="${s.id}">${s.name}</option>`;
+                        });
+                    }
 
-                streamSelect.innerHTML = options;
-            })
-            .catch(err => {
-                console.error("ERROR:", err);
-                streamSelect.innerHTML = '<option>Error loading streams</option>';
-            });
-    });
+                    streamSelect.innerHTML = options;
+                })
+                .catch(err => {
+                    console.error("ERROR:", err);
+                    streamSelect.innerHTML = '<option value="">Error loading streams</option>';
+                });
+        });
+    }
 });
 </script>
-{% endblock %}
+
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 0.2rem rgba(79,70,229,0.25);
+    }
+    .alert-info {
+        background-color: #e0f2fe;
+        border-color: #bae6fd;
+    }
+</style>
+
 {% endblock %}

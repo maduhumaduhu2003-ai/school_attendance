@@ -3,67 +3,184 @@
 {% block title %}Edit Teacher{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h2 class="mb-4">Edit Teacher</h2>
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
 
-    <form method="POST">
-        {% csrf_token %}
-        <div class="mb-3">
-            <label>Username</label>
-            <input type="text" class="form-control" name="username" value="{{ teacher.user.username }}" required>
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+                <div>
+                    <h2 class="text-danger mb-1">Edit Teacher</h2>
+                    <p class="text-muted mb-0">Update teacher information for active academic year</p>
+                </div>
+                <a href="{% url 'manage_teacher' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Teachers
+                </a>
+            </div>
+
+            <!-- Active Year Info -->
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-calendar-check"></i>
+                <strong>Active Academic Year:</strong> {{ active_year.year_start }}/{{ active_year.year_end }}
+                <span class="badge bg-success ms-2">Currently Active</span>
+                <br>
+                <small class="text-muted">Teachers can only be assigned to classrooms for the active academic year.</small>
+            </div>
+
+            <!-- Current Assignment Info -->
+            {% if enrollment %}
+            <div class="alert alert-secondary mb-4">
+                <i class="bi bi-info-circle"></i>
+                <strong>Current Assignment:</strong>
+                {% if enrollment.classroom %}
+                    {{ enrollment.classroom.name }}
+                    {% if enrollment.stream %} - {{ enrollment.stream.name }}{% endif %}
+                {% else %}
+                    Not assigned
+                {% endif %}
+                <br>
+                <small class="text-muted">This is the teacher's current assignment for {{ active_year.year_start }}/{{ active_year.year_end }}</small>
+            </div>
+            {% endif %}
+
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="username" value="{{ teacher.user.username }}" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" value="{{ teacher.user.email }}" disabled>
+                        <small class="text-muted">Email cannot be changed</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">First Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="first_name" value="{{ teacher.user.first_name }}" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="last_name" value="{{ teacher.user.last_name }}" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">Phone Number</label>
+                        <input type="text" class="form-control" value="{{ teacher.user.phone_number }}" disabled>
+                        <small class="text-muted">Contact admin to change phone number</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">Classroom ({{ active_year.year_start }}/{{ active_year.year_end }}) <span class="text-danger">*</span></label>
+                        <select class="form-select" name="classroom" id="classroomSelect" required>
+                            <option value="">-- Select Classroom --</option>
+                            {% for c in classrooms %}
+                                <option value="{{ c.id }}" {% if current_classroom and current_classroom.id == c.id %}selected{% endif %}>
+                                    {{ c.name }}
+                                </option>
+                            {% empty %}
+                                <option value="" disabled>No classrooms available for active year</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Only classrooms for {{ active_year.year_start }}/{{ active_year.year_end }}</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">Stream</label>
+                        <select class="form-select" name="stream" id="streamSelect">
+                            <option value="">-- Select Stream --</option>
+                            {% for s in streams %}
+                                <option value="{{ s.id }}" {% if current_stream and current_stream.id == s.id %}selected{% endif %}>
+                                    {{ s.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Streams that don't have a teacher assigned</small>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Update Teacher
+                    </button>
+                    <a href="{% url 'manage_teacher' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                </div>
+            </form>
         </div>
-        <div class="mb-3">
-            <label>First Name</label>
-            <input type="text" class="form-control" name="first_name" value="{{ teacher.user.first_name }}" required>
-        </div>
-        <div class="mb-3">
-            <label>Last Name</label>
-            <input type="text" class="form-control" name="last_name" value="{{ teacher.user.last_name }}" required>
-        </div>
-        <div class="mb-3">
-            <label>Classroom</label>
-            <select class="form-select" name="classroom" id="classroomSelect" required>
-                <option value="">Select Classroom</option>
-                {% for c in classrooms %}
-                    <option value="{{ c.id }}" {% if teacher.classroom.id == c.id %}selected{% endif %}>{{ c.name }} ({{ c.year }})</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="mb-3">
-            <label>Stream</label>
-            <select class="form-select" name="stream" id="streamSelect">
-                <option value="">Select Stream</option>
-                {% for s in streams %}
-                    <option value="{{ s.id }}" {% if teacher.stream.id == s.id %}selected{% endif %}>{{ s.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary">Update Teacher</button>
-        <a href="{% url 'register_teacher' %}" class="btn btn-secondary">Cancel</a>
-    </form>
+    </div>
 </div>
 
 <script>
-const classroomSelect = document.getElementById('classroomSelect');
-const streamSelect = document.getElementById('streamSelect');
+document.addEventListener('DOMContentLoaded', function() {
+    const classroomSelect = document.getElementById('classroomSelect');
+    const streamSelect = document.getElementById('streamSelect');
+    const currentStreamId = "{{ current_stream.id|default:'' }}";
 
-classroomSelect.addEventListener('change', function() {
-    const classroomId = this.value;
-    streamSelect.innerHTML = '<option value="">Loading...</option>';
+    function loadStreams() {
+        const classroomId = classroomSelect.value;
+        
+        if (!classroomId) {
+            streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
+            return;
+        }
 
-    if(classroomId){
-        fetch(`/get-streams/${classroomId}/`)
-        .then(res => res.json())
-        .then(data => {
-            let options = '<option value="">Select Stream</option>';
-            data.streams.forEach(s => {
-                options += `<option value="${s.id}">${s.name}</option>`;
+        streamSelect.innerHTML = '<option value="">Loading streams...</option>';
+
+        // Fetch only available streams (without teachers) for the selected classroom
+        fetch(`/get-streams/${classroomId}/?available_only=1`)
+            .then(response => response.json())
+            .then(data => {
+                let options = '<option value="">-- Select Stream --</option>';
+                
+                if (data.streams && data.streams.length > 0) {
+                    data.streams.forEach(stream => {
+                        const selected = (currentStreamId == stream.id) ? 'selected' : '';
+                        options += `<option value="${stream.id}" ${selected}>${stream.name}</option>`;
+                    });
+                } else {
+                    options += '<option value="" disabled>No available streams</option>';
+                }
+                
+                streamSelect.innerHTML = options;
+            })
+            .catch(error => {
+                console.error('Error loading streams:', error);
+                streamSelect.innerHTML = '<option value="">Error loading streams</option>';
             });
-            streamSelect.innerHTML = options;
-        });
-    } else {
-        streamSelect.innerHTML = '<option value="">Select Stream</option>';
+    }
+
+    if (classroomSelect) {
+        classroomSelect.addEventListener('change', loadStreams);
+        // Load streams on page load if a classroom is selected
+        if (classroomSelect.value) {
+            loadStreams();
+        }
     }
 });
 </script>
+
+<style>
+.form-label {
+    font-weight: 500;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 0.2rem rgba(79,70,229,0.25);
+}
+.alert-info {
+    background-color: #e0f2fe;
+    border-color: #bae6fd;
+}
+.alert-secondary {
+    background-color: #f1f5f9;
+    border-color: #e2e8f0;
+}
+</style>
+
 {% endblock %}
