@@ -4,13 +4,13 @@ from decouple import config, Csv
 import dj_database_url
 from dotenv import load_dotenv
 
-load_dotenv()
+#load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # =================== SECURITY ===================
-SECRET_KEY = config('SECRET_KEY', default='unsafe-default-secret-key')
-DEBUG = config('DEBUG', default=True, cast=bool)
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', cast=bool)
 
 ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS',
@@ -57,7 +57,8 @@ MEDIA_URL = '/media/'
 # =================== STATIC ===================
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+
+STATICFILES_DIRS = [BASE_DIR / 'static'] if DEBUG else []
 
 # =================== INSTALLED APPS ===================
 INSTALLED_APPS = [
@@ -121,3 +122,20 @@ USE_TZ = config('DJANGO_USE_TZ', cast=bool, default=True)
 
 ROOT_URLCONF = 'school_attendance.urls'
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
+    X_FRAME_OPTIONS = "DENY"
+
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
