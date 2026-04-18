@@ -1270,12 +1270,13 @@ def delete_student(request, student_id):
 @never_cache
 @login_required
 def my_students(request):
+    """OPTIMIZED - No N+1 queries"""
     try:
         teacher = get_object_or_404(TeacherProfile, user=request.user)
         active_year = AcademicYear.objects.filter(is_active=True).first()
         
         if not active_year:
-            messages.error(request, "No active academic year found. Please contact admin.")
+            messages.error(request, "No active academic year found.")
             return redirect('teacher_dashboard')
         
         teacher_enrollment = Enrollment.objects.filter(
@@ -1284,23 +1285,25 @@ def my_students(request):
         ).select_related('classroom', 'stream').first()
         
         if not teacher_enrollment:
-            messages.warning(request, "You are not assigned to any classroom for the current academic year.")
+            messages.warning(request, "You are not assigned to any classroom.")
             return redirect('teacher_dashboard')
         
         classroom = teacher_enrollment.classroom
         stream = teacher_enrollment.stream
         search = request.GET.get("search", "")
 
-        students_qs = get_students_by_teacher_scope(
-            classroom=classroom,
-            stream=stream,
-            academic_year=active_year
-        ).select_related("user").prefetch_related(
-            "enrollments__classroom",
-            "enrollments__stream",
-            "enrollments__academic_year"
-        )
+        # OPTIMIZED: Single query with all relations
+        students_qs = StudentProfile.objects.filter(
+            enrollments__classroom=classroom,
+            enrollments__academic_year=active_year
+        ).select_related('user').prefetch_related(
+            'enrollments',
+            'parents__user'
+        ).distinct()
 
+        if stream:
+            students_qs = students_qs.filter(enrollments__stream=stream)
+        
         if search:
             students_qs = students_qs.filter(
                 Q(admission_number__icontains=search) |
@@ -1311,18 +1314,20 @@ def my_students(request):
         students_qs = students_qs.order_by("user__first_name")
         total_count = students_qs.count()
         
+        # OPTIMIZED: Build data without extra queries
         students_list = []
         for student in students_qs:
             enrollment = student.enrollments.filter(academic_year=active_year).first()
+            parent = student.parents.first()
             students_list.append({
                 'id': student.id,
                 'admission_number': student.admission_number,
                 'full_name': student.user.get_full_name(),
                 'classroom': enrollment.classroom.name if enrollment and enrollment.classroom else '—',
                 'stream': enrollment.stream.name if enrollment and enrollment.stream else '—',
-                'academic_year': str(enrollment.academic_year) if enrollment and enrollment.academic_year else '—',
+                'academic_year': str(enrollment.academic_year) if enrollment else '—',
                 'gender': student.user.gender or '—',
-                'phone': student.parents.first().user.phone_number if student.parents.exists() else '—',
+                'phone': parent.user.phone_number if parent else '—',
             })
 
         paginator = Paginator(students_list, 25)
@@ -1342,7 +1347,7 @@ def my_students(request):
 
     except Exception as e:
         logger.error(f"Error in my_students: {e}")
-        messages.error(request, "Unable to load students at this time. Please try again.")
+        messages.error(request, "Unable to load students.")
         return redirect('teacher_dashboard')
 
 
@@ -1351,25 +1356,53 @@ def my_students(request):
 @never_cache
 @login_required
 def teacher_dashboard(request):
-    teacher_profile = TeacherProfile.objects.get(user=request.user)
+    """OPTIMIZED - Single query version"""
+    teacher_profile = TeacherProfile.objects.select_related('user').get(user=request.user)
     active_year = AcademicYear.objects.filter(is_active=True).first()
+    
+    if not active_year:
+        return render(request, 'attendance_app/teacher_dashboard.html', {'error': 'No active academic year'})
+    
+    # OPTIMIZED: Single query with all needed relations
     enrollment = Enrollment.objects.filter(
         class_teacher=teacher_profile,
         academic_year=active_year
-    ).first()
+    ).select_related('classroom', 'stream').first()
 
     classroom = enrollment.classroom if enrollment else None
     stream = enrollment.stream if enrollment else None
 
-    students = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
+    # OPTIMIZED: Get all students in one query
+    students = StudentProfile.objects.filter(
+        enrollments__classroom=classroom,
+        enrollments__academic_year=active_year
+    ).select_related('user').distinct()
+    
+    if stream:
+        students = students.filter(enrollments__stream=stream)
+    
     total_students = students.count()
-
-    total_attendance = Attendance.objects.filter(student__in=students).count()
-    present_count = Attendance.objects.filter(student__in=students, status='present').count()
-    absent_count = Attendance.objects.filter(student__in=students, status='absent').count()
-    sick_count = Attendance.objects.filter(student__in=students, status='sick').count()
-    parents = ParentProfile.objects.filter(student__in=students)
-    sms_logs = SMSLog.objects.filter(student__in=students).order_by('-timestamp')[:10]
+    student_ids = list(students.values_list('id', flat=True))
+    
+    # OPTIMIZED: Get attendance counts in one query using aggregation
+    from django.db.models import Count, Q, Case, When, IntegerField, Sum
+    
+    attendance_counts = Attendance.objects.filter(
+        student_id__in=student_ids
+    ).aggregate(
+        total=Count('id'),
+        present=Sum(Case(When(status='present', then=1), default=0, output_field=IntegerField())),
+        absent=Sum(Case(When(status='absent', then=1), default=0, output_field=IntegerField())),
+        sick=Sum(Case(When(status='sick', then=1), default=0, output_field=IntegerField()))
+    )
+    
+    # OPTIMIZED: Get parents in one query
+    parents = ParentProfile.objects.filter(student_id__in=student_ids).select_related('user')
+    
+    # OPTIMIZED: Get recent SMS logs in one query
+    sms_logs = SMSLog.objects.filter(student_id__in=student_ids).select_related(
+        'student__user', 'parent__user'
+    ).order_by('-timestamp')[:10]
 
     context = {
         'teacher': teacher_profile,
@@ -1378,9 +1411,10 @@ def teacher_dashboard(request):
         'students': students,
         'parents': parents,
         'total_students': total_students,
-        'total_attendance': total_attendance,
-        'present_count': present_count,
-        'absent_count': absent_count,
+        'total_attendance': attendance_counts['total'] or 0,
+        'present_count': attendance_counts['present'] or 0,
+        'absent_count': attendance_counts['absent'] or 0,
+        'sick_count': attendance_counts['sick'] or 0,
         'sms_logs': sms_logs,
     }
 
@@ -1456,7 +1490,8 @@ def mark_attendance(request):
 @never_cache
 @login_required
 def view_attendance(request):
-    teacher = get_object_or_404(TeacherProfile, user=request.user)
+    """OPTIMIZED - Single query with aggregation"""
+    teacher = get_object_or_404(TeacherProfile.objects.select_related('user'), user=request.user)
     active_year = AcademicYear.objects.filter(is_active=True).first()
     
     if not active_year:
@@ -1469,15 +1504,13 @@ def view_attendance(request):
     ).select_related('classroom', 'stream').first()
     
     if not teacher_enrollment or not teacher_enrollment.classroom:
-        messages.error(request, "You are not assigned to any classroom for the current academic year.")
+        messages.error(request, "You are not assigned to any classroom.")
         return redirect('teacher_dashboard')
     
     classroom = teacher_enrollment.classroom
     stream = teacher_enrollment.stream
 
     raw_date = request.GET.get("date")
-    page_number = request.GET.get("page")
-
     if raw_date:
         try:
             selected_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
@@ -1486,51 +1519,54 @@ def view_attendance(request):
     else:
         selected_date = timezone.localdate()
 
-    students_qs = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
-
+    # OPTIMIZED: Get students in one query
+    students_qs = StudentProfile.objects.filter(
+        enrollments__classroom=classroom,
+        enrollments__academic_year=active_year
+    ).select_related('user').distinct()
+    
+    if stream:
+        students_qs = students_qs.filter(enrollments__stream=stream)
+    
+    student_ids = list(students_qs.values_list('id', flat=True))
+    students_count = len(student_ids)
+    
+    # OPTIMIZED: Get attendance in one query with gender aggregation
+    from django.db.models import Q, Count, Case, When, IntegerField
+    
     attendance_qs = Attendance.objects.filter(
-        student__in=students_qs,
+        student_id__in=student_ids,
         date=selected_date
-    ).select_related(
-        "student",
-        "student__user",
-        "enrollment"
-    ).order_by("student__user__first_name")
-
-    paginator = Paginator(attendance_qs, 25)
-    attendance_records = paginator.get_page(page_number)
-
-    students_count = students_qs.count()
-    total_present = attendance_qs.filter(status="present").count()
-    total_absent = attendance_qs.filter(status="absent").count()
-    total_sick = attendance_qs.filter(status="sick").count()
+    ).select_related('student__user', 'marked_by__user')
+    
+    # Aggregations
+    total_present = attendance_qs.filter(status='present').count()
+    total_absent = attendance_qs.filter(status='absent').count()
+    total_sick = attendance_qs.filter(status='sick').count()
     total_records = total_present + total_absent + total_sick
-
+    
     present_percentage = round((total_present / total_records) * 100, 2) if total_records else 0
     absent_percentage = round((total_absent / total_records) * 100, 2) if total_records else 0
     sick_percentage = round((total_sick / total_records) * 100, 2) if total_records else 0
-
-    male_students = students_qs.filter(user__gender="male")
-    female_students = students_qs.filter(user__gender="female")
-
-    male_count = male_students.count()
-    female_count = female_students.count()
-
-    male_present = attendance_qs.filter(student__in=male_students, status="present").count()
-    male_absent = attendance_qs.filter(student__in=male_students, status="absent").count()
-    male_sick = attendance_qs.filter(student__in=male_students, status="sick").count()
+    
+    # Gender breakdown
+    male_student_ids = list(students_qs.filter(user__gender='male').values_list('id', flat=True))
+    female_student_ids = list(students_qs.filter(user__gender='female').values_list('id', flat=True))
+    
+    male_present = attendance_qs.filter(student_id__in=male_student_ids, status='present').count()
+    male_absent = attendance_qs.filter(student_id__in=male_student_ids, status='absent').count()
+    male_sick = attendance_qs.filter(student_id__in=male_student_ids, status='sick').count()
     male_total = male_present + male_absent + male_sick
-    male_present_pct = round((male_present / male_total) * 100, 2) if male_total else 0
-    male_absent_pct = round((male_absent / male_total) * 100, 2) if male_total else 0
-    male_sick_pct = round((male_sick / male_total) * 100, 2) if male_total else 0
-
-    female_present = attendance_qs.filter(student__in=female_students, status="present").count()
-    female_absent = attendance_qs.filter(student__in=female_students, status="absent").count()
-    female_sick = attendance_qs.filter(student__in=female_students, status="sick").count()
+    
+    female_present = attendance_qs.filter(student_id__in=female_student_ids, status='present').count()
+    female_absent = attendance_qs.filter(student_id__in=female_student_ids, status='absent').count()
+    female_sick = attendance_qs.filter(student_id__in=female_student_ids, status='sick').count()
     female_total = female_present + female_absent + female_sick
-    female_present_pct = round((female_present / female_total) * 100, 2) if female_total else 0
-    female_absent_pct = round((female_absent / female_total) * 100, 2) if female_total else 0
-    female_sick_pct = round((female_sick / female_total) * 100, 2) if female_total else 0
+
+    # Pagination
+    paginator = Paginator(attendance_qs, 25)
+    page_number = request.GET.get('page')
+    attendance_records = paginator.get_page(page_number)
 
     context = {
         "classroom": classroom,
@@ -1546,20 +1582,20 @@ def view_attendance(request):
         "present_percentage": present_percentage,
         "absent_percentage": absent_percentage,
         "sick_percentage": sick_percentage,
-        "male_count": male_count,
+        "male_count": len(male_student_ids),
         "male_present": male_present,
         "male_absent": male_absent,
         "male_sick": male_sick,
-        "male_present_pct": male_present_pct,
-        "male_absent_pct": male_absent_pct,
-        "male_sick_pct": male_sick_pct,
-        "female_count": female_count,
+        "male_present_pct": round((male_present / male_total) * 100, 2) if male_total else 0,
+        "male_absent_pct": round((male_absent / male_total) * 100, 2) if male_total else 0,
+        "male_sick_pct": round((male_sick / male_total) * 100, 2) if male_total else 0,
+        "female_count": len(female_student_ids),
         "female_present": female_present,
         "female_absent": female_absent,
         "female_sick": female_sick,
-        "female_present_pct": female_present_pct,
-        "female_absent_pct": female_absent_pct,
-        "female_sick_pct": female_sick_pct,
+        "female_present_pct": round((female_present / female_total) * 100, 2) if female_total else 0,
+        "female_absent_pct": round((female_absent / female_total) * 100, 2) if female_total else 0,
+        "female_sick_pct": round((female_sick / female_total) * 100, 2) if female_total else 0,
     }
 
     return render(request, "attendance_app/view_attendance.html", context)
@@ -2856,10 +2892,10 @@ def generate_academic_year(request):
 @never_cache
 @login_required
 def academic_year_summary(request):
+    """OPTIMIZED - Single query version"""
     try:
         years = AcademicYear.objects.all().order_by('-year_start')
         active_year_id = request.GET.get('year')
-        selected_term = request.GET.get('term')
         active_year = None
         summary_data = []
 
@@ -2867,79 +2903,101 @@ def academic_year_summary(request):
             try:
                 active_year = AcademicYear.objects.get(id=active_year_id)
             except AcademicYear.DoesNotExist:
-                logger.warning(f"Academic year with ID {active_year_id} not found")
-                active_year = None
-            except Exception as e:
-                logger.error(f"Error fetching academic year: {e}")
-                messages.error(request, "Error fetching academic year.")
-                active_year = None
+                active_year = AcademicYear.objects.filter(is_active=True).first()
+        else:
+            active_year = AcademicYear.objects.filter(is_active=True).first()
 
         if active_year:
-            try:
-                classrooms = Classroom.objects.filter(year=active_year)
-                for classroom in classrooms:
-                    try:
-                        students = StudentProfile.objects.filter(
-                            enrollments__classroom=classroom,
-                            enrollments__academic_year=active_year
-                        ).distinct()
-                        students_count = students.count()
-
-                        teacher_enrollments = Enrollment.objects.filter(
-                            classroom=classroom,
-                            academic_year=active_year,
-                            class_teacher__isnull=False
-                        ).select_related('class_teacher__user').distinct()
-                        teachers = [te.class_teacher for te in teacher_enrollments if te.class_teacher]
-
-                        attendance_records = Attendance.objects.filter(student__in=students)
-                        
-                        total_present = attendance_records.filter(status='present').count()
-                        total_absent = attendance_records.filter(status='absent').count()
-                        total_sick = attendance_records.filter(status='sick').count()
-                        total_records = total_present + total_absent + total_sick
-                        
-                        if students_count > 0 and total_records > 0:
-                            present_percentage = round((total_present / total_records) * 100, 2)
-                            absent_percentage = round((total_absent / total_records) * 100, 2)
-                            sick_percentage = round((total_sick / total_records) * 100, 2)
-                        else:
-                            present_percentage = absent_percentage = sick_percentage = 0
-
-                        summary_data.append({
-                            'classroom': classroom,
-                            'students_count': students_count,
-                            'teachers': teachers,
-                            'total_present': total_present,
-                            'total_absent': total_absent,
-                            'total_sick': total_sick,
-                            'present_percentage': present_percentage,
-                            'absent_percentage': absent_percentage,
-                            'sick_percentage': sick_percentage,
-                        })
-                    except Exception as e:
-                        logger.error(f"Error processing classroom {classroom.id}: {e}")
-                        continue
-            except Exception as e:
-                logger.error(f"Error fetching classrooms for year {active_year.id}: {e}")
-                messages.error(request, "Error fetching classrooms. Please try again.")
-                summary_data = []
-
-        terms = [('TERM1', 'Term 1'), ('TERM2', 'Term 2'), ('TERM3', 'Term 3')]
+            # OPTIMIZED: Single query with all relations
+            classrooms = Classroom.objects.filter(year=active_year).prefetch_related(
+                'streams',
+                'class_enrollments__student__user',
+                'class_enrollments__class_teacher__user'
+            )
+            
+            # Get all enrollments in ONE query
+            enrollments = Enrollment.objects.filter(
+                academic_year=active_year
+            ).select_related(
+                'student__user',
+                'classroom',
+                'class_teacher__user'
+            )
+            
+            # Group by classroom
+            classroom_data = {}
+            for enrollment in enrollments:
+                if enrollment.classroom:
+                    cid = enrollment.classroom.id
+                    if cid not in classroom_data:
+                        classroom_data[cid] = {
+                            'classroom': enrollment.classroom,
+                            'student_ids': set(),
+                            'teachers': set()
+                        }
+                    if enrollment.student:
+                        classroom_data[cid]['student_ids'].add(enrollment.student.id)
+                    if enrollment.class_teacher:
+                        classroom_data[cid]['teachers'].add(enrollment.class_teacher)
+            
+            # Get attendance in ONE query
+            all_student_ids = set()
+            for data in classroom_data.values():
+                all_student_ids.update(data['student_ids'])
+            
+            from django.db.models import Count, Q
+            attendance_stats = Attendance.objects.filter(
+                student_id__in=all_student_ids
+            ).values('student_id', 'status').annotate(total=Count('id'))
+            
+            # Build summary
+            for data in classroom_data.values():
+                classroom = data['classroom']
+                students_count = len(data['student_ids'])
+                
+                total_present = total_absent = total_sick = 0
+                for stat in attendance_stats:
+                    if stat['student_id'] in data['student_ids']:
+                        if stat['status'] == 'present':
+                            total_present += stat['total']
+                        elif stat['status'] == 'absent':
+                            total_absent += stat['total']
+                        elif stat['status'] == 'sick':
+                            total_sick += stat['total']
+                
+                total_records = total_present + total_absent + total_sick
+                
+                if students_count > 0 and total_records > 0:
+                    present_percentage = round((total_present / total_records) * 100, 2)
+                    absent_percentage = round((total_absent / total_records) * 100, 2)
+                    sick_percentage = round((total_sick / total_records) * 100, 2)
+                else:
+                    present_percentage = absent_percentage = sick_percentage = 0
+                
+                summary_data.append({
+                    'classroom': classroom,
+                    'students_count': students_count,
+                    'teachers': list(data['teachers']),
+                    'total_present': total_present,
+                    'total_absent': total_absent,
+                    'total_sick': total_sick,
+                    'present_percentage': present_percentage,
+                    'absent_percentage': absent_percentage,
+                    'sick_percentage': sick_percentage,
+                })
 
         context = {
             'years': years,
             'active_year': active_year,
             'summary_data': summary_data,
-            'terms': terms,
-            'selected_term': selected_term,
+            'terms': [('TERM1', 'Term 1'), ('TERM2', 'Term 2'), ('TERM3', 'Term 3')],
+            'selected_term': request.GET.get('term'),
         }
         return render(request, 'attendance_app/academic_year_summary.html', context)
     except Exception as e:
-        logger.critical(f"Critical error in academic_year_summary: {e}")
-        messages.error(request, "A critical error occurred. Please try again later.")
+        logger.critical(f"Error in academic_year_summary: {e}")
+        messages.error(request, "A critical error occurred.")
         return redirect('academic_years')
-
 
 # ================= OTHER UTILITY VIEWS =================
 

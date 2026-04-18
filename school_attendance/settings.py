@@ -4,7 +4,7 @@ from decouple import config, Csv
 import dj_database_url
 from dotenv import load_dotenv
 
-#load_dotenv()
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -59,6 +59,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_DIRS = [BASE_DIR / 'static'] if DEBUG else []
+
 
 # =================== INSTALLED APPS ===================
 INSTALLED_APPS = [
@@ -126,7 +127,7 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False  # Set to True if you want to enforce HTTPS
 
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
