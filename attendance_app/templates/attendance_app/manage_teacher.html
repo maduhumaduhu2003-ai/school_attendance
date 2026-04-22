@@ -111,8 +111,9 @@
                                             data-bs-toggle="modal"
                                             data-bs-target="#deleteTeacherModal"
                                             data-teacher-id="{{ teacher_data.teacher_id }}"
-                                            data-teacher-name="{{ teacher_data.full_name }}">
-                                        <i class=""></i> Delete
+                                            data-teacher-name="{{ teacher_data.full_name }}"
+                                            data-delete-url="{% url 'delete_teacher' teacher_data.teacher_id %}">
+                                        <i class="bi bi-trash"></i> Delete
                                     </button>
                                 </div>
                             </td>
@@ -234,8 +235,9 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', function(){
             const teacherId = this.dataset.teacherId;
             const teacherName = this.dataset.teacherName;
+            const deleteUrl = this.dataset.deleteUrl;
             if (teacherNameEl) teacherNameEl.textContent = teacherName;
-            if (deleteForm) deleteForm.action = `/delete-teacher/${teacherId}/`;
+            if (deleteForm) deleteForm.action = deleteUrl || `/delete-teacher/${teacherId}/`;
         });
     });
 });

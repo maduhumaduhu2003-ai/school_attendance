@@ -388,13 +388,21 @@ def manage_teacher(request):
     for teacher in teacher_profiles:
         # Get enrollment for selected year (or all if no year selected)
         if selected_academic_year:
-            enrollments = teacher.class_enrollments.filter(academic_year=selected_academic_year)
+            enrollments = teacher.class_enrollments.filter(
+                academic_year=selected_academic_year,
+                student__isnull=True
+            )
         else:
-            enrollments = teacher.class_enrollments.all()
+            enrollments = teacher.class_enrollments.filter(student__isnull=True)
         
         if enrollments.exists():
             # Teacher has assignments for the selected year
+            seen_rows = set()
             for enrollment in enrollments:
+                row_key = (teacher.id, enrollment.academic_year_id, enrollment.classroom_id, enrollment.stream_id)
+                if row_key in seen_rows:
+                    continue
+                seen_rows.add(row_key)
                 teachers_list.append({
                     'teacher_id': teacher.id,
                     'username': teacher.user.username,
@@ -2692,14 +2700,6 @@ def send_absent_sms(student, teacher=None):
 
 
 # ================= ACADEMIC YEAR PROMOTION VIEWS =================
-from django.db import transaction
-from django.shortcuts import redirect
-from django.contrib import messages
-from django.utils import timezone
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 @transaction.atomic
 def generate_academic_year(request):
@@ -2713,7 +2713,7 @@ def generate_academic_year(request):
             is_active=True,
             is_locked=False
         )
-        messages.success(request, f"✅ First academic year {new_year} created!")
+        messages.success(request, f" First academic year {new_year} created!")
         return redirect('academic_years')
 
     new_start = last_year.year_start + 1
@@ -2871,14 +2871,13 @@ def generate_academic_year(request):
         messages.success(
             request,
             f"""
-✅ Academic Year {new_year} created
+    Academic Year {new_year} created
 
-📊 Promoted: {students_promoted}
-🎓 Graduated: {students_graduated}
-🔄 Repeating: {students_repeating}
-👨‍🏫 Teachers moved: {teachers_updated}
-
-📁 Old data preserved (LOCKED)
+    Promoted: {students_promoted}
+    Graduated: {students_graduated}
+    Repeating: {students_repeating}
+    Teachers moved: {teachers_updated}
+    Old data preserved (LOCKED)
 """
         )
 
@@ -2888,6 +2887,7 @@ def generate_academic_year(request):
         logger.error(str(e))
         messages.error(request, f"Error: {str(e)}")
         return redirect('academic_years')
+    
 
 @never_cache
 @login_required

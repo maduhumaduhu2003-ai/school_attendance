@@ -204,7 +204,13 @@ class Enrollment(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['student', 'academic_year'], name='unique_student_per_year')
+            models.UniqueConstraint(fields=['student', 'academic_year'], name='unique_student_per_year'),
+        
+            models.UniqueConstraint(
+                fields=['class_teacher', 'academic_year', 'classroom', 'stream'],
+                condition=models.Q(class_teacher__isnull=False),
+                name='unique_teacher_per_class_stream_per_year'
+            )
         ]
         indexes = [
             models.Index(fields=['academic_year']),
