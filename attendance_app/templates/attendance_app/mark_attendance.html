@@ -9,65 +9,131 @@
 
         <!-- Page Header -->
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
-            <h4 class="mb-2 mb-md-0 text-danger">
-                Mark Attendance : {{ classroom.name }} ({{ classroom.year }})
-                {% if stream %}
-                            : {{ stream.name }}
-                        {% endif %}
-            </h4>
+            <div>
+                <h4 class="mb-2 mb-md-0 text-danger">
+                    <i class="bi bi-check2-square"></i> Mark Attendance
+                </h4>
+                <p class="text-muted mb-0 small">
+                    <i class="bi bi-door-open"></i> {{ classroom.name }} ({{ classroom.year.year_start }}/{{ classroom.year.year_end }})
+                    {% if stream %}
+                    | <i class="bi bi-diagram-3"></i> {{ stream.name }}
+                    {% endif %}
+                    | <i class="bi bi-calendar-date"></i> {% now "l, F j, Y" %}
+                </p>
+            </div>
+            <div class="mt-2 mt-md-0">
+                <a href="{% url 'view_attendance' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-eye"></i> View Attendance
+                </a>
+            </div>
+        </div>
+
+        <!-- Info Alert -->
+        <div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-info-circle-fill"></i>
+            <strong>Note:</strong> Select attendance status for each student. Default is "Present".
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
 
         <!-- Attendance Form -->
-        <form method="POST" >
-             {% csrf_token %}
-
+        <form method="POST" id="attendanceForm">
+            {% csrf_token %}
 
             <div class="table-responsive">
-                <table class="table table-bordered table-striped table-hover align-middle">
+                <table class="table table-bordered table-striped table-hover align-middle mb-0">
                     <thead style="background-color: #4f46e5; color: #fff;">
                         <tr>
-                            <th style="width: 5%">No</th>
-                            <th style="width: 20%">Admission No</th>
-                            <th style="width: 35%">Student Name</th>
-                            <th style="width: 40%">Attendance Status</th>
+                            <th style="width: 5%">#</th>
+                            <th style="width: 15%">Admission No</th>
+                            <th style="width: 30%">Student Name</th>
+                            <th style="width: 35%">Attendance Status</th>
+                            <th style="width: 15%">Quick Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for student in students %}
-                        <tr>
-                            <td class="text-center">{{ forloop.counter }}</td>
-                            <td class="text-center">{{ student.admission_number }}</td>
-                            <td>{{ student.user.first_name }} {{ student.user.last_name }}</td>
+                        <tr id="row-{{ student.id }}">
+                            <td class="text-center">{{ forloop.counter|add:students.start_index|add:"-1" }}</td>
+                            <td class="text-center">
+                                <strong>{{ student.admission_number }}</strong>
+                            </td>
+                            <td>
+                                {{ student.user.first_name }} {{ student.user.last_name }}
+                                <br>
+                                <small class="text-muted">
+                                    {% if student.user.gender %}
+                                    <i class="bi bi-gender-{% if student.user.gender == 'Male' %}male{% else %}female{% endif %}"></i>
+                                    {{ student.user.gender }}
+                                    {% endif %}
+                                </small>
+                            </td>
                             <td>
                                 <div class="attendance-options">
-                                    <label class="badge bg-success p-2 rounded">
-                                        <input type="radio"
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" 
+                                               type="radio" 
                                                name="attendance_{{ student.id }}"
+                                               id="present_{{ student.id }}"
                                                value="present"
-                                               checked>
-                                        Present
-                                    </label>
+                                               data-status="present"
+                                               {% if not request.POST %}checked{% endif %}
+                                               onchange="updateRowColor({{ student.id }}, 'present')">
+                                        <label class="form-check-label text-success" for="present_{{ student.id }}">
+                                            <i class="bi bi-check-circle-fill"></i> Present
+                                        </label>
+                                    </div>
 
-                                    <label class="badge bg-danger p-2 rounded">
-                                        <input type="radio"
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" 
+                                               type="radio" 
                                                name="attendance_{{ student.id }}"
-                                               value="absent">
-                                        Absent
-                                    </label>
+                                               id="absent_{{ student.id }}"
+                                               value="absent"
+                                               data-status="absent"
+                                               onchange="updateRowColor({{ student.id }}, 'absent')">
+                                        <label class="form-check-label text-danger" for="absent_{{ student.id }}">
+                                            <i class="bi bi-x-circle-fill"></i> Absent
+                                        </label>
+                                    </div>
 
-                                    <label class="badge bg-warning text-dark p-2 rounded">
-                                        <input type="radio"
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" 
+                                               type="radio" 
                                                name="attendance_{{ student.id }}"
-                                               value="sick">
-                                        Sick
-                                    </label>
+                                               id="sick_{{ student.id }}"
+                                               value="sick"
+                                               data-status="sick"
+                                               onchange="updateRowColor({{ student.id }}, 'sick')">
+                                        <label class="form-check-label text-warning" for="sick_{{ student.id }}">
+                                            <i class="bi bi-emoji-frown-fill"></i> Sick
+                                        </label>
+                                    </div>
                                 </div>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mark-all-present" 
+                                        data-student-id="{{ student.id }}" 
+                                        title="Mark as Present">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger mark-all-absent" 
+                                        data-student-id="{{ student.id }}" 
+                                        title="Mark as Absent">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted text-danger">
-                                No students found
+                            <td colspan="5" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
+                                No students found in this class.
+                                {% if request.user.role == 'teacher' %}
+                                <br>
+                                <a href="{% url 'register_student_teacher' %}" class="btn btn-sm btn-primary mt-2">
+                                    <i class="bi bi-plus-circle"></i> Register Students
+                                </a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -75,72 +141,206 @@
                 </table>
             </div>
 
-            <button type="submit" class="btn btn-primary mt-3 submit-btn">
-                Submit Attendance
-            </button>
+            <!-- Pagination Section -->
+            {% if students.has_other_pages %}
+            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
+                <div class="text-muted small">
+                    Showing {{ students.start_index }} to {{ students.end_index }} of {{ students.paginator.count }} students
+                </div>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination mb-0 flex-wrap justify-content-center">
+                        {% if students.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ students.previous_page_number }}">
+                                <i class="bi bi-chevron-left"></i> Previous
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
+                        </li>
+                        {% endif %}
+
+                        {% for num in students.paginator.page_range %}
+                            {% if num == students.number %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > students.number|add:'-3' and num < students.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if students.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ students.next_page_number }}">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Next <i class="bi bi-chevron-right"></i></span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+            <!-- Form Actions -->
+            <div class="mt-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+                <div>
+                    <span id="selectedCount" class="badge bg-info">0 students</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAll('present')">
+                        <i class="bi bi-check-all"></i> All Present
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAll()">
+                        <i class="bi bi-eraser"></i> Clear All
+                    </button>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary submit-btn" id="submitBtn">
+                        <i class="bi bi-save"></i> Submit Attendance
+                    </button>
+                    <a href="{% url 'teacher_dashboard' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Cancel
+                    </a>
+                </div>
+            </div>
         </form>
 
-        <!-- Pagination -->
-        <div class="d-flex justify-content-center mt-4">
-            <nav>
-                <ul class="pagination flex-wrap">
-                    {% if students.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ students.previous_page_number }}">Previous</a>
-                    </li>
-                    {% endif %}
+    </div>
+</div>
 
-                    <li class="page-item active">
-                        <span class="page-link">
-                            Page {{ students.number }} of {{ students.paginator.num_pages }}
-                        </span>
-                    </li>
-
-                    {% if students.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ students.next_page_number }}">Next</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">Confirm Submission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <i class="bi bi-question-circle-fill text-warning" style="font-size: 3rem;"></i>
+                <p class="mt-3">Are you sure you want to submit attendance for <strong id="totalStudentsCount">{{ students|length }}</strong> students?</p>
+                <p class="text-muted small">This action cannot be undone for today.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmSubmit">Yes, Submit</button>
+            </div>
         </div>
-
     </div>
 </div>
 
 <!-- Styles -->
 <style>
-/* Card */
+/* Card styling */
 .card {
     border-radius: 0.6rem;
+    border: none;
 }
 
-/* Table hover */
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Table styling */
 .table-hover tbody tr:hover {
     background-color: rgba(79, 70, 229, 0.08);
-}
-
-/* Radio inputs */
-input[type="radio"] {
-    margin-right: 6px;
     cursor: pointer;
 }
 
-/* Attendance options layout */
-.attendance-options {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-/* Table borders */
 .table-bordered th,
 .table-bordered td {
     border-color: #e5e7eb;
+    vertical-align: middle;
+}
+
+/* Radio button styling */
+.form-check-input {
+    cursor: pointer;
+    margin-top: 0.2rem;
+}
+
+.form-check-input:checked {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+}
+
+.form-check-label {
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* Attendance options */
+.attendance-options {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Row color based on selection */
+tr.present-row {
+    background-color: rgba(25, 135, 84, 0.05);
+}
+
+tr.absent-row {
+    background-color: rgba(220, 53, 69, 0.05);
+}
+
+tr.sick-row {
+    background-color: rgba(255, 193, 7, 0.05);
+}
+
+/* Quick action buttons */
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Submit button */
+.submit-btn {
+    background-color: #4f46e5;
+    border: none;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+}
+
+.submit-btn:hover {
+    background-color: #4338ca;
+    transform: translateY(-1px);
+    transition: all 0.2s;
+}
+
+/* Pagination styling */
+.pagination {
+    gap: 0.25rem;
+}
+
+.page-link {
+    color: #4f46e5;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.page-item.active .page-link {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+}
+
+.page-link:hover {
+    background-color: rgba(79, 70, 229, 0.1);
+    color: #4338ca;
 }
 
 /* ================= MOBILE OPTIMIZATION ================= */
 @media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
 
     h4 {
         font-size: 1.1rem;
@@ -148,31 +348,231 @@ input[type="radio"] {
 
     .table th,
     .table td {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         padding: 0.5rem;
     }
 
     .attendance-options {
         flex-direction: column;
-        align-items: flex-start;
         gap: 0.4rem;
     }
 
-    .attendance-options label {
-        width: 100%;
-        text-align: left;
+    .form-check-inline {
+        margin-right: 0;
     }
 
-    .submit-btn {
+    .submit-btn,
+    .btn-secondary {
         width: 100%;
-        font-size: 0.95rem;
+        margin-top: 0.5rem;
     }
 
+    .d-flex.flex-sm-row {
+        flex-direction: column;
+    }
+
+    .pagination .page-link {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
     .pagination {
         justify-content: center;
     }
 }
+
+/* Loading state */
+.btn-loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.btn-loading i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
 </style>
 
+<!-- JavaScript -->
+<script>
+// Update row color based on selection
+function updateRowColor(studentId, status) {
+    const row = document.getElementById(`row-${studentId}`);
+    if (!row) return;
+    
+    // Remove existing classes
+    row.classList.remove('present-row', 'absent-row', 'sick-row');
+    
+    // Add appropriate class
+    if (status === 'present') {
+        row.classList.add('present-row');
+    } else if (status === 'absent') {
+        row.classList.add('absent-row');
+    } else if (status === 'sick') {
+        row.classList.add('sick-row');
+    }
+    
+    // Update count
+    updateSelectedCount();
+}
+
+// Update selected count (only for current page)
+function updateSelectedCount() {
+    let presentCount = 0;
+    let absentCount = 0;
+    let sickCount = 0;
+    
+    document.querySelectorAll('tbody input[type="radio"]:checked').forEach(radio => {
+        const status = radio.value;
+        if (status === 'present') presentCount++;
+        else if (status === 'absent') absentCount++;
+        else if (status === 'sick') sickCount++;
+    });
+    
+    const total = presentCount + absentCount + sickCount;
+    const countSpan = document.getElementById('selectedCount');
+    if (countSpan) {
+        countSpan.innerHTML = `${total} students (${presentCount} present, ${absentCount} absent, ${sickCount} sick)`;
+        
+        // Change color based on counts
+        if (absentCount > 0) {
+            countSpan.classList.remove('bg-info');
+            countSpan.classList.add('bg-warning');
+        } else {
+            countSpan.classList.remove('bg-warning');
+            countSpan.classList.add('bg-info');
+        }
+    }
+}
+
+// Select all as present on current page only
+function selectAll(status) {
+    document.querySelectorAll('tbody input[type="radio"]').forEach(radio => {
+        if (radio.value === status) {
+            radio.checked = true;
+            // Trigger change event
+            const studentId = radio.name.split('_')[1];
+            if (studentId) {
+                updateRowColor(studentId, status);
+            }
+        }
+    });
+    updateSelectedCount();
+}
+
+// Clear all selections on current page only
+function clearAll() {
+    document.querySelectorAll('tbody input[type="radio"]').forEach(radio => {
+        radio.checked = false;
+    });
+    updateSelectedCount();
+}
+
+// Quick mark buttons
+document.querySelectorAll('.mark-all-present').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const studentId = this.dataset.studentId;
+        const radio = document.getElementById(`present_${studentId}`);
+        if (radio) {
+            radio.checked = true;
+            updateRowColor(studentId, 'present');
+            updateSelectedCount();
+        }
+    });
+});
+
+document.querySelectorAll('.mark-all-absent').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const studentId = this.dataset.studentId;
+        const radio = document.getElementById(`absent_${studentId}`);
+        if (radio) {
+            radio.checked = true;
+            updateRowColor(studentId, 'absent');
+            updateSelectedCount();
+        }
+    });
+});
+
+// Form submission with confirmation
+document.getElementById('submitBtn')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    // Show confirmation modal
+    const totalStudents = document.querySelectorAll('tbody tr').length;
+    const totalCountSpan = document.getElementById('totalStudentsCount');
+    if (totalCountSpan) {
+        totalCountSpan.textContent = totalStudents;
+    }
+    
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    confirmModal.show();
+});
+
+document.getElementById('confirmSubmit')?.addEventListener('click', function() {
+    // Add loading state
+    const btn = document.getElementById('submitBtn');
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting...';
+    btn.classList.add('btn-loading');
+    
+    // Submit the form
+    document.getElementById('attendanceForm').submit();
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial row colors based on checked radios
+    document.querySelectorAll('tbody input[type="radio"]:checked').forEach(radio => {
+        const studentId = radio.name.split('_')[1];
+        if (studentId) {
+            updateRowColor(studentId, radio.value);
+        }
+    });
+    updateSelectedCount();
+    
+    // Add row click handler for easier selection
+    document.querySelectorAll('tbody tr').forEach(row => {
+        row.addEventListener('click', function(e) {
+            // Don't trigger if clicking on radio or button
+            if (e.target.type === 'radio' || e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                return;
+            }
+            
+            // Find the first radio in this row (present)
+            const radio = this.querySelector('input[type="radio"][value="present"]');
+            if (radio) {
+                radio.checked = true;
+                const studentId = radio.name.split('_')[1];
+                updateRowColor(studentId, 'present');
+                updateSelectedCount();
+            }
+        });
+    });
+});
+
+// Warn before leaving if form is dirty
+let formDirty = false;
+document.querySelectorAll('tbody input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        formDirty = true;
+    });
+});
+
+window.addEventListener('beforeunload', function(e) {
+    if (formDirty) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+    }
+});
+
+// Mark form as clean after submit
+document.getElementById('attendanceForm')?.addEventListener('submit', () => {
+    formDirty = false;
+});
+</script>
 
 {% endblock %}

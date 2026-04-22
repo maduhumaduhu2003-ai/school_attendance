@@ -6,88 +6,154 @@
 <div class="card shadow-sm">
     <div class="card-body">
 
-        <h4 class="mb-4 text-danger">
-            My Students : {{ classroom.name }} ({{ classroom.year }})
-            {% if stream %}
-                : {{ stream.name }}
-            {% endif %}
-        </h4>
+        <!-- Page Header -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+            <div>
+                <h4 class="mb-2 mb-md-0 text-danger">
+                    <i class="bi bi-people-fill"></i> My Students
+                </h4>
+                <p class="text-muted mb-0 small">
+                    <i class="bi bi-door-open"></i> {{ classroom.name }} ({{ classroom.year.year_start }}/{{ classroom.year.year_end }})
+                    {% if stream %}
+                    | <i class="bi bi-diagram-3"></i> {{ stream.name }}
+                    {% endif %}
+                    | <i class="bi bi-person-arms-up"></i> Total: {{ total_students }} students
+                </p>
+            </div>
+            <div class="mt-2 mt-md-0">
+                <a href="{% url 'register_student_teacher' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Register Student
+                </a>
+            </div>
+        </div>
 
         <!-- ================= SEARCH & EXPORT ================= -->
-        <form method="get" class="row g-2 align-items-end mb-3">
-            <div class="col-12 col-md-4">
-                <label class="form-label">Search Student</label>
-                <input type="text"
-                       name="search"
-                       value="{{ search }}"
-                       class="form-control"
-                       placeholder="Admission number or name">
+        <div class="card border-0 bg-light mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-search"></i> Search Student
+                        </label>
+                        <div class="input-group">
+                            <input type="text"
+                                   name="search"
+                                   value="{{ search }}"
+                                   class="form-control"
+                                   placeholder="Admission number or name...">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-7">
+                        <label class="form-label d-none d-md-block fw-bold">&nbsp;</label>
+                        <div class="d-flex gap-2 justify-content-md-end">
+                            <a href="{% url 'export_students_excel' %}" class="btn btn-success">
+                                <i class="bi bi-file-excel"></i> Export Excel
+                            </a>
+                            <a href="{% url 'export_students_pdf' %}" class="btn btn-danger">
+                                <i class="bi bi-file-pdf"></i> Export PDF
+                            </a>
+                            {% if search %}
+                            <a href="{% url 'my_students' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Clear
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
             </div>
-
-            <div class="col-12 col-md-2">
-                <button class="btn btn-primary w-100">
-                    Search
-                </button>
-            </div>
-
-            <div class="col-12 col-md-6 text-md-end">
-                <label class="form-label d-none d-md-block">&nbsp;</label>
-                <div class="d-flex gap-2 justify-content-md-end">
-                    <a href="{% url 'export_students_excel' %}" class="btn btn-success btn-sm">
-                        Excel
-                    </a>
-                    <a href="{% url 'export_students_pdf' %}" class="btn btn-danger btn-sm">
-                        PDF
-                    </a>
-                </div>
-            </div>
-        </form>
+        </div>
 
         <!-- ================= TABLE ================= -->
         <div class="table-responsive">
             <table class="table table-bordered table-striped table-hover align-middle">
                 <thead style="background-color:#4f46e5;color:#fff;">
                     <tr>
-                        <th>No</th>
-                        <th>Admission No</th>
-                        <th>Student Name</th>
-                        <th>Classroom</th>
-                        <th>Gender</th>
-                        <th>Phone</th>
-                        <th class="text-center">Action</th>
+                        <th style="width: 5%">#</th>
+                        <th style="width: 15%">Admission No</th>
+                        <th style="width: 25%">Student Name</th>
+                        <th style="width: 15%">Classroom</th>
+                        <th style="width: 10%">Gender</th>
+                        <th style="width: 15%">Parent Phone</th>
+                        <th style="width: 15%" class="text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for student in students %}
-                    <tr>
-                        <td>{{ students.start_index|add:forloop.counter0 }}</td>
-                        <td>{{ student.admission_number }}</td>
-                        <td>{{ student.full_name }}</td>
-                        <td>{{ student.classroom }}</td>
-                        <td>{{ student.gender|title }}</td>
-                        <td>{{ student.phone }}</td>
-
-                        <td class="text-center d-flex gap-2 justify-content-center">
-
-                            <!-- EDIT BUTTON -->
-                            <a href="{% url 'edit_student_teacher' student.id %}" 
-                               class="btn btn-sm btn-warning">
-                                Edit
-                            </a>
-
-                            <!-- DELETE BUTTON -->
-                            <button class="btn btn-sm btn-danger deleteStudentBtn" type="button"
-                                    data-href="{% url 'delete_student' student.id %}"
-                                    data-name="{{ student.full_name }}">
-                                Delete
-                            </button>
-
+                    <tr id="student-row-{{ student.id }}">
+                        <td class="text-center">{{ students.start_index|add:forloop.counter0 }}</td>
+                        <td class="text-center">
+                            <strong>{{ student.admission_number }}</strong>
+                        </td>
+                        <td>
+                            {{ student.full_name }}
+                            <br>
+                            <small class="text-muted">
+                                {% if student.gender %}
+                                <i class="bi bi-gender-{% if student.gender == 'Male' %}male{% else %}female{% endif %}"></i>
+                                {{ student.gender }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-info">
+                                {{ student.classroom }}
+                            </span>
+                            {% if student.stream and student.stream != '—' %}
+                            <br>
+                            <small class="text-muted">{{ student.stream }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if student.gender == 'Male' %}
+                                <span class="badge bg-primary"><i class="bi bi-gender-male"></i> Male</span>
+                            {% elif student.gender == 'Female' %}
+                                <span class="badge bg-danger"><i class="bi bi-gender-female"></i> Female</span>
+                            {% else %}
+                                <span class="badge bg-secondary">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if student.phone and student.phone != '—' %}
+                                <i class="bi bi-telephone-fill text-success"></i>
+                                <span class="small">{{ student.phone }}</span>
+                            {% else %}
+                                <span class="text-muted small">No phone</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'edit_student_teacher' student.id %}" 
+                                   class="btn btn-sm btn-warning" 
+                                   title="Edit Student">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a>
+                                <button class="btn btn-sm btn-danger deleteStudentBtn" 
+                                        type="button"
+                                        data-id="{{ student.id }}"
+                                        data-name="{{ student.full_name }}"
+                                        data-href="{% url 'delete_student' student.id %}"
+                                        title="Delete Student">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center text-danger">
-                            No students found
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem;"></i><br>
+                            {% if search %}
+                                No students found matching "{{ search }}"
+                            {% else %}
+                                No students found in this class.
+                                <br>
+                                <a href="{% url 'register_student_teacher' %}" class="btn btn-sm btn-primary mt-2">
+                                    <i class="bi bi-plus-circle"></i> Register First Student
+                                </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -95,124 +161,365 @@
             </table>
         </div>
 
-        <!-- ================= DELETE CONFIRMATION MODAL ================= -->
-        <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
-          <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-              <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">Confirm Delete</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body text-center" id="deleteModalBody">Are you sure you want to delete this student?</div>
-              <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <a href="#" id="deleteStudentBtn" class="btn btn-danger">Delete</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const deleteModalElement = document.getElementById('deleteConfirmModal');
-            const deleteModal = new bootstrap.Modal(deleteModalElement);
-            const deleteBtn = document.getElementById('deleteStudentBtn');
-            const deleteModalBody = document.getElementById('deleteModalBody');
-
-            document.querySelectorAll('.deleteStudentBtn').forEach(button => {
-                button.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const href = this.getAttribute('data-href');
-                    const studentName = this.getAttribute('data-name');
-
-                    deleteBtn.href = href;
-                    deleteModalBody.textContent = `Are you sure you want to delete ${studentName}?`;
-                    deleteModal.show();
-                });
-            });
-        });
-        </script>
-
         <!-- ================= PAGINATION ================= -->
         {% if students.has_other_pages %}
-        <nav class="mt-3">
-            <ul class="pagination justify-content-center flex-wrap">
+        <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
+            <div class="text-muted small">
+                <i class="bi bi-info-circle"></i>
+                Showing {{ students.start_index }} to {{ students.end_index }} of {{ students.paginator.count }} students
+            </div>
+            <nav aria-label="Page navigation">
+                <ul class="pagination mb-0 flex-wrap justify-content-center">
+                    {% if students.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?search={{ search }}&page={{ students.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
+                    </li>
+                    {% endif %}
 
-                {% if students.has_previous %}
-                <li class="page-item">
-                    <a class="page-link"
-                       href="?search={{ search }}&page={{ students.previous_page_number }}">
-                        &laquo;
-                    </a>
-                </li>
-                {% else %}
-                <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-                {% endif %}
-
-                {% for page in students.paginator.page_range %}
-                    {% if page >= students.number|add:-2 and page <= students.number|add:2 %}
-                        {% if page == students.number %}
+                    {% for num in students.paginator.page_range %}
+                        {% if num == students.number %}
                         <li class="page-item active">
-                            <span class="page-link">{{ page }}</span>
+                            <span class="page-link">{{ num }}</span>
                         </li>
-                        {% else %}
+                        {% elif num > students.number|add:'-3' and num < students.number|add:'3' %}
                         <li class="page-item">
-                            <a class="page-link" href="?search={{ search }}&page={{ page }}">{{ page }}</a>
+                            <a class="page-link" href="?search={{ search }}&page={{ num }}">{{ num }}</a>
                         </li>
                         {% endif %}
+                    {% endfor %}
+
+                    {% if students.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?search={{ search }}&page={{ students.next_page_number }}">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Next <i class="bi bi-chevron-right"></i></span>
+                    </li>
                     {% endif %}
-                {% endfor %}
-
-                {% if students.has_next %}
-                <li class="page-item">
-                    <a class="page-link"
-                       href="?search={{ search }}&page={{ students.next_page_number }}">
-                        &raquo;
-                    </a>
-                </li>
-                {% else %}
-                <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
-                {% endif %}
-
-            </ul>
-        </nav>
+                </ul>
+            </nav>
+        </div>
         {% endif %}
 
     </div>
 </div>
 
+<!-- ================= DELETE CONFIRMATION MODAL ================= -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Confirm Delete
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-person-x-fill text-danger" style="font-size: 3rem;"></i>
+                <p class="mt-3" id="deleteModalBody">Are you sure you want to delete this student?</p>
+                <p class="text-muted small">This action cannot be undone. All associated data will be removed.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <a href="#" id="deleteStudentBtn" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Yes, Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= TOAST NOTIFICATION ================= -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 11000">
+    <div id="toastMsg" class="toast text-white border-0" data-bs-delay="3000">
+        <div class="d-flex">
+            <div class="toast-body" id="toastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= STYLES ================= -->
 <style>
+/* Card styling */
+.card {
+    border-radius: 0.6rem;
+    border: none;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Table styling */
 .table-hover tbody tr:hover {
-    background-color: rgba(79,70,229,0.08);
+    background-color: rgba(79, 70, 229, 0.08);
+    cursor: pointer;
 }
 
 .table-bordered th,
 .table-bordered td {
-    border-color:#e5e7eb;
+    border-color: #e5e7eb;
+    vertical-align: middle;
 }
 
-.btn {
-    border-radius:6px;
-    font-weight:500;
+/* Badge styling */
+.badge {
+    font-size: 0.8rem;
+    border-radius: 6px;
+    font-weight: 500;
+    padding: 0.35rem 0.65rem;
 }
 
-.pagination .page-item.active .page-link {
-    background:#4f46e5;
-    border-color:#4f46e5;
-    color:#fff;
+/* Button group */
+.btn-group .btn {
+    border-radius: 0.375rem;
+    margin: 0 2px;
 }
 
-.pagination .page-link:hover {
-    color:#4f46e5;
+/* Pagination styling */
+.pagination {
+    gap: 0.25rem;
 }
 
-@media (max-width:768px){
-    h4{font-size:1.1rem}
-    .table th,.table td{
-        font-size:.85rem;
-        padding:.45rem;
+.page-link {
+    color: #4f46e5;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.page-item.active .page-link {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+}
+
+.page-link:hover {
+    background-color: rgba(79, 70, 229, 0.1);
+    color: #4338ca;
+}
+
+/* ================= MOBILE OPTIMIZATION ================= */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+
+    h4 {
+        font-size: 1.1rem;
+    }
+
+    .table th,
+    .table td {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+    }
+
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .btn-group .btn {
+        width: 100%;
+        margin: 0;
+        font-size: 0.7rem;
+    }
+
+    .pagination .page-link {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .pagination {
+        justify-content: center;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .input-group button {
+        margin-top: 0.5rem;
+        width: 100%;
     }
 }
+
+/* Loading state */
+.btn-loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.btn-loading i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
 </style>
+
+<!-- ================= SCRIPTS ================= -->
+<script>
+// Toast notification function
+function showToast(success, message) {
+    const toastEl = document.getElementById('toastMsg');
+    const toastBody = document.getElementById('toastBody');
+    
+    toastBody.innerText = message;
+    toastEl.className = `toast text-white border-0 ${success ? 'bg-success' : 'bg-danger'}`;
+    
+    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+    toast.show();
+}
+
+// Delete confirmation modal
+document.addEventListener('DOMContentLoaded', function () {
+    const deleteModalElement = document.getElementById('deleteConfirmModal');
+    let deleteModal = null;
+    
+    if (deleteModalElement) {
+        deleteModal = new bootstrap.Modal(deleteModalElement);
+    }
+    
+    const deleteBtn = document.getElementById('deleteStudentBtn');
+    const deleteModalBody = document.getElementById('deleteModalBody');
+    let currentStudentId = null;
+
+    // Handle delete button clicks
+    document.querySelectorAll('.deleteStudentBtn').forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.preventDefault();
+            const href = this.getAttribute('data-href');
+            const studentName = this.getAttribute('data-name');
+            const studentId = this.getAttribute('data-id');
+            
+            currentStudentId = studentId;
+            
+            if (deleteBtn) {
+                deleteBtn.href = href;
+            }
+            
+            if (deleteModalBody) {
+                deleteModalBody.innerHTML = `Are you sure you want to delete <strong>${studentName}</strong>?`;
+            }
+            
+            if (deleteModal) {
+                deleteModal.show();
+            }
+        });
+    });
+    
+    // Handle delete confirmation with AJAX (optional - for better UX)
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const deleteUrl = this.getAttribute('href');
+            
+            // Show loading state
+            deleteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+            deleteBtn.classList.add('btn-loading');
+            
+            // Perform AJAX delete
+            fetch(deleteUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(true, data.message || 'Student deleted successfully');
+                    // Remove row from table
+                    const row = document.getElementById(`student-row-${currentStudentId}`);
+                    if (row) {
+                        row.remove();
+                    }
+                    // Close modal
+                    if (deleteModal) {
+                        deleteModal.hide();
+                    }
+                    // Reload after 1 second to update counts
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(false, data.message || 'Error deleting student');
+                    if (deleteModal) {
+                        deleteModal.hide();
+                    }
+                }
+            })
+            .catch(error => {
+                showToast(false, 'Error deleting student');
+                if (deleteModal) {
+                    deleteModal.hide();
+                }
+            })
+            .finally(() => {
+                // Reset button
+                deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Yes, Delete';
+                deleteBtn.classList.remove('btn-loading');
+            });
+        });
+    }
+});
+
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Auto-refresh when coming from edit page
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        location.reload();
+    }
+});
+
+// Row click handler for quick view
+document.querySelectorAll('tbody tr').forEach(row => {
+    row.addEventListener('click', function(e) {
+        // Don't trigger if clicking on button or link
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('button') || e.target.closest('a')) {
+            return;
+        }
+        // Find edit button and click it
+        const editBtn = this.querySelector('.btn-warning');
+        if (editBtn && editBtn.href) {
+            window.location.href = editBtn.href;
+        }
+    });
+});
+</script>
 
 {% endblock %}

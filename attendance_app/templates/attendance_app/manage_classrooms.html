@@ -24,7 +24,7 @@
                         {% for ay in academic_years %}
                         <option value="{{ ay.id }}" {% if selected_academic_year and selected_academic_year.id == ay.id %}selected{% endif %}>
                             {{ ay.year_start }}/{{ ay.year_end }}
-                            {% if ay.is_active %} 🔥 Active{% endif %}
+                            {% if ay.is_active %} Active{% endif %}
                         </option>
                         {% endfor %}
                     </select>
@@ -81,7 +81,7 @@
                                 <button class="btn btn-sm btn-outline-primary ms-2" data-bs-toggle="modal" data-bs-target="#addStreamModal{{ c.id }}">
                                     <i class="bi bi-plus"></i>
                                 </button>
-                             </td>
+                              </td>
                             <td class="text-center">
                                 <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editClassroomModal{{ c.id }}">
                                     <i class="bi bi-pencil"></i>
@@ -89,8 +89,8 @@
                                 <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteClassroomModal{{ c.id }}">
                                     <i class="bi bi-trash"></i>
                                 </button>
-                             </td>
-                         </tr>
+                              </td>
+                          </tr>
 
                         <!-- EDIT MODAL -->
                         <div class="modal fade" id="editClassroomModal{{ c.id }}" tabindex="-1">
@@ -166,7 +166,7 @@
                                             <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 2rem;"></i>
                                             <p class="mt-2">Are you sure you want to delete "<strong>{{ c.name }}</strong>"?</p>
                                             {% if c.streams.exists %}
-                                            <small class="text-danger">⚠️ This classroom has {{ c.streams.count }} stream(s) attached.</small>
+                                            <small class="text-danger">This classroom has {{ c.streams.count }} stream(s) attached.</small>
                                             {% endif %}
                                         </div>
                                         <div class="modal-footer justify-content-center">
@@ -207,7 +207,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Classroom Name</label>
-                        <input type="text" name="name" class="form-control" placeholder="e.g., Form I, Standard 1" required>
+                        <input type="text" name="name" class="form-control" placeholder="e.g., Form I" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Academic Year</label>
@@ -228,9 +228,6 @@
         </div>
     </div>
 </div>
-
-<!-- TOAST CONTAINER -->
-<div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
 
 <!-- STYLES -->
 <style>
@@ -267,7 +264,7 @@
 }
 </style>
 
-<!-- JS FOR TOASTS & SLIDE-IN & YEAR FILTER -->
+<!-- SIMPLE JS - NO DUPLICATE TOASTS -->
 <script>
 // Filter by academic year
 function filterByAcademicYear() {
@@ -280,42 +277,11 @@ function filterByAcademicYear() {
     }
 }
 
-function showToast(message, type='success'){
-    const toastContainer = document.getElementById('toastContainer');
-    const toastEl = document.createElement('div');
-    let colorClass = type==='error' ? 'bg-danger text-white' : 'bg-success text-white';
-    toastEl.className = `toast align-items-center border-0 ${colorClass}`;
-    toastEl.role='alert'; toastEl.setAttribute('aria-live','assertive'); toastEl.setAttribute('aria-atomic','true');
-    toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-    toastContainer.appendChild(toastEl);
-    new bootstrap.Toast(toastEl, { delay: 5000 }).show();
-    toastEl.addEventListener('hidden.bs.toast', ()=>toastEl.remove());
-}
-
-// Slide in rows and show Django messages
+// Slide in rows animation
 document.addEventListener('DOMContentLoaded', function(){
     const rows = document.querySelectorAll('.slide-row');
     rows.forEach((row, index) => {
-        setTimeout(()=> row.classList.add('show'), index*100);
-    });
-
-    {% for message in messages %}
-        {% if "error" in message.tags %}
-            showToast("{{ message|escapejs }}","error");
-        {% else %}
-            showToast("{{ message|escapejs }}","success");
-        {% endif %}
-    {% endfor %}
-});
-
-// Auto-hide toasts after 5 seconds
-document.addEventListener('DOMContentLoaded', function() {
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toastEl) {
-        setTimeout(function() {
-            const bsToast = bootstrap.Toast.getInstance(toastEl);
-            if (bsToast) bsToast.hide();
-        }, 5000);
+        setTimeout(() => row.classList.add('show'), index * 100);
     });
 });
 </script>

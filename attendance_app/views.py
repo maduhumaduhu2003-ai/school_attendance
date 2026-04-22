@@ -2700,9 +2700,70 @@ def send_absent_sms(student, teacher=None):
 
 
 # ================= ACADEMIC YEAR PROMOTION VIEWS =================
+# ================= ACADEMIC YEAR PROMOTION VIEWS (FIXED) =================
+
+def get_next_form_name(current_name):
+    """
+    FIXED: Get next form name for Form I - Form VI
+    Handles both 'Form I' and 'Form 1' formats
+    """
+    if not current_name:
+        return None
+    
+    # Convert to string and clean
+    name = str(current_name).strip()
+    
+    # Promotion mapping (case insensitive)
+    promotion_map = {
+        'form i': 'form II',
+        'form 1': 'form II',
+        'form I': 'form II',
+        'form ii': 'form III',
+        'form 2': 'form III',
+        'form II': 'form III', 
+        'form iii': 'form IV',
+        'form 3': 'form IV',
+        'form III': 'form IV',
+        'form iv': 'form V',
+        'form 4': 'form V',
+        'form IV': None,
+    }
+    
+    # Try exact match (case insensitive)
+    name_lower = name.lower()
+    if name_lower in promotion_map:
+        return promotion_map[name_lower]
+    
+    # Try to extract number
+    import re
+    match = re.search(r'(\d+)', name)
+    if match:
+        num = int(match.group(1))
+        if 1 <= num <= 5:
+            return f'Form {num + 1}'
+        elif num == 6:
+            return None
+    
+    # Try Roman numerals
+    roman_match = re.search(r'(I|II|III|IV|V|VI)', name, re.IGNORECASE)
+    if roman_match:
+        roman = roman_match.group(1).upper()
+        roman_map = {'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6}
+        num = roman_map.get(roman)
+        if num and 1 <= num <= 5:
+            next_roman = {1: 'II', 2: 'III', 3: 'IV', 4: 'V', 5: 'VI'}[num]
+            return f'Form {next_roman}'
+        elif num == 6:
+            return None
+    
+    return None
+
 
 @transaction.atomic
 def generate_academic_year(request):
+    """
+    FIXED VERSION: Generate new academic year with correct promotion for Form I - Form VI
+    """
     last_year = AcademicYear.objects.order_by('-year_start').first()
 
     # ================= FIRST YEAR =================
@@ -2718,89 +2779,110 @@ def generate_academic_year(request):
 
     new_start = last_year.year_start + 1
 
+    # Check if next year already exists
     if AcademicYear.objects.filter(year_start=new_start).exists():
-        messages.error(request, f"Academic Year {new_start}/{new_start+1} already exists.")
+        messages.error(request, f"Academic Year {new_start}/{new_start+1} already exists!")
         return redirect('academic_years')
 
     try:
-        # ================= GET OLD YEAR =================
-        old_year = AcademicYear.objects.filter(is_active=True).first() or last_year
+        # ================= 1. GET OLD ACTIVE YEAR =================
+        old_year = AcademicYear.objects.filter(is_active=True).first()
+        if not old_year:
+            old_year = last_year
 
-        # ================= CREATE NEW YEAR =================
+        # ================= 2. CREATE NEW YEAR =================
         new_year = AcademicYear.objects.create(
             year_start=new_start,
             is_active=True,
             is_locked=False
         )
 
-        # ================= LOCK OLD YEAR =================
+        # ================= 3. LOCK OLD YEAR =================
         old_year.is_active = False
         old_year.is_locked = True
         old_year.save()
 
-        # ================= COPY CLASSROOMS =================
+        # ================= 4. COPY CLASSROOMS AND STREAMS =================
+        classroom_mapping = {}
+        
         for old_classroom in Classroom.objects.filter(year=old_year):
             new_classroom = Classroom.objects.create(
                 name=old_classroom.name,
                 year=new_year
             )
+            classroom_mapping[old_classroom.id] = new_classroom
 
-            # copy streams
+            # Copy streams
             for stream in old_classroom.streams.all():
                 Stream.objects.create(
                     name=stream.name,
                     classroom=new_classroom
                 )
 
-        # ================= PROMOTION RULES =================
-        promotion_rules = {
-            'form I': 'form II',
-            'form II': 'form III',
-            'form III': 'form IV',
-            'form IV': None,
-        }
-
+        # ================= 5. PROMOTE STUDENTS =================
         students_promoted = 0
         students_graduated = 0
         students_repeating = 0
+        students_failed = 0
 
         old_enrollments = Enrollment.objects.filter(
             academic_year=old_year,
-            status='Active'
+            status='Active',
+            student__isnull=False
         ).select_related('student', 'classroom', 'stream', 'student__user')
 
-        # ================= PROMOTE STUDENTS =================
         for old in old_enrollments:
             student = old.student
-            if not student:
+            current_classroom = old.classroom
+            
+            if not student or not current_classroom:
+                students_failed += 1
                 continue
 
-            class_name = old.classroom.name if old.classroom else None
+            # Get next class name using the fixed function
+            next_class_name = get_next_form_name(current_classroom.name)
 
-            if not class_name:
-                students_repeating += 1
-                continue
-
-            next_class = promotion_rules.get(class_name)
-
-            # ===== GRADUATED =====
-            if next_class is None:
+            # Case 1: Student graduates (Form VI)
+            if next_class_name is None:
                 old.status = 'Graduated'
                 old.save()
                 students_graduated += 1
                 continue
 
-            # ===== FIND NEW CLASS =====
+            # Case 2: Find new classroom for promotion
             new_classroom = Classroom.objects.filter(
-                name__iexact=next_class,
+                name__iexact=next_class_name,
                 year=new_year
             ).first()
 
             if not new_classroom:
-                students_repeating += 1
+                # Try to find same classroom in new year (repeating)
+                same_class_new = classroom_mapping.get(current_classroom.id)
+                if same_class_new:
+                    new_stream = None
+                    if old.stream:
+                        new_stream = Stream.objects.filter(
+                            name=old.stream.name,
+                            classroom=same_class_new
+                        ).first()
+                    
+                    if not Enrollment.objects.filter(
+                        student=student,
+                        academic_year=new_year
+                    ).exists():
+                        Enrollment.objects.create(
+                            student=student,
+                            classroom=same_class_new,
+                            stream=new_stream,
+                            academic_year=new_year,
+                            status='Active'
+                        )
+                        students_repeating += 1
+                else:
+                    students_failed += 1
                 continue
 
-            # ===== STREAM =====
+            # Case 3: Normal promotion - find matching stream
             new_stream = None
             if old.stream:
                 new_stream = Stream.objects.filter(
@@ -2808,12 +2890,11 @@ def generate_academic_year(request):
                     classroom=new_classroom
                 ).first()
 
-            # ===== PREVENT DUPLICATE =====
+            # Prevent duplicate enrollment
             if not Enrollment.objects.filter(
                 student=student,
                 academic_year=new_year
             ).exists():
-
                 Enrollment.objects.create(
                     student=student,
                     classroom=new_classroom,
@@ -2823,71 +2904,89 @@ def generate_academic_year(request):
                 )
                 students_promoted += 1
 
+            # Mark old enrollment as promoted
             old.status = 'Promoted'
             old.save()
 
-        # ================= PROMOTE TEACHERS =================
+        # ================= 6. PROMOTE TEACHERS =================
         teachers_updated = 0
+        teachers_failed = 0
 
         teacher_assignments = Enrollment.objects.filter(
             academic_year=old_year,
             class_teacher__isnull=False
-        ).select_related('class_teacher', 'classroom')
+        ).select_related('class_teacher__user', 'classroom', 'stream')
 
         for assign in teacher_assignments:
             teacher = assign.class_teacher
-            old_class = assign.classroom
+            old_classroom = assign.classroom
+            old_stream = assign.stream
 
-            if not old_class:
+            if not teacher or not old_classroom:
+                teachers_failed += 1
                 continue
 
-            next_class = promotion_rules.get(old_class.name)
+            # Get next class for this teacher
+            next_class_name = get_next_form_name(old_classroom.name)
 
-            if not next_class:
+            if next_class_name is None:
+                # Teacher of Form VI - assign to Form I next year
+                new_classroom = Classroom.objects.filter(
+                    name__iexact='Form I',
+                    year=new_year
+                ).first()
+            else:
+                new_classroom = Classroom.objects.filter(
+                    name__iexact=next_class_name,
+                    year=new_year
+                ).first()
+
+            if not new_classroom:
+                teachers_failed += 1
                 continue
 
-            new_class = Classroom.objects.filter(
-                name__iexact=next_class,
-                year=new_year
-            ).first()
+            # Find matching stream
+            new_stream = None
+            if old_stream:
+                new_stream = Stream.objects.filter(
+                    name=old_stream.name,
+                    classroom=new_classroom
+                ).first()
 
-            if not new_class:
-                continue
-
-            Enrollment.objects.filter(
+            # Create or update teacher assignment
+            teacher_enrollment, created = Enrollment.objects.update_or_create(
+                class_teacher=teacher,
                 academic_year=new_year,
-                classroom=new_class
-            ).update(class_teacher=teacher)
-
+                defaults={
+                    'classroom': new_classroom,
+                    'stream': new_stream,
+                    'student': None
+                }
+            )
             teachers_updated += 1
 
-        # ================= UPDATE SETTINGS =================
-        settings = SchoolSettings.objects.first()
-        if settings:
-            settings.current_academic_year = new_year
-            settings.save()
-
-        # ================= SUCCESS =================
-        messages.success(
-            request,
-            f"""
-    Academic Year {new_year} created
-
-    Promoted: {students_promoted}
-    Graduated: {students_graduated}
-    Repeating: {students_repeating}
-    Teachers moved: {teachers_updated}
-    Old data preserved (LOCKED)
-"""
-        )
-
+        # ================= 7. SUCCESS MESSAGE =================
+        success_message = f"""
+        ✅ Academic Year {new_year} Created Successfully!
+        
+        📊 PROMOTION SUMMARY:
+        • Students Promoted: {students_promoted}
+        • Students Graduated (Form VI): {students_graduated}
+        • Students Repeating: {students_repeating}
+        • Students Failed: {students_failed}
+        • Teachers Moved: {teachers_updated}
+        • Teachers Failed: {teachers_failed}
+        
+        📌 Old academic year ({old_year}) is now LOCKED and data preserved.
+        """
+        
+        messages.success(request, success_message)
         return redirect('academic_years')
 
     except Exception as e:
-        logger.error(str(e))
-        messages.error(request, f"Error: {str(e)}")
+        logger.error(f"Academic year generation failed: {str(e)}")
+        messages.error(request, f"Error generating academic year: {str(e)}")
         return redirect('academic_years')
-    
 
 @never_cache
 @login_required

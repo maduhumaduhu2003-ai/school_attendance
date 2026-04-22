@@ -322,14 +322,25 @@ document.querySelectorAll('.sidebar .nav-link, .logout-link').forEach(link => {
     });
 });
 
-// Auto-hide toasts after 5 seconds
+// Auto-hide toasts after 5 seconds and show with animation
 document.addEventListener('DOMContentLoaded', function() {
     const toasts = document.querySelectorAll('.toast');
     toasts.forEach(function(toastEl) {
+        // Initialize bootstrap toast
+        const bsToast = new bootstrap.Toast(toastEl, { 
+            delay: 5000,
+            autohide: true,
+            animation: true
+        });
+        bsToast.show();
+        
+        // Also auto-remove after 5 seconds as fallback
         setTimeout(function() {
-            const bsToast = bootstrap.Toast.getInstance(toastEl);
-            if (bsToast) {
+            if (toastEl && toastEl.parentNode) {
                 bsToast.hide();
+                setTimeout(() => {
+                    if (toastEl.parentNode) toastEl.remove();
+                }, 500);
             }
         }, 5000);
     });

@@ -41,7 +41,7 @@
                         {% for y in academic_years %}
                         <option value="{{ y.id }}" {% if selected_academic_year and selected_academic_year.id == y.id %}selected{% endif %}>
                             {{ y.year_start }}/{{ y.year_end }}
-                            {% if y.is_active %} 🔥 Active{% endif %}
+                            {% if y.is_active %} Active{% endif %}
                         </option>
                         {% endfor %}
                     </select>
@@ -183,16 +183,6 @@ function openClassroomStudents(classroomId) {
     window.location.href = `/classroom/${classroomId}/students/?year=${selectedYear}`;
 }
 
-// Auto-hide toasts
-document.addEventListener('DOMContentLoaded', function() {
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toastEl) {
-        setTimeout(function() {
-            const bsToast = bootstrap.Toast.getInstance(toastEl);
-            if (bsToast) bsToast.hide();
-        }, 3000);
-    });
-});
 </script>
 
 {% endblock %}
