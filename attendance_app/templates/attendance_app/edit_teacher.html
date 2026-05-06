@@ -120,11 +120,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     const classroomSelect = document.getElementById('classroomSelect');
     const streamSelect = document.getElementById('streamSelect');
+
     const currentStreamId = "{{ current_stream.id|default:'' }}";
+    const currentStreamName = "{{ current_stream.name|default:'' }}";
 
     function loadStreams() {
         const classroomId = classroomSelect.value;
-        
+
         if (!classroomId) {
             streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
             return;
@@ -132,21 +134,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
         streamSelect.innerHTML = '<option value="">Loading streams...</option>';
 
-        // Fetch only available streams (without teachers) for the selected classroom
         fetch(`/get-streams/${classroomId}/?available_only=1`)
             .then(response => response.json())
             .then(data => {
                 let options = '<option value="">-- Select Stream --</option>';
-                
+
+                let currentIncluded = false;
+
                 if (data.streams && data.streams.length > 0) {
                     data.streams.forEach(stream => {
                         const selected = (currentStreamId == stream.id) ? 'selected' : '';
+                        
+                        if (currentStreamId == stream.id) {
+                            currentIncluded = true;
+                        }
+
                         options += `<option value="${stream.id}" ${selected}>${stream.name}</option>`;
                     });
-                } else {
+                }
+
+                // IMPORTANT: Add current stream if missing
+                if (currentStreamId && !currentIncluded) {
+                    options =
+                        `<option value="${currentStreamId}" selected>
+                            ${currentStreamName} (Current)
+                        </option>` + options;
+                }
+
+                if (!data.streams || data.streams.length === 0) {
                     options += '<option value="" disabled>No available streams</option>';
                 }
-                
+
                 streamSelect.innerHTML = options;
             })
             .catch(error => {
@@ -157,7 +175,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (classroomSelect) {
         classroomSelect.addEventListener('change', loadStreams);
-        // Load streams on page load if a classroom is selected
+
+        // Load streams on page load
         if (classroomSelect.value) {
             loadStreams();
         }

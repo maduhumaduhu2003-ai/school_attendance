@@ -33,7 +33,7 @@
                         </div>
                         <div class="col-md-4">
                             <select id="academicYearFilter" class="form-select" onchange="filterByAcademicYear()">
-                                <option value="">-- All Years --</option>
+                                <option value="">All Years</option>
                                 {% for year in academic_years %}
                                 <option value="{{ year.id }}" {% if selected_academic_year and selected_academic_year.id == year.id %}selected{% endif %}>
                                     {{ year.year_start }}/{{ year.year_end }}
@@ -45,11 +45,11 @@
                         </div>
                         <div class="col-md-5">
                             {% if selected_academic_year %}
-                            <span class="badge bg-info ms-2">
+                            <span class=" text-danger">
                                 Showing teachers for {{ selected_academic_year.year_start }}/{{ selected_academic_year.year_end }}
                             </span>
                             {% else %}
-                            <span class="badge bg-secondary ms-2">Showing all teachers</span>
+                            <span class="text-danger">Showing all teachers</span>
                             {% endif %}
                         </div>
                     </div>
@@ -89,17 +89,17 @@
                                 {% if teacher_data.stream %}
                                     <span class="">{{ teacher_data.stream }}</span>
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <span class="text-muted">None</span>
                                 {% endif %}
                             </td>
                             <td data-label="Academic Year">
                                 {% if teacher_data.academic_year %}
-                                    <span class="badge {% if teacher_data.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                    <span class="{% if teacher_data.is_active %}text-success{% else %}text-muted{% endif %}">
                                         {{ teacher_data.academic_year }}
                                         {% if teacher_data.is_active %}Active{% endif %}
                                     </span>
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <span class="text-muted">None</span>
                                 {% endif %}
                             </td>
                             <td data-label="Actions">

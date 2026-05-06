@@ -63,14 +63,14 @@
                     </tr>
                 </thead>
                 <tbody class="bg-light">
-                    {% for teacher in teachers_list %}
+                    {% for teacher in teachers %}
                     <tr class="table-row-hover">
                         <td>{{ forloop.counter }}</td>
-                        <td>{{ teacher.user.username }}</td>
-                        <td>{{ teacher.user.get_full_name }}</td>
+                        <td>{{ teacher.username }}</td>
+                        <td>{{ teacher.name }}</td>
                         <td>
                             {% if teacher.classroom %}
-                                {{ teacher.classroom.name }}
+                                {{ teacher.classroom }}
                             {% else %}
                                 <span class="text-danger">N/A</span>
                             {% endif %}
@@ -78,7 +78,7 @@
                         <td>
                          
                           {% if teacher.stream %}
-                            <span class="text-primary">{{ teacher.stream.name }}</span>
+                            <span class="text-primary">{{ teacher.stream }}</span>
                            {% else %}
                           <span class="text-danger">N/A</span>
                              {% endif %}

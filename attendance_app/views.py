@@ -98,9 +98,8 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
 
 
 # ================= HELPER FUNCTIONS =================
-
+# used to fetch teacher class and stream for current active accademic year
 def get_teacher_current_assignment(teacher):
-    """Get teacher's current classroom and stream assignment"""
     active_year = AcademicYear.objects.filter(is_active=True).first()
     if not active_year:
         return None, None
@@ -579,22 +578,31 @@ def get_streams(request, classroom_id):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def edit_teacher(request, id):
-    teacher = get_object_or_404(TeacherProfile, id=id)
-    
-    # Get active academic year only
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
+    # Optimize: include user in same query
+    teacher = get_object_or_404(
+        TeacherProfile.objects.select_related('user'),
+        id=id
+    )
+
+    # Get active academic year
+    active_year = AcademicYear.objects.filter(is_active=True).only(
+        'id', 'year_start', 'year_end'
+    ).first()
+
     if not active_year:
         messages.error(request, "No active academic year found. Please activate an academic year first.")
         return redirect('manage_teacher')
-    
-    # Get ONLY classrooms for the active academic year
-    classrooms = Classroom.objects.filter(year=active_year).order_by('name')
-    
-    # Get current enrollment for the active year
-    enrollment = teacher.class_enrollments.filter(academic_year=active_year).select_related('classroom', 'stream').first()
-    
-    # Get current classroom and stream from enrollment
+
+    # Optimized classrooms query (limit fields)
+    classrooms = Classroom.objects.filter(
+        year=active_year
+    ).only('id', 'name').order_by('name')
+
+    # Get current enrollment (optimized)
+    enrollment = teacher.class_enrollments.filter(
+        academic_year=active_year
+    ).select_related('classroom', 'stream').first()
+
     current_classroom = enrollment.classroom if enrollment else None
     current_stream = enrollment.stream if enrollment else None
 
@@ -607,7 +615,7 @@ def edit_teacher(request, id):
 
         try:
             with transaction.atomic():
-                # Update User details
+                # Update user (already fetched via select_related)
                 user = teacher.user
                 user.username = username
                 user.first_name = first_name
@@ -615,28 +623,34 @@ def edit_teacher(request, id):
                 user.full_clean()
                 user.save()
 
-                # Get Classroom (must be from active year)
+                # Optimized classroom fetch (no exception)
                 classroom = None
                 if classroom_id:
-                    try:
-                        classroom = Classroom.objects.get(id=classroom_id, year=active_year)
-                    except Classroom.DoesNotExist:
+                    classroom = Classroom.objects.filter(
+                        id=classroom_id,
+                        year=active_year
+                    ).only('id').first()
+
+                    if not classroom:
                         messages.error(request, "Selected classroom is not available for the active academic year.")
                         return redirect('edit_teacher', id=teacher.id)
-                
-                # Get Stream (must belong to selected classroom)
+
+                # Optimized stream fetch
                 stream = None
                 if stream_id and classroom:
-                    try:
-                        stream = Stream.objects.get(id=stream_id, classroom=classroom)
-                    except Stream.DoesNotExist:
+                    stream = Stream.objects.filter(
+                        id=stream_id,
+                        classroom=classroom
+                    ).only('id').first()
+
+                    if not stream:
                         messages.warning(request, "Selected stream not found for this classroom.")
-                
-                # Update or Create Enrollment for active year
+
+                # Update or create enrollment
                 if enrollment:
                     enrollment.classroom = classroom
                     enrollment.stream = stream
-                    enrollment.save()
+                    enrollment.save(update_fields=['classroom', 'stream'])
                 else:
                     Enrollment.objects.create(
                         classroom=classroom,
@@ -646,28 +660,39 @@ def edit_teacher(request, id):
                         student=None
                     )
 
-            messages.success(request, f"Teacher {user.get_full_name()} updated successfully for {active_year.year_start}/{active_year.year_end}!")
+            messages.success(
+                request,
+                f"Teacher {user.get_full_name()} updated successfully for "
+                f"{active_year.year_start}/{active_year.year_end}!"
+            )
             return redirect('manage_teacher')
-        
+
         except ValidationError as e:
             messages.error(request, f"Validation Error: {e}")
         except Exception as e:
             messages.error(request, f"An unexpected error occurred: {str(e)}")
 
-    # Get available streams for the current classroom (if any)
-    streams = []
+    # ---------------------------
+    # STREAMS (OPTIMIZED QUERY)
+    # ---------------------------
+    streams = Stream.objects.none()
+
     if current_classroom:
-        # Get streams that don't have a teacher assigned in active year
-        available_streams = Stream.objects.filter(
+        # Subquery instead of heavy JOIN
+        assigned_stream_ids = Enrollment.objects.filter(
+            academic_year=active_year,
+            class_teacher__isnull=False
+        ).values_list('stream_id', flat=True)
+
+        streams = Stream.objects.filter(
             classroom=current_classroom
         ).exclude(
-            class_enrollments__academic_year=active_year,
-            class_enrollments__class_teacher__isnull=False
+            id__in=assigned_stream_ids
         )
-        streams = list(available_streams)
-        # Include current stream even if it has a teacher
-        if current_stream and current_stream not in streams:
-            streams.insert(0, current_stream)
+
+        # Ensure current stream is included
+        if current_stream:
+            streams = (streams | Stream.objects.filter(id=current_stream.id)).distinct()
 
     return render(request, 'attendance_app/edit_teacher.html', {
         'teacher': teacher,

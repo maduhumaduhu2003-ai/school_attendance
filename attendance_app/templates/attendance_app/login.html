@@ -182,7 +182,7 @@ body::after {
                 <input type="hidden" name="lng" id="lng">
 
                 <div class="text-center">
-                    <a href="{% url 'forgot_password' %}">Forgot password?</a>
+                    <a class="text-danger" href="{% url 'forgot_password' %}">Forgot password?</a>
                 </div>
 
                 {% if not admin_exists %}
@@ -196,7 +196,9 @@ body::after {
         </div>
 
         <div class="card-footer">
-            &copy; {{ year|default:"2025" }} {{ school_settings.school_name }}
+            
+            &copy; {{ year|default:"2026" }} {{ school_settings.school_name }}
+            <p class='text-primary'>designed by Mdh.</p>
         </div>
 
     </div>
