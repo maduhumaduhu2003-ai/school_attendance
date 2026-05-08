@@ -40,20 +40,26 @@
             <small class="text-muted">Teachers will be assigned to classrooms for this academic year only.</small>
         </div>
 
-        <form method="POST">
+        <form method="POST" id="teacherForm">
             {% csrf_token %}
 
             <div class="row g-3">
 
+                <!-- EMAIL -->
                 <div class="col-md-4">
                     <label class="form-label">Email (Login username) <span class="text-danger">*</span></label>
-                    <input type="email" name="email" class="form-control" required>
+                    <input type="email" name="email" id="email" class="form-control" required>
+                    <div class="invalid-feedback">Enter a valid email address</div>
                     <small class="text-muted">This will be used as username</small>
                 </div>
 
+                <!-- PHONE -->
                 <div class="col-md-4">
                     <label class="form-label">Phone Number <span class="text-danger">*</span></label>
-                    <input type="text" name="phone_number" class="form-control" required>
+                    <input type="text" name="phone_number" id="phone" class="form-control" required>
+                    <div class="invalid-feedback">
+                        Phone must be 07XXXXXXXX or +255XXXXXXXXX
+                    </div>
                     <small class="text-muted">Format: 07XXXXXXXX or +255XXXXXXXXX</small>
                 </div>
 
@@ -76,7 +82,7 @@
                     </select>
                 </div>
 
-                <!-- Classroom - Only shows classrooms from ACTIVE year -->
+                <!-- CLASSROOM -->
                 <div class="col-md-4">
                     <label class="form-label">Classroom <span class="text-danger">*</span></label>
                     <select name="classroom" id="classroom" class="form-select" required>
@@ -87,16 +93,14 @@
                             <option value="" disabled>No classrooms available for active year</option>
                         {% endfor %}
                     </select>
-                    <small class="text-muted">Showing only classrooms for active year ({{ active_year.year_start }}/{{ active_year.year_end }})</small>
                 </div>
 
-                <!-- Stream - Loads based on selected classroom -->
+                <!-- STREAM -->
                 <div class="col-md-4">
                     <label class="form-label">Stream <span class="text-danger">*</span></label>
                     <select name="stream" id="stream" class="form-select" required>
                         <option value="">-- Select Classroom First --</option>
                     </select>
-                    <small class="text-muted">Select a classroom to see available streams</small>
                 </div>
 
             </div>
@@ -105,8 +109,6 @@
                 <small class="text-muted">
                     <i class="bi bi-info-circle"></i> 
                     Default Password: <strong>Teacher@123</strong>
-                    <br>
-                    Teacher will receive SMS with login credentials.
                 </small>
             </div>
 
@@ -124,64 +126,99 @@
 
 </div>
 
+<!-- VALIDATION SCRIPT -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const form = document.getElementById("teacherForm");
+    const email = document.getElementById("email");
+    const phone = document.getElementById("phone");
+
+    form.addEventListener("submit", function (e) {
+
+        let valid = true;
+
+        // EMAIL VALIDATION
+        const emailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        if (!emailPattern.test(email.value.trim())) {
+            email.classList.add("is-invalid");
+            valid = false;
+        } else {
+            email.classList.remove("is-invalid");
+            email.classList.add("is-valid");
+        }
+
+        // PHONE VALIDATION
+        const phonePattern = /^(0|\+255)[0-9]{9}$/;
+        if (!phonePattern.test(phone.value.trim())) {
+            phone.classList.add("is-invalid");
+            valid = false;
+        } else {
+            phone.classList.remove("is-invalid");
+            phone.classList.add("is-valid");
+        }
+
+        if (!valid) {
+            e.preventDefault();
+        }
+
+    });
+
+});
+</script>
+
+<!-- STREAM LOADING -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Show toasts
-    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
-    toastElList.forEach(function(toastEl) {
-        try { new bootstrap.Toast(toastEl).show(); } catch(e) {}
-    });
 
     const classroomSelect = document.getElementById('classroom');
     const streamSelect = document.getElementById('stream');
 
-    if (classroomSelect) {
-        classroomSelect.addEventListener('change', function() {
-            const classroomId = this.value;
+    classroomSelect.addEventListener('change', function() {
+        const classroomId = this.value;
 
-            if (!classroomId) {
-                streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
-                return;
-            }
+        if (!classroomId) {
+            streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
+            return;
+        }
 
-            streamSelect.innerHTML = '<option value="">Loading streams...</option>';
+        streamSelect.innerHTML = '<option value="">Loading streams...</option>';
 
-            fetch(`/get-streams/${classroomId}/?available_only=1`)
-                .then(res => res.json())
-                .then(data => {
-                    let options = '<option value="">-- Select Stream --</option>';
+        fetch(`/get-streams/${classroomId}/?available_only=1`)
+            .then(res => res.json())
+            .then(data => {
+                let options = '<option value="">-- Select Stream --</option>';
 
-                    if (!data.streams || data.streams.length === 0) {
-                        options += '<option value="" disabled>No streams available for this classroom</option>';
-                    } else {
-                        data.streams.forEach(s => {
-                            options += `<option value="${s.id}">${s.name}</option>`;
-                        });
-                    }
+                if (data.streams && data.streams.length > 0) {
+                    data.streams.forEach(s => {
+                        options += `<option value="${s.id}">${s.name}</option>`;
+                    });
+                } else {
+                    options += '<option disabled>No streams available</option>';
+                }
 
-                    streamSelect.innerHTML = options;
-                })
-                .catch(err => {
-                    console.error("ERROR:", err);
-                    streamSelect.innerHTML = '<option value="">Error loading streams</option>';
-                });
-        });
-    }
+                streamSelect.innerHTML = options;
+            })
+            .catch(() => {
+                streamSelect.innerHTML = '<option>Error loading streams</option>';
+            });
+    });
+
 });
 </script>
 
 <style>
-    .form-label {
-        font-weight: 500;
-    }
-    .form-control:focus, .form-select:focus {
-        border-color: #4f46e5;
-        box-shadow: 0 0 0 0.2rem rgba(79,70,229,0.25);
-    }
-    .alert-info {
-        background-color: #e0f2fe;
-        border-color: #bae6fd;
-    }
+.form-label {
+    font-weight: 500;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 0.2rem rgba(79,70,229,0.25);
+}
+.alert-info {
+    background-color: #e0f2fe;
+    border-color: #bae6fd;
+}
 </style>
 
 {% endblock %}

@@ -2,118 +2,350 @@
 {% block title %}Edit Student{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h2 class="text-primary">Edit Student</h2>
 
-    <form method="POST">
-        {% csrf_token %}
+<div class="container mt-4">
 
-        <!-- Student Info -->
-        <div class="mb-3">
-            <label>First Name</label>
-            <input type="text" name="first_name" value="{{ student.user.first_name }}" class="form-control" required>
+    <div class="card shadow-sm border-0">
+
+        <div class="card-body">
+
+            <!-- HEADER -->
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+
+                <div>
+                    <h2 class="text-danger mb-1">Edit Student</h2>
+                    <p class="text-muted mb-0">
+                        Update student information for active academic year
+                    </p>
+                </div>
+
+                <a href="{% url 'manage_student' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Students
+                </a>
+
+            </div>
+
+            <!-- ACTIVE YEAR INFO -->
+            <div class="alert alert-info mb-4">
+
+                <i class="bi bi-calendar-check"></i>
+
+                <strong>Active Academic Year:</strong>
+                {{ active_year.year_start }}/{{ active_year.year_end }}
+
+                <span class="badge bg-success ms-2">
+                    Currently Active
+                </span>
+
+                <br>
+
+                <small class="text-muted">
+                    Students can only be assigned to classrooms for the active academic year.
+                </small>
+
+            </div>
+
+            <!-- CURRENT ENROLLMENT -->
+            {% if enrollment %}
+
+            <div class="alert alert-secondary mb-4">
+
+                <i class="bi bi-info-circle"></i>
+
+                <strong>Current Assignment:</strong>
+
+                {% if enrollment.classroom %}
+                    {{ enrollment.classroom.name }}
+                    {% if enrollment.stream %}
+                        - {{ enrollment.stream.name }}
+                    {% endif %}
+                {% else %}
+                    Not assigned
+                {% endif %}
+
+                <br>
+
+                <small class="text-muted">
+                    This is the student's current assignment for
+                    {{ active_year.year_start }}/{{ active_year.year_end }}
+                </small>
+
+            </div>
+
+            {% endif %}
+
+            <!-- FORM -->
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="row g-3">
+
+                    <!-- STUDENT INFO -->
+                    <div class="col-md-6">
+                        <label class="form-label">First Name</label>
+                        <input type="text"
+                               class="form-control"
+                               name="first_name"
+                               value="{{ student.user.first_name }}"
+                               required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Last Name</label>
+                        <input type="text"
+                               class="form-control"
+                               name="last_name"
+                               value="{{ student.user.last_name }}"
+                               required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Gender</label>
+
+                        <select class="form-select"
+                                name="gender"
+                                required>
+
+                            <option value="">-- Select Gender --</option>
+
+                            <option value="Male"
+                            {% if student.user.gender|lower == 'male' %}selected{% endif %}>
+                                Male
+                            </option>
+
+                            <option value="Female"
+                            {% if student.user.gender|lower == 'female' %}selected{% endif %}>
+                                Female
+                            </option>
+
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Admission Number</label>
+                        <input type="text"
+                               class="form-control"
+                               name="admission_number"
+                               value="{{ student.admission_number }}"
+                               required>
+                    </div>
+
+                    <!-- CLASS -->
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            Classroom ({{ active_year.year_start }}/{{ active_year.year_end }})
+                        </label>
+
+                        <select class="form-select"
+                                name="classroom"
+                                id="classroomSelect"
+                                required>
+
+                            <option value="">-- Select Classroom --</option>
+
+                            {% for c in classrooms %}
+                            <option value="{{ c.id }}"
+                            {% if enrollment and enrollment.classroom and enrollment.classroom.id == c.id %}
+                            selected
+                            {% endif %}>
+                                {{ c.name }}
+                            </option>
+                            {% empty %}
+                            <option disabled>No classrooms available</option>
+                            {% endfor %}
+
+                        </select>
+
+                        <small class="text-muted">
+                            Only classrooms for active academic year
+                        </small>
+
+                    </div>
+
+                    <!-- STREAM -->
+                    <div class="col-md-6">
+                        <label class="form-label">Stream</label>
+
+                        <select class="form-select"
+                                name="stream"
+                                id="streamSelect">
+
+                            <option value="">-- Select Stream --</option>
+
+                        </select>
+
+                        <small class="text-muted">
+                            Streams based on selected classroom
+                        </small>
+
+                    </div>
+
+                </div>
+
+                <hr class="my-4">
+
+                <!-- PARENT -->
+                <h5>Parent Details</h5>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label class="form-label">Parent Full Name</label>
+                        <input type="text"
+                               name="parent_full_name"
+                               value="{{ parent.user.get_full_name }}"
+                               class="form-control"
+                               required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Parent Phone</label>
+                        <input type="text"
+                               name="parent_phone"
+                               value="{{ parent.user.phone_number }}"
+                               class="form-control"
+                               required>
+                    </div>
+
+                </div>
+
+                <hr class="my-4">
+
+                <!-- BUTTONS -->
+                <div class="d-flex gap-2">
+
+                    <button type="submit"
+                            class="btn btn-primary">
+
+                        <i class="bi bi-save"></i>
+                        Update Student
+
+                    </button>
+
+                    <a href="{% url 'manage_student' %}"
+                       class="btn btn-secondary">
+
+                        <i class="bi bi-x-circle"></i>
+                        Cancel
+
+                    </a>
+
+                </div>
+
+            </form>
+
         </div>
 
-        <div class="mb-3">
-            <label>Last Name</label>
-            <input type="text" name="last_name" value="{{ student.user.last_name }}" class="form-control" required>
-        </div>
+    </div>
 
-        <div class="mb-3">
-            <label>Gender</label>
-            <select name="gender" class="form-select" required>
-                <option value="male" {% if student.user.gender == 'male' %}selected{% endif %}>Male</option>
-                <option value="female" {% if student.user.gender == 'female' %}selected{% endif %}>Female</option>
-            </select>
-        </div>
-
-        <!-- CLASS -->
-        <div class="mb-3">
-            <label>Class</label>
-            <select name="classroom" id="classroomSelect" class="form-select">
-                <option value="">Select Class</option>
-                {% for c in classrooms %}
-                <option value="{{ c.id }}" {% if student.classroom and student.classroom.id == c.id %}selected{% endif %}>
-                    {{ c.name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <!-- STREAM -->
-        <div class="mb-3">
-            <label>Stream</label>
-            <select name="stream" id="streamSelect" class="form-select">
-                <option value="">Select Stream</option>
-            </select>
-        </div>
-
-        <!-- Parent -->
-        <h4 class="mt-4 text-primary">Parent Details</h4>
-
-        <div class="mb-3">
-            <label>Parent Full Name</label>
-            <input type="text" name="parent_full_name" value="{{ parent.user.get_full_name }}" class="form-control" required>
-        </div>
-
-        <div class="mb-3">
-            <label>Parent Phone</label>
-            <input type="text" name="parent_phone" value="{{ parent.user.phone_number }}" class="form-control" required>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Save Changes</button>
-        <a href="{% url 'manage_student' %}" class="btn btn-secondary">Cancel</a>
-
-    </form>
 </div>
 
 <!-- SCRIPT -->
 <script>
-document.addEventListener("DOMContentLoaded", function(){
+document.addEventListener('DOMContentLoaded', function() {
 
-    const classroom = document.getElementById("classroomSelect");
-    const stream = document.getElementById("streamSelect");
+    const classroomSelect =
+        document.getElementById('classroomSelect');
 
-    function loadStreams(classId, selectedStream=null){
+    const streamSelect =
+        document.getElementById('streamSelect');
 
-        if(!classId){
-            stream.innerHTML = '<option value="">Select Stream</option>';
+    const currentStreamId =
+        "{{ enrollment.stream.id|default:'' }}";
+
+    const currentStreamName =
+        "{{ enrollment.stream.name|default:'' }}";
+
+    function loadStreams() {
+
+        const classroomId =
+            classroomSelect.value;
+
+        if (!classroomId) {
+
+            streamSelect.innerHTML =
+                '<option value="">Select Classroom First</option>';
+
             return;
         }
 
-        stream.innerHTML = '<option>Loading...</option>';
+        streamSelect.innerHTML =
+            '<option>Loading streams...</option>';
 
-        fetch(`/get-streams/${classId}/`)
+        fetch(`/get-streams/${classroomId}/`)
         .then(res => res.json())
         .then(data => {
 
-            stream.innerHTML = '<option value="">Select Stream</option>';
+            let options =
+                '<option value="">-- Select Stream --</option>';
+
+            let found = false;
 
             data.streams.forEach(s => {
-                let selected = (selectedStream == s.id) ? "selected" : "";
-                stream.innerHTML += `<option value="${s.id}" ${selected}>${s.name}</option>`;
+
+                let selected =
+                    (currentStreamId == s.id)
+                    ? "selected"
+                    : "";
+
+                if (currentStreamId == s.id) {
+                    found = true;
+                }
+
+                options += `
+                    <option value="${s.id}" ${selected}>
+                        ${s.name}
+                    </option>`;
             });
+
+            if (currentStreamId && !found) {
+                options =
+                    `<option value="${currentStreamId}" selected>
+                        ${currentStreamName} (Current)
+                    </option>` + options;
+            }
+
+            streamSelect.innerHTML = options;
 
         })
         .catch(() => {
-            stream.innerHTML = '<option>Error loading streams</option>';
+            streamSelect.innerHTML =
+                '<option>Error loading streams</option>';
         });
     }
 
-    // ON CHANGE CLASS
-    classroom.addEventListener("change", function(){
-        loadStreams(this.value);
-    });
+    classroomSelect.addEventListener('change', loadStreams);
 
-    // 🔥 LOAD CURRENT STUDENT DATA
-    const selectedClass = "{{ student.classroom.id|default:'' }}";
-    const selectedStream = "{{ student.stream.id|default:'' }}";
-
-    if(selectedClass){
-        loadStreams(selectedClass, selectedStream);
+    if (classroomSelect.value) {
+        loadStreams();
     }
 
 });
 </script>
+
+<!-- STYLES -->
+<style>
+
+.form-label{
+    font-weight:500;
+}
+
+.form-control:focus,
+.form-select:focus{
+    border-color:#4f46e5;
+    box-shadow:0 0 0 0.2rem rgba(79,70,229,0.25);
+}
+
+.alert-info{
+    background:#e0f2fe;
+    border-color:#bae6fd;
+}
+
+.alert-secondary{
+    background:#f1f5f9;
+    border-color:#e2e8f0;
+}
+
+</style>
 
 {% endblock %}
