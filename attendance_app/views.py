@@ -779,16 +779,62 @@ def edit_teacher(request, id):
 
 @never_cache
 @login_required
-@user_passes_test(lambda u: u.role in ['admin'])
+@user_passes_test(lambda u: u.role == 'admin')
 def delete_teacher(request, teacher_id):
-    teacher = get_object_or_404(TeacherProfile, id=teacher_id)
-    user_to_delete = teacher.user
-    user_to_delete.delete()
-    messages.success(request, "Teacher deleted successfully.")
 
-    if request.user == user_to_delete:
-        logout(request)
-        return redirect('login')
+    teacher = get_object_or_404(
+        TeacherProfile.objects.select_related('user'),
+        id=teacher_id
+    )
+
+    # Selected academic year
+    selected_year_id = request.GET.get('year')
+
+    if selected_year_id:
+
+        academic_year = AcademicYear.objects.filter(
+            id=selected_year_id
+        ).first()
+
+        if academic_year:
+
+            # Delete only assignment/enrollment for selected year
+            deleted_count, _ = Enrollment.objects.filter(
+                class_teacher=teacher,
+                academic_year=academic_year,
+                student__isnull=True
+            ).delete()
+
+            if deleted_count > 0:
+                messages.success(
+                    request,
+                    f"Teacher removed from "
+                    f"{academic_year.year_start}/{academic_year.year_end} successfully."
+                )
+            else:
+                messages.warning(
+                    request,
+                    "No teacher assignment found for selected academic year."
+                )
+
+        else:
+            messages.error(request, "Academic year not found.")
+
+    else:
+        # No academic year selected → permanent delete
+        user_to_delete = teacher.user
+
+        user_to_delete.delete()
+
+        messages.success(
+            request,
+            "Teacher and all records deleted permanently."
+        )
+
+        # If admin deletes own account
+        if request.user == user_to_delete:
+            logout(request)
+            return redirect('login')
 
     return redirect('manage_teacher')
 
