@@ -366,70 +366,127 @@ def admin_dashboard(request):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def manage_teacher(request):
-    # Get all academic years for filter dropdown
+
+    # Academic years for filter
     academic_years = AcademicYear.objects.all().order_by('-year_start')
-    
-    # Get selected academic year from request
+
+    # Selected academic year
     selected_year_id = request.GET.get('year')
-    selected_academic_year = None
+
     if selected_year_id:
-        try:
-            selected_academic_year = AcademicYear.objects.get(id=selected_year_id)
-        except AcademicYear.DoesNotExist:
-            selected_academic_year = None
-    
-    # Get all teachers with their assignments
+        selected_academic_year = AcademicYear.objects.filter(
+            id=selected_year_id
+        ).first()
+    else:
+        selected_academic_year = AcademicYear.objects.filter(
+            is_active=True
+        ).first()
+
     teachers_list = []
-    
-    # Get all teacher profiles
-    teacher_profiles = TeacherProfile.objects.select_related('user').all()
-    
+
+    # Optimized query
+    teacher_profiles = TeacherProfile.objects.select_related(
+        'user'
+    ).prefetch_related(
+        'class_enrollments__classroom',
+        'class_enrollments__stream',
+        'class_enrollments__academic_year'
+    )
+
     for teacher in teacher_profiles:
-        # Get enrollment for selected year (or all if no year selected)
+
+        # Filter enrollments
         if selected_academic_year:
             enrollments = teacher.class_enrollments.filter(
                 academic_year=selected_academic_year,
                 student__isnull=True
             )
         else:
-            enrollments = teacher.class_enrollments.filter(student__isnull=True)
-        
+            enrollments = teacher.class_enrollments.filter(
+                student__isnull=True
+            )
+
+        # Teacher has enrollments
         if enrollments.exists():
-            # Teacher has assignments for the selected year
+
             seen_rows = set()
+
             for enrollment in enrollments:
-                row_key = (teacher.id, enrollment.academic_year_id, enrollment.classroom_id, enrollment.stream_id)
+
+                row_key = (
+                    teacher.id,
+                    enrollment.academic_year_id,
+                    enrollment.classroom_id,
+                    enrollment.stream_id
+                )
+
                 if row_key in seen_rows:
                     continue
+
                 seen_rows.add(row_key)
+
                 teachers_list.append({
                     'teacher_id': teacher.id,
+
                     'username': teacher.user.username,
+
                     'full_name': teacher.user.get_full_name(),
+
+                    'gender': teacher.user.gender if teacher.user.gender else '—',
+
                     'phone': teacher.user.phone_number or '—',
-                    'classroom': enrollment.classroom.name if enrollment.classroom else None,
-                    'stream': enrollment.stream.name if enrollment.stream else None,
-                    'academic_year': str(enrollment.academic_year) if enrollment.academic_year else None,
-                    'is_active': enrollment.academic_year.is_active if enrollment.academic_year else False,
+
+                    'classroom': (
+                        enrollment.classroom.name
+                        if enrollment.classroom else None
+                    ),
+
+                    'stream': (
+                        enrollment.stream.name
+                        if enrollment.stream else None
+                    ),
+
+                    'academic_year': (
+                        str(enrollment.academic_year)
+                        if enrollment.academic_year else None
+                    ),
+
+                    'is_active': (
+                        enrollment.academic_year.is_active
+                        if enrollment.academic_year else False
+                    ),
                 })
+
+        # No assignment and no filter selected
         elif not selected_academic_year:
-            # No year filter, show teacher with no assignment
+
             teachers_list.append({
                 'teacher_id': teacher.id,
+
                 'username': teacher.user.username,
+
                 'full_name': teacher.user.get_full_name(),
+
+                'gender': teacher.user.gender if teacher.user.gender else '—',
+
                 'phone': teacher.user.phone_number or '—',
+
                 'classroom': None,
+
                 'stream': None,
+
                 'academic_year': None,
+
                 'is_active': False,
             })
-    
+
     # Pagination
     paginator = Paginator(teachers_list, 25)
+
     page_number = request.GET.get('page')
+
     teachers = paginator.get_page(page_number)
-    
+
     return render(request, 'attendance_app/manage_teacher.html', {
         'teachers': teachers,
         'academic_years': academic_years,
@@ -452,15 +509,16 @@ def register_teacher(request):
     classrooms = Classroom.objects.filter(year=active_year).order_by('name')
 
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
         first_name = request.POST.get('first_name', '').strip()
         last_name = request.POST.get('last_name', '').strip()
+        gender = request.POST.get('gender')
         phone_number = request.POST.get('phone_number', '').strip()
         classroom_id = request.POST.get('classroom')
         stream_id = request.POST.get('stream')
 
         # ===== EMAIL VALIDATION =====
-        if not username or '@' not in username:
+        if not email or '@' not in email:
             messages.error(request, "Please enter a valid email.")
             return redirect('register_teacher')
 
@@ -485,29 +543,28 @@ def register_teacher(request):
                 return redirect('register_teacher')
 
         # ===== USER EXISTS =====
-        if User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
+        if User.objects.filter(email=email).exists():
+            messages.error(request, "An account with this email already exists.")
             return redirect('register_teacher')
 
         # ===== PHONE NORMALIZATION =====
         if phone_number:
-            phone_number = phone_number.replace(' ', '').replace('-', '')
-            if phone_number.startswith('0') and len(phone_number) == 10:
-                phone_number = '+255' + phone_number[1:]
-            elif phone_number.startswith(('6', '7')) and len(phone_number) == 9:
-                phone_number = '+255' + phone_number
-            elif not phone_number.startswith('+'):
-                phone_number = '+255' + phone_number
+            formatted_phone = format_phone_number(phone_number)
+            if not formatted_phone:
+                messages.error(request, "Invalid phone number format! Use: 0712345678 or 712345678")
+                return redirect('register_teacher')
+            phone_number = formatted_phone
 
         # ===== CREATE USER =====
         try:
             user = User.objects.create(
-                username=username,
-                email=username,
+                username=email,
+                email=email,
                 first_name=first_name,
                 last_name=last_name,
                 password=make_password(DEFAULT_PASSWORD),
                 role='teacher',
+                gender=gender,
                 phone_number=phone_number
             )
 
@@ -536,7 +593,7 @@ def register_teacher(request):
                 sms.send(
                     message=(
                         f"Habari {first_name}, account yako ya Mwalimu "
-                        f"imesajiliwa.\nUsername: {username}\nPassword: {DEFAULT_PASSWORD}"
+                        f"imesajiliwa.\nEmail: {email}\nPassword: {DEFAULT_PASSWORD}"
                     ),
                     recipients=[phone_number],
                     sender_id='School_SMS'
@@ -607,19 +664,34 @@ def edit_teacher(request, id):
     current_stream = enrollment.stream if enrollment else None
 
     if request.method == 'POST':
-        username = request.POST.get('username')
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
+        email = request.POST.get('email', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        password = request.POST.get('password', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
+        gender = request.POST.get('gender')
         classroom_id = request.POST.get('classroom')
         stream_id = request.POST.get('stream')
+        
+        if phone_number:
+           formatted_phone = format_phone_number(phone_number)
+           if not formatted_phone:
+                messages.error(request, "Invalid phone number format!")
+                return redirect('edit_teacher', id=teacher.id)
+           phone_number = formatted_phone
 
         try:
             with transaction.atomic():
                 # Update user (already fetched via select_related)
                 user = teacher.user
-                user.username = username
+                user.email = email
+                user.username = email
                 user.first_name = first_name
                 user.last_name = last_name
+                user.phone_number = phone_number
+                user.gender = gender
+                if password:
+                   user.set_password(password)
                 user.full_clean()
                 user.save()
 
@@ -755,14 +827,9 @@ def register_student_admin(request):
         parent_full_name = request.POST.get('parent_full_name')
         parent_phone = request.POST.get('parent_phone', '').strip()
 
-        parent_phone = parent_phone.replace(' ', '').replace('-', '')
-        if parent_phone.startswith('0') and len(parent_phone) == 10:
-            parent_phone = '+255' + parent_phone[1:]
-        elif parent_phone.startswith(('6', '7')) and len(parent_phone) == 9:
-            parent_phone = '+255' + parent_phone
-
-        if not re.match(r'^\+255[67]\d{8}$', parent_phone):
-            messages.error(request, "Invalid parent phone number.")
+        parent_phone = format_phone_number(parent_phone)
+        if not parent_phone:
+            messages.error(request, "Invalid parent phone number format! Use: 0712345678 or 712345678")
             return redirect('register_student_admin')
 
         if User.objects.filter(username=admission_number).exists():
@@ -1012,7 +1079,6 @@ def classroom_students(request, classroom_id):
     return render(request, 'attendance_app/classroom_students.html', context)
 
 
-
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher'])
@@ -1119,13 +1185,10 @@ def register_student_teacher(request):
         parent_phone = request.POST.get('parent_phone', '').strip()
 
         if parent_full_name and parent_phone:
-            parent_phone_clean = parent_phone.replace(' ', '').replace('-', '')
-            if parent_phone_clean.startswith('0') and len(parent_phone_clean) == 10:
-                parent_phone_clean = '+255' + parent_phone_clean[1:]
-            elif parent_phone_clean.startswith(('6', '7')) and len(parent_phone_clean) == 9:
-                parent_phone_clean = '+255' + parent_phone_clean
-
-            if re.match(r'^\+255[67]\d{8}$', parent_phone_clean):
+            # ========== FIXED: Use format_phone_number function ==========
+            parent_phone_clean = format_phone_number(parent_phone)
+            
+            if parent_phone_clean:
                 parent_names = parent_full_name.split(' ', 1)
                 parent_first = parent_names[0]
                 parent_last = parent_names[1] if len(parent_names) > 1 else ''
@@ -1146,7 +1209,7 @@ def register_student_teacher(request):
                     student=student_profile
                 )
             else:
-                messages.warning(request, 'Invalid parent phone number format. Student saved, but parent not linked.')
+                messages.warning(request, 'Invalid parent phone number format. Use: 0712345678 or 712345678. Student saved, but parent not linked.')
 
         messages.success(request, f"Student {student_user.get_full_name()} registered successfully.")
         return redirect('register_student_teacher')
@@ -2375,7 +2438,15 @@ def teacher_profile_view(request):
             user.last_name = request.POST.get("last_name", user.last_name)
             user.username = request.POST.get("username", user.username)
             user.email = request.POST.get("email", user.email)
-            user.phone_number = request.POST.get("phone_number", user.phone_number)
+            phone_number = request.POST.get("phone_number", "").strip()
+            if phone_number:
+                formatted_phone = format_phone_number(phone_number)
+                if not formatted_phone:
+                    messages.error(request, "Invalid phone number format!")
+                    return redirect('teacher_profile_view')
+                user.phone_number = formatted_phone
+            else:
+                user.phone_number = phone_number
             user.save()
 
             # Update teacher's classroom/stream via Enrollment
@@ -2427,6 +2498,12 @@ def admin_profile(request):
             email = request.POST.get('email', '').strip()
             username = request.POST.get('username', '').strip()
             phone_number = request.POST.get('phone_number', '').strip()
+            if phone_number:
+                formatted_phone = format_phone_number(phone_number)
+                if not formatted_phone:
+                    messages.error(request, "Invalid phone number format!")
+                    return redirect('admin_profile')
+                phone_number = formatted_phone
 
             user = request.user
             user.first_name = first_name
@@ -2992,9 +3069,9 @@ def generate_academic_year(request):
 
         # ================= 7. SUCCESS MESSAGE =================
         success_message = f"""
-        ✅ Academic Year {new_year} Created Successfully!
+         Academic Year {new_year} Created Successfully!
         
-        📊 PROMOTION SUMMARY:
+         PROMOTION SUMMARY:
         • Students Promoted: {students_promoted}
         • Students Graduated (Form VI): {students_graduated}
         • Students Repeating: {students_repeating}
@@ -3002,7 +3079,7 @@ def generate_academic_year(request):
         • Teachers Moved: {teachers_updated}
         • Teachers Failed: {teachers_failed}
         
-        📌 Old academic year ({old_year}) is now LOCKED and data preserved.
+         Old academic year ({old_year}) is now LOCKED and data preserved.
         """
         
         messages.success(request, success_message)

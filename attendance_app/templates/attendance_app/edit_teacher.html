@@ -47,15 +47,10 @@
                 {% csrf_token %}
                 
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Username <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="username" value="{{ teacher.user.username }}" required>
-                    </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" value="{{ teacher.user.email }}" disabled>
-                        <small class="text-muted">Email cannot be changed</small>
+                        <label class="form-label">Email (Login username) <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" name="email" value="{{ teacher.user.email }}" required>
                     </div>
                     
                     <div class="col-md-6">
@@ -67,11 +62,34 @@
                         <label class="form-label">Last Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="last_name" value="{{ teacher.user.last_name }}" required>
                     </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Gender <span class="text-danger">*</span></label>
+                        
+                        <select class="form-select" name="gender" required>
+                            <option value="">-- Select Gender --</option>
+
+                            <option value="Male"
+                                {% if teacher.user.gender == 'Male' %}
+                                    selected
+                                {% endif %}
+                            >
+                                Male
+                            </option>
+
+                            <option value="Female"
+                                {% if teacher.user.gender == 'Female' %}
+                                    selected
+                                {% endif %}
+                            >
+                                Female
+                            </option>
+                        </select>
+                    </div>
                     
                     <div class="col-md-6">
                         <label class="form-label">Phone Number</label>
-                        <input type="text" class="form-control" value="{{ teacher.user.phone_number }}" disabled>
-                        <small class="text-muted">Contact admin to change phone number</small>
+                        <input type="text" class="form-control" name="phone_number" value="{{ teacher.user.phone_number }}" required>
                     </div>
                     
                     <div class="col-md-6">
@@ -102,6 +120,16 @@
                         <small class="text-muted">Streams that don't have a teacher assigned</small>
                     </div>
                 </div>
+
+                <hr class="my-4">
+
+                    <h5>Reset Password</h5>
+
+                    <div class="col-md-6">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" name="password">
+                        <small class="text-muted">Leave blank if you don't want to change password</small>
+                    </div>
 
                 <div class="mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
