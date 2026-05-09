@@ -2222,13 +2222,12 @@ def resend_sms(request, sms_id):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def manage_classrooms(request):
-    # Get all academic years
+
     all_academic_years = AcademicYear.objects.all().order_by('-year_start')
-    
-    # Get selected academic year from request
+
     selected_year_id = request.GET.get('year')
     selected_academic_year = None
-    
+
     if selected_year_id:
         try:
             selected_academic_year = AcademicYear.objects.get(id=selected_year_id)
@@ -2236,61 +2235,128 @@ def manage_classrooms(request):
             selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
     else:
         selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    # Handle POST request for adding classroom
+
+    # ADD CLASSROOM
     if request.method == "POST":
+
         name = request.POST.get('name', '').strip()
         year_id = request.POST.get('year')
 
         if not name or not year_id:
-            messages.error(request, "Please provide both classroom name and academic year.")
+            messages.error(
+                request,
+                "Please provide both classroom name and academic year."
+            )
             return redirect('manage_classrooms')
 
         year_obj = get_object_or_404(AcademicYear, id=year_id)
-        duplicate = Classroom.objects.filter(name__iexact=name, year=year_obj).exists()
-        
-        if duplicate:
-            messages.error(request, f"Classroom '{name}' already exists for {year_obj}.")
+
+        # ONLY ACTIVE YEAR
+        if not year_obj.is_active:
+            messages.error(
+                request,
+                "You can only add classrooms to the active academic year."
+            )
             return redirect('manage_classrooms')
 
-        Classroom.objects.create(name=name, year=year_obj)
-        messages.success(request, f"Classroom '{name}' added successfully for {year_obj}.")
+        duplicate = Classroom.objects.filter(
+            name__iexact=name,
+            year=year_obj
+        ).exists()
+
+        if duplicate:
+            messages.error(
+                request,
+                f"Classroom '{name}' already exists for {year_obj}."
+            )
+            return redirect('manage_classrooms')
+
+        Classroom.objects.create(
+            name=name,
+            year=year_obj
+        )
+
+        messages.success(
+            request,
+            f"Classroom '{name}' added successfully."
+        )
+
         return redirect('manage_classrooms')
 
-    # Get classrooms for selected academic year only
+    # FILTER CLASSROOMS
     if selected_academic_year:
-        classrooms = Classroom.objects.filter(year=selected_academic_year).order_by('name')
+        classrooms = Classroom.objects.filter(
+            year=selected_academic_year
+        ).order_by('name')
     else:
-        classrooms = Classroom.objects.all().order_by('year__year_start', 'name')
+        classrooms = Classroom.objects.all().order_by(
+            'year__year_start',
+            'name'
+        )
 
     context = {
         'classrooms': classrooms,
         'academic_years': all_academic_years,
         'selected_academic_year': selected_academic_year,
     }
-    return render(request, 'attendance_app/manage_classrooms.html', context)
+
+    return render(
+        request,
+        'attendance_app/manage_classrooms.html',
+        context
+    )
 
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def delete_classroom(request, classroom_id):
+
     classroom = get_object_or_404(Classroom, id=classroom_id)
-    has_students = classroom.students.exists()
-    has_teachers = classroom.teacherprofile_set.exists()
+
+    # Check students assigned through enrollments
+    has_students = classroom.class_enrollments.filter(
+        student__isnull=False
+    ).exists()
+
+    # Check teachers assigned through enrollments
+    has_teachers = classroom.class_enrollments.filter(
+        class_teacher__isnull=False
+    ).exists()
 
     if request.method == "POST":
+
         if has_students or has_teachers:
+
             parts = []
+
             if has_students:
                 parts.append("students")
+
             if has_teachers:
                 parts.append("teachers")
+
             parts_str = " and ".join(parts)
-            messages.error(request, f"Cannot delete '{classroom.name}' because it has assigned {parts_str}.")
+
+            messages.error(
+                request,
+                f"Cannot delete '{classroom.name}' because it has assigned {parts_str}."
+            )
+
         else:
+
+            # Delete streams first
+            classroom.streams.all().delete()
+
+            classroom_name = classroom.name
+
             classroom.delete()
-            messages.success(request, f"Classroom '{classroom.name}' deleted successfully.")
+
+            messages.success(
+                request,
+                f"Classroom '{classroom_name}' deleted successfully."
+            )
+
     return redirect('manage_classrooms')
 
 
@@ -2298,43 +2364,180 @@ def delete_classroom(request, classroom_id):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def edit_classroom(request, classroom_id):
-    classroom = get_object_or_404(Classroom, id=classroom_id)
-    
+
+    classroom = get_object_or_404(
+        Classroom,
+        id=classroom_id
+    )
+
     if request.method == "POST":
-        new_name = request.POST.get('name', '').strip()
-        if not new_name:
-            messages.error(request, "Classroom name cannot be empty.")
+
+        # ONLY ACTIVE YEAR CAN BE EDITED
+        if not classroom.year.is_active:
+
+            messages.error(
+                request,
+                "Only classrooms in the active academic year can be edited."
+            )
+
             return redirect('manage_classrooms')
 
-        duplicate = Classroom.objects.filter(name__iexact=new_name, year=classroom.year).exclude(id=classroom.id).exists()
+        new_name = request.POST.get('name', '').strip()
+        year_id = request.POST.get('year')
+
+        if not new_name:
+            messages.error(
+                request,
+                "Classroom name cannot be empty."
+            )
+
+            return redirect('manage_classrooms')
+
+        year = get_object_or_404(
+            AcademicYear,
+            id=year_id
+        )
+
+        # ONLY ACTIVE YEAR
+        if not year.is_active:
+
+            messages.error(
+                request,
+                "You can only assign classrooms to the active academic year."
+            )
+
+            return redirect('manage_classrooms')
+
+        duplicate = Classroom.objects.filter(
+            name__iexact=new_name,
+            year=year
+        ).exclude(id=classroom.id).exists()
+
         if duplicate:
-            messages.error(request, f"Classroom '{new_name}' already exists for {classroom.year}.")
-        else:
-            classroom.name = new_name
-            classroom.save()
-            messages.success(request, f"Classroom '{new_name}' updated successfully.")
+
+            messages.error(
+                request,
+                f"Classroom '{new_name}' already exists."
+            )
+
+            return redirect('manage_classrooms')
+
+        classroom.name = new_name
+        classroom.year = year
+        classroom.save()
+
+        # UPDATE STREAMS
+        stream_ids = request.POST.getlist('stream_ids[]')
+        stream_names = request.POST.getlist('stream_names[]')
+
+        for stream_id, stream_name in zip(stream_ids, stream_names):
+
+            stream = Stream.objects.filter(
+                id=stream_id,
+                classroom=classroom
+            ).first()
+
+            if stream and stream_name.strip():
+
+                stream.name = stream_name.strip()
+                stream.save()
+
+        # DELETE STREAMS
+        delete_streams = request.POST.getlist('delete_streams')
+
+        if delete_streams:
+
+            Stream.objects.filter(
+                id__in=delete_streams,
+                classroom=classroom
+            ).delete()
+
+        # ADD NEW STREAM
+        new_stream = request.POST.get('new_stream', '').strip()
+
+        if new_stream:
+
+            exists = Stream.objects.filter(
+                classroom=classroom,
+                name__iexact=new_stream
+            ).exists()
+
+            if not exists:
+
+                Stream.objects.create(
+                    classroom=classroom,
+                    name=new_stream
+                )
+
+        messages.success(
+            request,
+            f"Classroom '{classroom.name}' updated successfully."
+        )
+
         return redirect('manage_classrooms')
-    
-    return render(request, 'attendance_app/edit_classroom.html', {'classroom': classroom})
+
+    return redirect('manage_classrooms')
 
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def add_stream(request, class_id):
-    classroom = get_object_or_404(Classroom, id=class_id)
+
+    classroom = get_object_or_404(
+        Classroom,
+        id=class_id
+    )
+
+    # ONLY ACTIVE YEAR
+    if not classroom.year.is_active:
+
+        messages.error(
+            request,
+            "You can only add streams to classrooms in the active academic year."
+        )
+
+        return redirect('manage_classrooms')
 
     if request.method == 'POST':
-        stream_name = request.POST.get('stream_name', '').strip()
+
+        stream_name = request.POST.get(
+            'stream_name',
+            ''
+        ).strip()
+
         if not stream_name:
-            messages.error(request, "Stream name cannot be empty.")
+
+            messages.error(
+                request,
+                "Stream name cannot be empty."
+            )
+
             return redirect('manage_classrooms')
 
-        if classroom.streams.filter(name__iexact=stream_name).exists():
-            messages.error(request, f"Stream '{stream_name}' already exists in classroom '{classroom.name}'.")
+        exists = classroom.streams.filter(
+            name__iexact=stream_name
+        ).exists()
+
+        if exists:
+
+            messages.error(
+                request,
+                f"Stream '{stream_name}' already exists in classroom '{classroom.name}'."
+            )
+
         else:
-            Stream.objects.create(name=stream_name, classroom=classroom)
-            messages.success(request, f"Stream '{stream_name}' added successfully to classroom '{classroom.name}'.")
+
+            Stream.objects.create(
+                name=stream_name,
+                classroom=classroom
+            )
+
+            messages.success(
+                request,
+                f"Stream '{stream_name}' added successfully."
+            )
+
     return redirect('manage_classrooms')
 
 
@@ -2961,18 +3164,18 @@ def get_next_form_name(current_name):
     
     # Promotion mapping (case insensitive)
     promotion_map = {
-        'form i': 'form II',
-        'form 1': 'form II',
-        'form I': 'form II',
-        'form ii': 'form III',
-        'form 2': 'form III',
-        'form II': 'form III', 
-        'form iii': 'form IV',
-        'form 3': 'form IV',
-        'form III': 'form IV',
-        'form iv': 'form V',
-        'form 4': 'form V',
-        'form IV': None,
+        'Form i': 'Form II',
+        'Form 1': 'Form II',
+        'Form I': 'Form II',
+        'Form ii': 'Form III',
+        'Form 2': 'Form III',
+        'Form II': 'Form III', 
+        'Form iii': 'Form IV',
+        'Form 3': 'Form IV',
+        'Form III': 'Form IV',
+        'Form iv': 'Form V',
+        'Form 4': 'Form V',
+        'Form IV': None,
     }
     
     # Try exact match (case insensitive)

@@ -102,38 +102,118 @@ class AcademicYear(models.Model):
 # CLASSROOM & STREAM (OPTIMIZED)
 # ============================================================
 
+# ============================================================
+# CLASSROOM & STREAM (OPTIMIZED)
+# ============================================================
+
 class Classroom(models.Model):
-    name = models.CharField(max_length=50, db_index=True)
-    year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, related_name='classrooms', db_index=True)
+
+    FORM_CHOICES = [
+        ('Form I', 'Form I'),
+        ('Form II', 'Form II'),
+        ('Form III', 'Form III'),
+        ('Form IV', 'Form IV'),
+        ('Form V', 'Form V'),
+        ('Form VI', 'Form VI'),
+    ]
+
+    name = models.CharField(
+        max_length=20,
+        choices=FORM_CHOICES,
+        db_index=True
+    )
+
+    year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.PROTECT,
+        related_name='classrooms',
+        db_index=True
+    )
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['name', 'year'], name='unique_class_per_year')
+            models.UniqueConstraint(
+                fields=['name', 'year'],
+                name='unique_class_per_year'
+            )
         ]
+
         indexes = [
             models.Index(fields=['year']),
             models.Index(fields=['name']),
         ]
+
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name} ({self.year})"
 
 
 class Stream(models.Model):
-    name = models.CharField(max_length=50, db_index=True)
-    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='streams', db_index=True)
+
+    STREAM_CHOICES = [
+        ('A', 'A'),
+        ('B', 'B'),
+        ('C', 'C'),
+        ('D', 'D'),
+        ('E', 'E'),
+        ('F', 'F'),
+        ('G', 'G'),
+        ('H', 'H'),
+        ('I', 'I'),
+        ('J', 'J'),
+        ('K', 'K'),
+        ('L', 'L'),
+        ('M', 'M'),
+        ('N', 'N'),
+        ('O', 'O'),
+        ('P', 'P'),
+        ('Q', 'Q'),
+        ('R', 'R'),
+        ('S', 'S'),
+        ('T', 'T'),
+        ('U', 'U'),
+        ('V', 'V'),
+        ('W', 'W'),
+        ('X', 'X'),
+        ('Y', 'Y'),
+        ('Z', 'Z'),
+    ]
+
+    name = models.CharField(
+        max_length=5,
+        choices=STREAM_CHOICES,
+        db_index=True
+    )
+
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='streams',
+        db_index=True
+    )
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['name', 'classroom'], name='unique_stream_per_class')
+            models.UniqueConstraint(
+                fields=['name', 'classroom'],
+                name='unique_stream_per_class'
+            )
         ]
+
         indexes = [
             models.Index(fields=['classroom']),
             models.Index(fields=['name']),
         ]
 
+        ordering = ['name']
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.upper()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.name} ({self.classroom.name})"
+        return f"{self.classroom.name} {self.name}"
 
 # ============================================================
 # TEACHER PROFILE (OPTIMIZED)
