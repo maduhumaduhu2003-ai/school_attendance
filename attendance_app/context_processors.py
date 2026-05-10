@@ -5,7 +5,7 @@ def school_and_profile(request):
 
     if not school_settings:
         school_settings = SchoolSettings.objects.create(
-            school_name="Nyakamwaga Sec School"
+            school_name="Mgunga Sec School"
         )
 
     return {
