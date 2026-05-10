@@ -85,6 +85,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'attendance_app.middleware.AutoLogoutMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -123,6 +124,12 @@ USE_TZ = config('DJANGO_USE_TZ', cast=bool, default=True)
 
 ROOT_URLCONF = 'school_attendance.urls'
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# 5 minutes of inactivity will log out the user
+SESSION_COOKIE_AGE = 300
+
+# reset time on every request
+SESSION_SAVE_EVERY_REQUEST = True
 
 
 
