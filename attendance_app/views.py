@@ -1181,37 +1181,122 @@ def register_student_teacher(request):
 
     if request.method == 'POST':
         if 'import_excel' in request.POST and request.FILES.get('excel_file'):
-            df = pd.read_excel(request.FILES['excel_file'])
-            for _, row in df.iterrows():
-                admission_number = str(row['admission_number'])
-                if User.objects.filter(username=admission_number).exists():
-                    continue
+            try:
+                # Read Excel file
+                excel_file = request.FILES['excel_file']
+                df = pd.read_excel(excel_file)
+                
+                # Required columns validation
+                required_columns = ['first_name', 'last_name', 'gender', 'admission_number']
+                missing_columns = [col for col in required_columns if col not in df.columns]
+                
+                if missing_columns:
+                    messages.error(request, f"Missing required columns: {', '.join(missing_columns)}")
+                    return redirect('register_student_teacher')
+                
+                success_count = 0
+                error_count = 0
+                error_messages = []
+                
+                # Use transaction for data integrity
+                with transaction.atomic():
+                    for index, row in df.iterrows():
+                        try:
+                            admission_number = str(row['admission_number']).strip()
+                            
+                            # Check if user exists
+                            if User.objects.filter(username=admission_number).exists():
+                                error_count += 1
+                                error_messages.append(f"Row {index+2}: Admission number {admission_number} already exists")
+                                continue
+                            
+                            # Get gender and validate
+                            gender = row.get('gender', '').strip()
+                            if gender not in ['Male', 'Female']:
+                                error_count += 1
+                                error_messages.append(f"Row {index+2}: Invalid gender '{gender}'. Must be 'Male' or 'Female'")
+                                continue
+                            
+                            # Create student user
+                            student_user = User.objects.create(
+                                username=admission_number,
+                                first_name=str(row['first_name']).strip(),
+                                last_name=str(row['last_name']).strip(),
+                                gender=gender,
+                                role='student',
+                                password=make_password("Student@123")
+                            )
+                            
+                            # Create student profile
+                            student_profile = StudentProfile.objects.create(
+                                user=student_user,
+                                admission_number=admission_number
+                            )
+                            
+                            # Create enrollment
+                            Enrollment.objects.create(
+                                student=student_profile,
+                                classroom=classroom,
+                                stream=stream,
+                                academic_year=active_year,
+                                status='Active'
+                            )
+                            
+                            # Handle parent if provided
+                            parent_full_name = str(row.get('parent_full_name', '')).strip()
+                            parent_phone = str(row.get('parent_phone', '')).strip()
+                            
+                            if parent_full_name and parent_phone:
+                                # TUMIA FORMAT_PHONE_NUMBER ILIYOPO KWENYE HELPER FUNCTIONS
+                                parent_phone_clean = format_phone_number(parent_phone)
+                                
+                                if parent_phone_clean:
+                                    parent_names = parent_full_name.split(' ', 1)
+                                    parent_first = parent_names[0]
+                                    parent_last = parent_names[1] if len(parent_names) > 1 else ''
+                                    
+                                    parent_user, created = User.objects.get_or_create(
+                                        username=parent_phone_clean,
+                                        defaults={
+                                            'first_name': parent_first,
+                                            'last_name': parent_last,
+                                            'phone_number': parent_phone_clean,
+                                            'role': 'parent',
+                                            'password': make_password(parent_phone_clean)
+                                        }
+                                    )
+                                    
+                                    ParentProfile.objects.get_or_create(
+                                        user=parent_user,
+                                        student=student_profile
+                                    )
+                                else:
+                                    error_messages.append(f"Row {index+2}: Invalid parent phone format for {parent_full_name}")
+                            
+                            success_count += 1
+                            
+                        except Exception as e:
+                            error_count += 1
+                            error_messages.append(f"Row {index+2}: {str(e)}")
+                
+                # Show results
+                if success_count > 0:
+                    messages.success(request, f"Successfully imported {success_count} student(s)!")
+                
+                if error_messages:
+                    # Limit to first 5 errors to avoid overwhelming
+                    for msg in error_messages[:5]:
+                        messages.warning(request, msg)
+                    if len(error_messages) > 5:
+                        messages.warning(request, f"... and {len(error_messages) - 5} more errors")
+                
+                return redirect('register_student_teacher')
+                
+            except Exception as e:
+                messages.error(request, f"Error reading Excel file: {str(e)}")
+                return redirect('register_student_teacher')
 
-                student_user = User.objects.create(
-                    username=admission_number,
-                    first_name=row['first_name'],
-                    last_name=row['last_name'],
-                    gender=row['gender'],
-                    role='student',
-                    password=make_password("Student@123")
-                )
-
-                student_profile = StudentProfile.objects.create(
-                    user=student_user,
-                    admission_number=admission_number
-                )
-
-                Enrollment.objects.create(
-                    student=student_profile,
-                    classroom=classroom,
-                    stream=stream,
-                    academic_year=active_year,
-                    status='Active'
-                )
-
-            messages.success(request, "Excel imported successfully.")
-            return redirect('register_student_teacher')
-
+        # Manual registration code
         admission_number = request.POST.get('admission_number')
         
         if not admission_number:
@@ -1248,7 +1333,7 @@ def register_student_teacher(request):
         parent_phone = request.POST.get('parent_phone', '').strip()
 
         if parent_full_name and parent_phone:
-            # ========== FIXED: Use format_phone_number function ==========
+            # TUMIA FORMAT_PHONE_NUMBER ILIYOPO KWENYE HELPER FUNCTIONS
             parent_phone_clean = format_phone_number(parent_phone)
             
             if parent_phone_clean:
@@ -3149,7 +3234,6 @@ def send_absent_sms(student, teacher=None):
 
 
 # ================= ACADEMIC YEAR PROMOTION VIEWS =================
-# ================= ACADEMIC YEAR PROMOTION VIEWS (FIXED) =================
 
 def get_next_form_name(current_name):
     """

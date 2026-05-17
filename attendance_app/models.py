@@ -99,12 +99,9 @@ class AcademicYear(models.Model):
         return f"{self.year_start}/{self.year_end}"
 
 # ============================================================
-# CLASSROOM & STREAM (OPTIMIZED)
+# CLASSROOM & STREAM 
 # ============================================================
 
-# ============================================================
-# CLASSROOM & STREAM (OPTIMIZED)
-# ============================================================
 
 class Classroom(models.Model):
 
@@ -216,7 +213,7 @@ class Stream(models.Model):
         return f"{self.classroom.name} {self.name}"
 
 # ============================================================
-# TEACHER PROFILE (OPTIMIZED)
+# TEACHER PROFILE 
 # ============================================================
 
 class TeacherProfile(models.Model):
@@ -231,7 +228,7 @@ class TeacherProfile(models.Model):
         return self.user.get_full_name() or self.user.username
 
 # ============================================================
-# STUDENT PROFILE (OPTIMIZED)
+# STUDENT PROFILE 
 # ============================================================
 
 class StudentProfile(models.Model):
@@ -249,7 +246,7 @@ class StudentProfile(models.Model):
         return f"{self.admission_number} - {self.user.get_full_name()}"
 
 # ============================================================
-# ENROLLMENT (HEAVILY OPTIMIZED)
+# ENROLLMENT 
 # ============================================================
 
 class Enrollment(models.Model):
@@ -311,7 +308,7 @@ class Enrollment(models.Model):
         return f"{self.student} - {self.classroom} ({self.academic_year})"
 
 # ============================================================
-# PARENT PROFILE (OPTIMIZED)
+# PARENT PROFILE 
 # ============================================================
 
 class ParentProfile(models.Model):
@@ -331,7 +328,7 @@ class ParentProfile(models.Model):
         return f"{self.user.get_full_name()} (Parent of {self.student.user.get_full_name()})"
 
 # ============================================================
-# ATTENDANCE (HEAVILY OPTIMIZED)
+# ATTENDANCE 
 # ============================================================
 
 class Attendance(models.Model):
@@ -398,7 +395,7 @@ class SMSLog(models.Model):
         ]
 
 # ============================================================
-# SCHOOL SETTINGS (OPTIMIZED)
+# SCHOOL SETTINGS 
 # ============================================================
 
 class SchoolSettings(models.Model):

@@ -125,8 +125,8 @@ USE_TZ = config('DJANGO_USE_TZ', cast=bool, default=True)
 ROOT_URLCONF = 'school_attendance.urls'
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# 5 minutes of inactivity will log out the user
-SESSION_COOKIE_AGE = 300
+# 10 minutes of inactivity will log out the user
+SESSION_COOKIE_AGE = 600
 
 # reset time on every request
 SESSION_SAVE_EVERY_REQUEST = True
