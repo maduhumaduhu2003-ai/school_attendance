@@ -6,92 +6,28 @@
 
 {% block content %}
 
-<!-- ================= TOAST MESSAGES ================= -->
-{% if messages %}
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-    {% for message in messages %}
-    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" 
-         data-bs-delay="5000" 
-         style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#dc3545{% elif message.tags == 'success' %}#198754{% elif message.tags == 'warning' %}#ffc107{% else %}#0d6efd{% endif %}; color: white; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-        <div class="toast-header" style="background-color: {% if message.tags == 'error' or message.tags == 'danger' %}#bd2130{% elif message.tags == 'success' %}#146c43{% elif message.tags == 'warning' %}#e6a800{% else %}#084298{% endif %}; color: white; border: none;">
-            <i class="bi {% if message.tags == 'error' or message.tags == 'danger' %}bi-exclamation-circle{% elif message.tags == 'success' %}bi-check-circle{% elif message.tags == 'warning' %}bi-exclamation-triangle{% else %}bi-info-circle{% endif %}" style="margin-right: 0.5rem;"></i>
-            <strong class="me-auto">
-                {% if message.tags == 'error' or message.tags == 'danger' %}Error{% elif message.tags == 'success' %}Success{% elif message.tags == 'warning' %}Warning{% else %}Info{% endif %}
-            </strong>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body" style="padding: 1rem;">
-            {{ message }}
-        </div>
-    </div>
-    {% endfor %}
-</div>
+<!-- GLOBAL LOADING / SUCCESS OVERLAY -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 {% if not profile_success and not password_success %}d-none{% endif %}" style="background: rgba(0, 0, 0, 0.3); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 240px; max-width: 320px; border: 1px solid #dee2e6;">
+            
+            {% if profile_success or password_success %}
+                <!-- Hali ya Mafanikio (Success Tick) -->
+                <div id="statusIcon" class="text-success d-flex align-items-center justify-content-center" style="flex-shrink: 0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                    </svg>
+                </div>
+                <h6 id="statusText" class="mb-0 text-success fw-bold" style="white-space: nowrap;">Imekamilika kikamilifu!</h6>
+            {% else %}
+                <!-- Hali ya Kupakia (Loading) -->
+                <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;"></div>
+                <h6 id="statusText" class="mb-0 text-dark fw-bold" style="white-space: nowrap;">Tafadhali subiri...</h6>
+            {% endif %}
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toastEl) {
-        const bsToast = new bootstrap.Toast(toastEl);
-        bsToast.show();
-    });
-});
-</script>
-{% endif %}
-
-<!-- ================= FALLBACK: Context Messages for Legacy Support ================= -->
-{% if profile_success %}
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" 
-         data-bs-delay="5000" 
-         style="background-color: #198754; color: white; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-        <div class="toast-header" style="background-color: #146c43; color: white; border: none;">
-            <i class="bi bi-check-circle" style="margin-right: 0.5rem;"></i>
-            <strong class="me-auto">Success</strong>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body" style="padding: 1rem;">
-            {{ profile_success }}
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toastEl) {
-        const bsToast = new bootstrap.Toast(toastEl);
-        bsToast.show();
-    });
-});
-</script>
-{% endif %}
-
-{% if password_success %}
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" 
-         data-bs-delay="5000" 
-         style="background-color: {% if 'not match' in password_success or 'incorrect' in password_success %}#dc3545{% else %}#198754{% endif %}; color: white; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-        <div class="toast-header" style="background-color: {% if 'not match' in password_success or 'incorrect' in password_success %}#bd2130{% else %}#146c43{% endif %}; color: white; border: none;">
-            <i class="bi {% if 'not match' in password_success or 'incorrect' in password_success %}bi-exclamation-circle{% else %}bi-check-circle{% endif %}" style="margin-right: 0.5rem;"></i>
-            <strong class="me-auto">{% if 'not match' in password_success or 'incorrect' in password_success %}Error{% else %}Success{% endif %}</strong>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body" style="padding: 1rem;">
-            {{ password_success }}
-        </div>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toastEl) {
-        const bsToast = new bootstrap.Toast(toastEl);
-        bsToast.show();
-    });
-});
-</script>
-{% endif %}
 
 <div class="container mt-4">
 
@@ -100,8 +36,6 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="row justify-content-center">
         <div class="col-md-6">
             <div class="card shadow-sm p-4">
-
-                
 
                 <!-- TABS -->
                 <ul class="nav nav-tabs mb-3" id="profileTab" role="tablist">
@@ -117,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="tab-content">
                     <!-- PROFILE TAB -->
                     <div class="tab-pane fade show active" id="profile" role="tabpanel">
-                        <form method="POST" enctype="multipart/form-data">
+                        <form method="POST" enctype="multipart/form-data" class="profile-form">
                             {% csrf_token %}
 
                             <div class="mb-3">
@@ -145,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <input type="text" name="phone_number" id="phone_number" class="form-control form-control-sm" value="{{ teacher.phone_number }}">
                             </div>
 
-                            <button type="submit" name="update_profile" class="btn btn-primary w-100">
+                            <button type="submit" name="update_profile" class="btn btn-primary w-100 btn-submit">
                                 Update Profile
                             </button>
                         </form>
@@ -153,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     <!-- PASSWORD TAB -->
                     <div class="tab-pane fade" id="password" role="tabpanel">
-                        <form method="POST">
+                        <form method="POST" class="profile-form">
                             {% csrf_token %}
 
                             <div class="mb-3">
@@ -169,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <input type="password" name="new_password2" id="new_password2" class="form-control form-control-sm">
                             </div>
 
-                            <button type="submit" name="change_password" class="btn btn-warning w-100">
+                            <button type="submit" name="change_password" class="btn btn-warning w-100 btn-submit">
                                 Change Password
                             </button>
                         </form>
@@ -192,9 +126,44 @@ document.addEventListener('DOMContentLoaded', function() {
 img.rounded-circle { object-fit: cover; }
 </style>
 
-<!-- AUTO SWITCH TAB IF MESSAGE COMES FROM PASSWORD CHANGE -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    const loadingOverlay = document.getElementById('globalLoading');
+    const profileForms = document.querySelectorAll('.profile-form');
+
+    // 1. Unapobonyeza submit, onyesha popup ikiwa kwenye hali ya loading (Tafadhali subiri...)
+    profileForms.forEach(form => {
+        form.addEventListener('submit', function() {
+            if (loadingOverlay) {
+                // Kama ukurasa ulikuwa na success ya nyuma, isafishe kwanza kurudisha loading ya sasa
+                const statusIcon = document.getElementById('statusIcon');
+                const statusText = document.getElementById('statusText');
+                
+                if (statusIcon && statusText) {
+                    statusIcon.className = "spinner-border text-danger";
+                    statusIcon.innerHTML = "";
+                    statusText.className = "mb-0 text-dark fw-bold";
+                    statusText.innerText = "Tafadhali subiri...";
+                }
+                loadingOverlay.classList.remove('d-none');
+            }
+        });
+    });
+
+    // 2. Kama ukurasa umefunguka ukiwa tayari una 'success tick', ifiche popup kiotomatiki baada ya sekunde 2.5
+    {% if profile_success or password_success %}
+        if (loadingOverlay) {
+            setTimeout(function() {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(function() {
+                    loadingOverlay.classList.add('d-none');
+                    loadingOverlay.style.opacity = '1'; // Inarudisha opacity tayari kwa ajili ya submit ijayo
+                }, 400); // Muda wa fade-out
+            }, 2500); // Muda ambao tick ya mafanikio itabaki skrini kabla ya kupotea
+        }
+    {% endif %}
+
+    // 3. AUTO SWITCH TAB IF MESSAGE COMES FROM PASSWORD CHANGE
     {% if password_success %}
         var passwordTab = new bootstrap.Tab(document.getElementById('password-tab'));
         passwordTab.show();

@@ -1,215 +1,225 @@
 {% extends "attendance_app/teacher_base.html" %}
-{% block title %}My Students{% endblock %}
+{% load static %}
+{% block title %}Students in {{ classroom.name }}{% endblock %}
 
 {% block content %}
 
-<div class="card shadow-sm">
-    <div class="card-body">
-
-        <!-- Page Header -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
-            <div>
-                <h4 class="mb-2 mb-md-0 text-danger">
-                    <i class="bi bi-people-fill"></i> My Students
-                </h4>
-                <p class="text-muted mb-0 small">
-                    <i class="bi bi-door-open"></i> {{ classroom.name }} ({{ classroom.year.year_start }}/{{ classroom.year.year_end }})
-                    {% if stream %}
-                    | <i class="bi bi-diagram-3"></i> {{ stream.name }}
-                    {% endif %}
-                    | <i class="bi bi-person-arms-up"></i> Total: {{ total_students }} students
+<!-- Global Loading and Status Popup (Same as Register Student Page) -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 380px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            
+            <div class="text-start">
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Tafadhali subiri...</h6>
+                <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
+                    Inasindika taarifa...
                 </p>
             </div>
-            <div class="mt-2 mt-md-0">
-                <a href="{% url 'register_student_teacher' %}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle"></i> Register Student
-                </a>
-            </div>
-        </div>
 
-        <!-- ================= SEARCH & EXPORT ================= -->
-        <div class="card border-0 bg-light mb-4">
-            <div class="card-body">
-                <form method="get" class="row g-3 align-items-end">
-                    <div class="col-12 col-md-5">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-search"></i> Search Student
-                        </label>
-                        <div class="input-group">
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid p-3">
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <!-- ================= HEADER ================= -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2 flex-wrap">
+                <div>
+                    <h2 class="mb-1 text-danger">
+                        <i class="bi bi-people-fill"></i>
+                        My Students: {{ classroom.name }}
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        <i class="bi bi-door-open"></i> Academic Year: {{ classroom.year.year_start }}/{{ classroom.year.year_end }}
+                        {% if stream %}
+                        | <i class="bi bi-diagram-3"></i> Stream: {{ stream.name }}
+                        {% endif %}
+                        | <i class="bi bi-person-arms-up"></i> Total: {{ total_students }} students
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'register_student_teacher' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Register Student
+                    </a>
+                </div>
+            </div>
+
+            <!-- ================= FILTER & SEARCH CARD ================= -->
+            <div class="card bg-light mb-4">
+                <div class="card-body py-3">
+                    <form method="get" id="filterForm" class="row g-3 align-items-end">
+                        <div class="col-12 col-md-5">
+                            <label class="form-label fw-bold mb-1">
+                                <i class="bi bi-search"></i> Search Student
+                            </label>
                             <input type="text"
                                    name="search"
-                                   value="{{ search }}"
+                                   value="{{ search|default:'' }}"
                                    class="form-control"
                                    placeholder="Admission number or name...">
-                            <button class="btn btn-primary" type="submit">
-                                <i class="bi bi-search"></i> Search
-                            </button>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-7">
-                        <label class="form-label d-none d-md-block fw-bold">&nbsp;</label>
-                        <div class="d-flex gap-2 justify-content-md-end">
-                            <a href="{% url 'export_students_excel' %}" class="btn btn-success">
-                                <i class="bi bi-file-excel"></i> Export Excel
-                            </a>
-                            <a href="{% url 'export_students_pdf' %}" class="btn btn-danger">
-                                <i class="bi bi-file-pdf"></i> Export PDF
-                            </a>
-                            {% if search %}
-                            <a href="{% url 'my_students' %}" class="btn btn-secondary">
-                                <i class="bi bi-x-circle"></i> Clear
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
 
-        <!-- ================= TABLE ================= -->
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped table-hover align-middle">
-                <thead style="background-color:#4f46e5;color:#fff;">
-                    <tr>
-                        <th style="width: 5%">#</th>
-                        <th style="width: 15%">Admission No</th>
-                        <th style="width: 25%">Student Name</th>
-                        <th style="width: 15%">Classroom</th>
-                        <th style="width: 10%">Gender</th>
-                        <th style="width: 15%">Parent Phone</th>
-                        <th style="width: 15%" class="text-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in students %}
-                    <tr id="student-row-{{ student.id }}">
-                        <td class="text-center">{{ students.start_index|add:forloop.counter0 }}</td>
-                        <td class="text-center">
-                            <strong>{{ student.admission_number }}</strong>
-                        </td>
-                        <td>
-                            {{ student.full_name }}
-                            <br>
-                            <small class="text-muted">
-                                {% if student.gender %}
-                                <i class="bi bi-gender-{% if student.gender == 'Male' %}male{% else %}female{% endif %}"></i>
-                                {{ student.gender }}
-                                {% endif %}
-                            </small>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge bg-info">
-                                {{ student.classroom }}
-                            </span>
-                            {% if student.stream and student.stream != '—' %}
-                            <br>
-                            <small class="text-muted">{{ student.stream }}</small>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if student.gender == 'Male' %}
-                                <span class="badge bg-primary"><i class="bi bi-gender-male"></i> Male</span>
-                            {% elif student.gender == 'Female' %}
-                                <span class="badge bg-danger"><i class="bi bi-gender-female"></i> Female</span>
-                            {% else %}
-                                <span class="badge bg-secondary">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if student.phone and student.phone != '—' %}
-                                <i class="bi bi-telephone-fill text-success"></i>
-                                <span class="small">{{ student.phone }}</span>
-                            {% else %}
-                                <span class="text-muted small">No phone</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            <div class="btn-group" role="group">
-                                <a href="{% url 'edit_student_teacher' student.id %}" 
-                                   class="btn btn-sm btn-warning" 
-                                   title="Edit Student">
-                                    <i class="bi bi-pencil"></i> Edit
-                                </a>
-                                <button class="btn btn-sm btn-danger deleteStudentBtn" 
-                                        type="button"
-                                        data-id="{{ student.id }}"
-                                        data-name="{{ student.full_name }}"
-                                        data-href="{% url 'delete_student' student.id %}"
-                                        title="Delete Student">
-                                    <i class="bi bi-trash"></i> Delete
+                        <div class="col-12 col-md-7">
+                            <div class="d-flex gap-2 justify-content-md-end flex-wrap">
+                                <button type="submit" class="btn btn-primary px-4 loading-btn" 
+                                        data-title="Inatafuta Wanafunzi" 
+                                        data-text="Tafadhali subiri, mfumo unatafuta wanafunzi wanaolingana na taarifa zako...">
+                                    <i class="bi bi-funnel-fill"></i> Filter
                                 </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted py-5">
-                            <i class="bi bi-inbox" style="font-size: 3rem;"></i><br>
-                            {% if search %}
-                                No students found matching "{{ search }}"
-                            {% else %}
-                                No students found in this class.
-                                <br>
-                                <a href="{% url 'register_student_teacher' %}" class="btn btn-sm btn-primary mt-2">
-                                    <i class="bi bi-plus-circle"></i> Register First Student
+                                
+                                <a href="{% url 'export_students_excel' %}" class="btn btn-success export-btn">
+                                    <i class="bi bi-file-excel"></i> Export Excel
                                 </a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                                <a href="{% url 'export_students_pdf' %}" class="btn btn-danger export-btn">
+                                    <i class="bi bi-file-pdf"></i> Export PDF
+                                </a>
 
-        <!-- ================= PAGINATION ================= -->
-        {% if students.has_other_pages %}
-        <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
-            <div class="text-muted small">
-                <i class="bi bi-info-circle"></i>
-                Showing {{ students.start_index }} to {{ students.end_index }} of {{ students.paginator.count }} students
+                                {% if search %}
+                                <a href="{% url 'my_students' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <nav aria-label="Page navigation">
-                <ul class="pagination mb-0 flex-wrap justify-content-center">
-                    {% if students.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?search={{ search }}&page={{ students.previous_page_number }}">
-                            <i class="bi bi-chevron-left"></i> Previous
-                        </a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled">
-                        <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
-                    </li>
-                    {% endif %}
 
-                    {% for num in students.paginator.page_range %}
-                        {% if num == students.number %}
-                        <li class="page-item active">
-                            <span class="page-link">{{ num }}</span>
-                        </li>
-                        {% elif num > students.number|add:'-3' and num < students.number|add:'3' %}
+            <!-- ================= TABLE ================= -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle mb-0 text-nowrap">
+                    <thead class="">
+                        <tr>
+                            <th style="width: 5%">#</th>
+                            <th style="width: 15%">Admission No</th>
+                            <th style="width: 25%">Student Name</th>
+                            <th style="width: 10%">Gender</th>
+                            <th style="width: 15%">Parent Phone</th>
+                            <th style="width: 20%" class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr id="student-row-{{ student.id }}" class="align-middle">
+                            <td>{{ forloop.counter0|add:students.start_index }}</td>
+                            <td><code>{{ student.admission_number }}</code></td>
+                            <td>{{ student.full_name }}</td>
+                            <td>
+                                {% if student.gender|lower == 'male' %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-1">
+                                        <i class="bi bi-gender-male"></i> Male
+                                    </span>
+                                {% elif student.gender|lower == 'female' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-3 py-1">
+                                        <i class="bi bi-gender-female"></i> Female
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-1">—</span>
+                                {% endif %}
+                             </td>
+                            <td>
+                                {% if student.phone and student.phone != '—' %}
+                                    <i class="bi bi-telephone-fill text-success small me-1"></i>
+                                    <span class="small">{{ student.phone }}</span>
+                                {% else %}
+                                    <span class="text-muted small">
+                                        <i class="bi bi-telephone-x"></i> No phone
+                                    </span>
+                                {% endif %}
+                             </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-2">
+                                    <a href="{% url 'edit_student_teacher' student.id %}" 
+                                       class="btn btn-sm btn-warning" 
+                                       title="Edit Student">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </a>
+                                    <button class="btn btn-sm btn-danger deleteStudentBtn" 
+                                            type="button"
+                                            data-id="{{ student.id }}"
+                                            data-name="{{ student.full_name }}"
+                                            data-href="{% url 'delete_student' student.id %}"
+                                            title="Delete Student">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox" style="font-size: 3rem;"></i><br>
+                                {% if search %}
+                                    No students found matching "{{ search }}"
+                                {% else %}
+                                    No students found in this class.<br>
+                                    <a href="{% url 'register_student_teacher' %}" class="btn btn-sm btn-primary mt-2">
+                                        <i class="bi bi-plus-circle"></i> Register First Student
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ================= PAGINATION ================= -->
+            {% if students.has_other_pages %}
+            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
+                <div class="text-muted small">
+                    <i class="bi bi-info-circle"></i>
+                    Showing {{ students.start_index }} to {{ students.end_index }} of {{ students.paginator.count }} students
+                </div>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination mb-0 flex-wrap justify-content-center">
+                        {% if students.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?search={{ search }}&page={{ num }}">{{ num }}</a>
+                            <a class="page-link paginate-link" href="?search={{ search }}&page={{ students.previous_page_number }}">
+                                <i class="bi bi-chevron-left"></i> Previous
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
                         </li>
                         {% endif %}
-                    {% endfor %}
 
-                    {% if students.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?search={{ search }}&page={{ students.next_page_number }}">
-                            Next <i class="bi bi-chevron-right"></i>
-                        </a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled">
-                        <span class="page-link">Next <i class="bi bi-chevron-right"></i></span>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
+                        {% for num in students.paginator.page_range %}
+                            {% if num == students.number %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > students.number|add:'-3' and num < students.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link paginate-link" href="?search={{ search }}&page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if students.has_next %}
+                        <li class="page-item">
+                            <a class="page-link paginate-link" href="?search={{ search }}&page={{ students.next_page_number }}">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Next <i class="bi bi-chevron-right"></i></span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
         </div>
-        {% endif %}
-
     </div>
 </div>
 
@@ -218,228 +228,166 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">
-                    <i class="bi bi-exclamation-triangle-fill"></i> Confirm Delete
-                </h5>
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill"></i> Confirm Delete</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center py-4">
                 <i class="bi bi-person-x-fill text-danger" style="font-size: 3rem;"></i>
                 <p class="mt-3" id="deleteModalBody">Are you sure you want to delete this student?</p>
-                <p class="text-muted small">This action cannot be undone. All associated data will be removed.</p>
+                <p class="text-muted small">This action cannot be undone. The student will be removed from current class.</p>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-circle"></i> Cancel
                 </button>
-                <a href="#" id="deleteStudentBtn" class="btn btn-danger">
+                <button type="button" id="deleteStudentBtn" class="btn btn-danger">
                     <i class="bi bi-trash"></i> Yes, Delete
-                </a>
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ================= TOAST NOTIFICATION ================= -->
-<div class="position-fixed top-0 end-0 p-3" style="z-index: 11000">
-    <div id="toastMsg" class="toast text-white border-0" data-bs-delay="3000">
-        <div class="d-flex">
-            <div class="toast-body" id="toastBody"></div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    </div>
-</div>
-
-<!-- ================= STYLES ================= -->
 <style>
-/* Card styling */
-.card {
-    border-radius: 0.6rem;
-    border: none;
-}
-
-.card-body {
-    padding: 1.5rem;
-}
-
-/* Table styling */
-.table-hover tbody tr:hover {
-    background-color: rgba(79, 70, 229, 0.08);
-    cursor: pointer;
-}
-
-.table-bordered th,
-.table-bordered td {
-    border-color: #e5e7eb;
-    vertical-align: middle;
-}
-
-/* Badge styling */
-.badge {
-    font-size: 0.8rem;
-    border-radius: 6px;
-    font-weight: 500;
-    padding: 0.35rem 0.65rem;
-}
-
-/* Button group */
-.btn-group .btn {
-    border-radius: 0.375rem;
-    margin: 0 2px;
-}
-
-/* Pagination styling */
-.pagination {
-    gap: 0.25rem;
-}
-
-.page-link {
-    color: #4f46e5;
-    border-radius: 0.375rem;
-    padding: 0.375rem 0.75rem;
-}
-
-.page-item.active .page-link {
-    background-color: #4f46e5;
-    border-color: #4f46e5;
-}
-
-.page-link:hover {
-    background-color: rgba(79, 70, 229, 0.1);
-    color: #4338ca;
-}
-
-/* ================= MOBILE OPTIMIZATION ================= */
-@media (max-width: 768px) {
-    .card-body {
-        padding: 1rem;
+    code {
+        font-size: 0.9em;
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        border: 1px solid #dee2e6;
     }
-
-    h4 {
-        font-size: 1.1rem;
+    .table-dark {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
-
-    .table th,
-    .table td {
-        font-size: 0.75rem;
-        padding: 0.5rem;
+    .table-dark th {
+        border: none;
     }
-
-    .badge {
-        font-size: 0.7rem;
-        padding: 0.25rem 0.5rem;
-    }
-
-    .btn-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-
-    .btn-group .btn {
-        width: 100%;
-        margin: 0;
-        font-size: 0.7rem;
-    }
-
-    .pagination .page-link {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-    }
-    
-    .pagination {
-        justify-content: center;
-    }
-    
-    .input-group {
-        flex-direction: column;
-    }
-    
-    .input-group button {
-        margin-top: 0.5rem;
-        width: 100%;
-    }
-}
-
-/* Loading state */
-.btn-loading {
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-.btn-loading i {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
 </style>
 
-<!-- ================= SCRIPTS ================= -->
 <script>
-// Toast notification function
-function showToast(success, message) {
-    const toastEl = document.getElementById('toastMsg');
-    const toastBody = document.getElementById('toastBody');
-    
-    toastBody.innerText = message;
-    toastEl.className = `toast text-white border-0 ${success ? 'bg-success' : 'bg-danger'}`;
-    
-    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
-    toast.show();
-}
-
-// Delete confirmation modal
 document.addEventListener('DOMContentLoaded', function () {
+    // ================= LOADING POPUP CONTROLS =================
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+    
+    // Function to show loading
+    function showLoading(title, text) {
+        if (loadingOverlay) {
+            // Reset to spinner state
+            statusIcon.className = "spinner-border text-danger";
+            statusIcon.removeAttribute('role');
+            statusIcon.style.width = "2rem";
+            statusIcon.style.height = "2rem";
+            statusIcon.innerHTML = "";
+            statusIcon.style.fontSize = "";
+            
+            statusTitle.className = "mb-1 fw-bold text-dark";
+            statusTitle.innerText = title || "Tafadhali subiri...";
+            
+            statusText.innerText = text || "Inasindika taarifa...";
+            
+            loadingOverlay.classList.remove('d-none');
+            loadingOverlay.style.opacity = '1';
+        }
+    }
+    
+    // Function to hide loading with success/error icon
+    function showResultAndHide(isSuccess, message, title) {
+        if (loadingOverlay) {
+            if (isSuccess) {
+                // Success state
+                statusIcon.className = "text-success d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-success";
+                statusTitle.innerText = title || "Umefanikiwa!";
+            } else {
+                // Error state
+                statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-danger";
+                statusTitle.innerText = title || "Imegoma!";
+            }
+            statusText.innerText = message;
+            
+            // Hide after 2 seconds
+            setTimeout(function() {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(function() {
+                    loadingOverlay.classList.add('d-none');
+                    loadingOverlay.style.opacity = '1';
+                }, 400);
+            }, 2000);
+        }
+    }
+
+    // ================= FILTER FORM SUBMIT =================
+    const filterForm = document.getElementById('filterForm');
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            showLoading('Inatafuta Wanafunzi', 'Tafadhali subiri, mfumo unatafuta wanafunzi wanaolingana na taarifa zako...');
+        });
+    }
+    
+    // ================= PAGINATION LINKS =================
+    document.querySelectorAll('.paginate-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            showLoading('Inapakia Ukurasa', 'Tafadhali subiri, mfumo unaleta wanafunzi wa ukurasa uliochagua...');
+        });
+    });
+    
+    // ================= EXPORT BUTTONS =================
+    document.querySelectorAll('.export-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const fileName = this.getAttribute('href').split('/').pop();
+            showLoading('Inaandaa Ripoti', 'Tafadhali subiri, mfumo unatayarisha faili ya ' + (fileName.includes('excel') ? 'Excel' : 'PDF') + '...');
+        });
+    });
+    
+    // ================= DELETE FUNCTIONALITY =================
     const deleteModalElement = document.getElementById('deleteConfirmModal');
     let deleteModal = null;
-    
     if (deleteModalElement) {
         deleteModal = new bootstrap.Modal(deleteModalElement);
     }
     
     const deleteBtn = document.getElementById('deleteStudentBtn');
-    const deleteModalBody = document.getElementById('deleteModalBody');
-    let currentStudentId = null;
-
-    // Handle delete button clicks
+    let currentDeleteUrl = null;
+    let currentRowId = null;
+    
+    // Delete button clicks
     document.querySelectorAll('.deleteStudentBtn').forEach(button => {
-        button.addEventListener('click', function (e) {
+        button.addEventListener('click', function(e) {
             e.preventDefault();
-            const href = this.getAttribute('data-href');
+            currentDeleteUrl = this.getAttribute('data-href');
+            currentRowId = 'student-row-' + this.getAttribute('data-id');
             const studentName = this.getAttribute('data-name');
-            const studentId = this.getAttribute('data-id');
-            
-            currentStudentId = studentId;
-            
-            if (deleteBtn) {
-                deleteBtn.href = href;
+            const modalBody = document.getElementById('deleteModalBody');
+            if (modalBody) {
+                modalBody.innerHTML = `Are you sure you want to remove <strong>${studentName}</strong> from the current class?`;
             }
-            
-            if (deleteModalBody) {
-                deleteModalBody.innerHTML = `Are you sure you want to delete <strong>${studentName}</strong>?`;
-            }
-            
             if (deleteModal) {
                 deleteModal.show();
             }
         });
     });
     
-    // Handle delete confirmation with AJAX (optional - for better UX)
+    // Confirm Delete
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            const deleteUrl = this.getAttribute('href');
             
-            // Show loading state
-            deleteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
-            deleteBtn.classList.add('btn-loading');
+            if (deleteModal) {
+                deleteModal.hide();
+            }
             
-            // Perform AJAX delete
-            fetch(deleteUrl, {
+            // Show loading
+            showLoading('Inafuta Mwanafunzi', 'Tafadhali subiri, mfumo unamwondoa mwanafunzi darasani...');
+            
+            fetch(currentDeleteUrl, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
@@ -449,76 +397,49 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showToast(true, data.message || 'Student deleted successfully');
                     // Remove row from table
-                    const row = document.getElementById(`student-row-${currentStudentId}`);
+                    const row = document.getElementById(currentRowId);
                     if (row) {
                         row.remove();
                     }
-                    // Close modal
-                    if (deleteModal) {
-                        deleteModal.hide();
+                    // Update total count
+                    const totalSpan = document.querySelector('.text-muted .bi-person-arms-up');
+                    if (totalSpan) {
+                        const totalElement = totalSpan.parentElement;
+                        if (totalElement) {
+                            const currentTotal = parseInt(totalElement.innerText.match(/\d+/)?.[0] || 0);
+                            totalElement.innerText = totalElement.innerText.replace(currentTotal, currentTotal - 1);
+                        }
                     }
-                    // Reload after 1 second to update counts
-                    setTimeout(() => location.reload(), 1000);
+                    showResultAndHide(true, data.message || 'Mwanafunzi ameondolewa kwenye darasa kwa mafanikio!', 'Imefanikiwa!');
+                    // Reload after 1.5 seconds to refresh pagination
+                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    showToast(false, data.message || 'Error deleting student');
-                    if (deleteModal) {
-                        deleteModal.hide();
-                    }
+                    showResultAndHide(false, data.message || 'Imeshindikana kumwondoa mwanafunzi.', 'Imeshindikana!');
                 }
             })
             .catch(error => {
-                showToast(false, 'Error deleting student');
-                if (deleteModal) {
-                    deleteModal.hide();
-                }
-            })
-            .finally(() => {
-                // Reset button
-                deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Yes, Delete';
-                deleteBtn.classList.remove('btn-loading');
+                console.error('Error:', error);
+                showResultAndHide(false, 'Tatizo la mfumo limejitokeza. Jaribu tena.', 'Kosa la Mfumo!');
             });
         });
     }
-});
-
-// Helper function to get CSRF token
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
+    
+    // ================= HELPER FUNCTION =================
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
             }
         }
+        return cookieValue;
     }
-    return cookieValue;
-}
-
-// Auto-refresh when coming from edit page
-window.addEventListener('pageshow', function(event) {
-    if (event.persisted) {
-        location.reload();
-    }
-});
-
-// Row click handler for quick view
-document.querySelectorAll('tbody tr').forEach(row => {
-    row.addEventListener('click', function(e) {
-        // Don't trigger if clicking on button or link
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('button') || e.target.closest('a')) {
-            return;
-        }
-        // Find edit button and click it
-        const editBtn = this.querySelector('.btn-warning');
-        if (editBtn && editBtn.href) {
-            window.location.href = editBtn.href;
-        }
-    });
 });
 </script>
 

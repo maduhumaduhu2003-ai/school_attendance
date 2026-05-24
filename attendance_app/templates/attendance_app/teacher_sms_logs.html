@@ -1,55 +1,118 @@
 {% extends "attendance_app/teacher_base.html" %}
-{% block title %}SMS Logs{% endblock %}
+{% block title %}SMS Logs - {{ classroom.name }}{% endblock %}
 
 {% block content %}
 
-<div class="container-fluid mt-4">
+<!-- Global Loading and Status Popup -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 {% if not messages and not sms_success %}d-none{% endif %}" style="background: rgba(0, 0, 0, 0.3); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 240px; max-width: 320px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="{% if messages or sms_success %}text-success{% else %}spinner-border text-danger{% endif %} d-flex align-items-center justify-content-center" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                {% if messages or sms_success %}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                    </svg>
+                {% endif %}
+            </div>
+            <h6 id="statusText" class="mb-0 {% if messages or sms_success %}text-success{% else %}text-dark{% endif %} fw-bold" style="white-space: nowrap;">
+                {% if messages or sms_success %}Imekamilika kikamilifu!{% else %}Tafadhali subiri...{% endif %}
+            </h6>
+
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid p-3">
     <div class="card shadow-sm">
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                <h4 class="mb-0 text-danger">SMS Logs - {{ classroom.name }} ({{ classroom.year }})</h4>
+
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2 flex-wrap">
+                <div>
+                    <h2 class="mb-1 text-danger">
+                        <i class="bi bi-envelope-paper-fill"></i>
+                        SMS Logs - {{ classroom.name }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Academic Year: {{ classroom.year }}
+                    </p>
+                </div>
                 
-                <!-- Bulk Delete Button (hidden by default) -->
-                <button id="bulkDeleteBtn" class="btn btn-danger btn-sm" style="display: none;" onclick="confirmBulkDelete()">
-                    <i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">0</span>)
-                </button>
+                <div class="d-flex gap-2">
+                    <button id="bulkDeleteBtn" class="btn btn-danger btn-sm" style="display: none;" onclick="confirmBulkDelete()">
+                        <i class="bi bi-trash"></i> Delete Selected (<span id="selectedCount">0</span>)
+                    </button>
+                    <a href="{% url 'teacher_dashboard' %}" class="btn btn-secondary btn-sm global-load-trigger">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
             </div>
 
-            <!-- Responsive Table -->
-            <div class="table-responsive touch-scroll">
-                <table class="table table-bordered table-striped align-middle mb-0" id="smsTable">
-                    <thead class="bg-primary text-white text-center">
+            <div class="card bg-light mb-4">
+                <div class="card-body py-3">
+                    <form method="GET" class="row g-3 align-items-center" id="filterForm">
+                        <div class="col-lg-5 col-md-6">
+                            <label class="form-label fw-bold mb-1">
+                                <i class="bi bi-search"></i> Search Logs
+                            </label>
+                            <input type="text" name="search" value="{{ search_query|default:'' }}" class="form-control" placeholder="Search by student, parent, or phone...">
+                        </div>
+
+                        <div class="col-lg-3 col-md-6">
+                            <label class="form-label fw-bold mb-1">
+                                <i class="bi bi-flag"></i> Status
+                            </label>
+                            <select name="status" class="form-select">
+                                <option value="">All Statuses</option>
+                                <option value="sent" {% if selected_status == 'sent' %}selected{% endif %}>Sent</option>
+                                <option value="failed" {% if selected_status == 'failed' %}selected{% endif %}>Failed</option>
+                                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending</option>
+                            </select>
+                        </div>
+
+                        <div class="col-lg-2 col-md-6">
+                            <label class="form-label d-block invisible">Filter</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-funnel-fill"></i> Filter
+                            </button>
+                        </div>
+
+                        <div class="col-lg-2 col-md-6">
+                            <label class="form-label d-block invisible">Reset</label>
+                            <a href="?" class="btn btn-outline-secondary w-100 global-load-trigger">Reset</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="table table-bordered table-striped align-middle mb-0 large-table" id="smsTable">
+                    <thead>
                         <tr>
-                            <th style="width: 40px;">
+                            <th style="width: 40px;" class="text-center">
                                 <input type="checkbox" id="selectAll" class="form-check-input" style="cursor: pointer;">
                             </th>
-                            <th style="width: 50px;">No</th>
-                            <th style="width: 120px;">Student</th>
-                            <th style="width: 120px;">Parent</th>
-                            <th style="width: 100px;">Phone</th>
+                            <th style="width: 50px;" class="text-center">#</th>
+                            <th>Student Name</th>
+                            <th>Parent Name</th>
+                            <th>Phone Number</th>
                             <th style="width: 35%;">Message</th>
-                            <th style="width: 80px;">Status</th>
-                            <th style="width: 130px;">Sent At</th>
-                            <th style="width: 100px;">Action</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Sent At</th>
+                            <th class="text-center">Actions</th>
                         </tr>
                     </thead>
-                    <tbody style="background-color: #f8fafc;">
+                    <tbody>
                         {% for log in logs %}
-                        <tr>
+                        <tr id="sms-row-{{ log.id }}">
                             <td class="text-center">
                                 <input type="checkbox" class="form-check-input sms-checkbox" data-id="{{ log.id }}" style="cursor: pointer;">
                             </td>
                             <td class="text-center">{{ forloop.counter }}</td>
-                            <td class="text-truncate" style="max-width: 120px;" title="{{ log.student.user.get_full_name }}">
-                                {{ log.student.user.get_full_name|truncatechars:20 }}
-                            </td>
-                            <td class="text-truncate" style="max-width: 120px;" title="{{ log.parent.user.get_full_name }}">
-                                {{ log.parent.user.get_full_name|truncatechars:20 }}
-                            </td>
-                            <td class="text-truncate" style="max-width: 100px;" title="{{ log.parent.user.phone_number }}">
-                                {{ log.parent.user.phone_number|default:"—"|truncatechars:15 }}
-                            </td>
-                            <td class="message-cell" style="max-width: 300px;">
+                            <td>{{ log.student.user.get_full_name }}</td>
+                            <td>{{ log.parent.user.get_full_name }}</td>
+                            <td><code>{{ log.parent.user.phone_number|default:"—" }}</code></td>
+                            <td class="message-cell">
                                 <div class="message-preview">
                                     {{ log.message|truncatechars:80 }}
                                     {% if log.message|length > 80 %}
@@ -64,19 +127,23 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge {% if log.status == 'sent' %}bg-success{% elif log.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %}">
-                                    {{ log.status|capfirst }}
-                                </span>
+                                {% if log.status == 'sent' %}
+                                    <span class="badge bg-success px-3 py-2">Sent</span>
+                                {% elif log.status == 'failed' %}
+                                    <span class="badge bg-danger px-3 py-2">Failed</span>
+                                {% else %}
+                                    <span class="badge bg-warning px-3 py-2">{{ log.status|capfirst }}</span>
+                                {% endif %}
                             </td>
                             <td class="text-center" style="white-space: nowrap;">{{ log.timestamp|date:"M d, Y H:i" }}</td>
                             <td class="text-center">
-                                <div class="action-buttons">
-                                    <button class="btn btn-sm btn-primary resend-sms" 
+                                <div class="d-flex flex-wrap justify-content-center gap-1">
+                                    <button class="btn btn-sm btn-primary resend-sms action-btn" 
                                             data-id="{{ log.id }}"
                                             data-name="{{ log.student.user.get_full_name }}">
                                         <i class="bi bi-send"></i> Resend
                                     </button>
-                                    <button class="btn btn-sm btn-danger delete-single" 
+                                    <button class="btn btn-sm btn-danger delete-single action-btn" 
                                             data-id="{{ log.id }}" 
                                             data-name="{{ log.student.user.get_full_name }}">
                                         <i class="bi bi-trash"></i> Delete
@@ -86,23 +153,45 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center text-danger">No SMS logs found</td>
+                            <td colspan="9" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox" style="font-size: 3rem;"></i><br>
+                                No SMS logs found in {{ classroom.name }}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             
-            <!-- Pagination -->
             {% if logs.has_other_pages %}
-            <nav class="mt-3">
-                <ul class="pagination justify-content-center">
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center flex-wrap">
                     {% if logs.has_previous %}
-                    <li class="page-item"><a class="page-link" href="?page={{ logs.previous_page_number }}">Previous</a></li>
+                    <li class="page-item">
+                        <a class="page-link global-load-trigger" href="?search={{ search_query }}&status={{ selected_status }}&page={{ logs.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
+                    </li>
                     {% endif %}
-                    <li class="page-item active"><span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span></li>
+
+                    <li class="page-item active">
+                        <span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+                    </li>
+
                     {% if logs.has_next %}
-                    <li class="page-item"><a class="page-link" href="?page={{ logs.next_page_number }}">Next</a></li>
+                    <li class="page-item">
+                        <a class="page-link global-load-trigger" href="?search={{ search_query }}&status={{ selected_status }}&page={{ logs.next_page_number }}">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Next <i class="bi bi-chevron-right"></i></span>
+                    </li>
                     {% endif %}
                 </ul>
             </nav>
@@ -112,7 +201,7 @@
     </div>
 </div>
 
-<!-- View Message Modal -->
+<!-- Modals -->
 <div class="modal fade" id="viewMessageModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -121,15 +210,9 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <strong>Student:</strong> <span id="modalStudentName"></span>
-                </div>
-                <div class="mb-3">
-                    <strong>Parent:</strong> <span id="modalParentName"></span>
-                </div>
-                <div class="mb-3">
-                    <strong>Phone Number:</strong> <span id="modalPhoneNumber"></span>
-                </div>
+                <div class="mb-3"><strong>Student:</strong> <span id="modalStudentName"></span></div>
+                <div class="mb-3"><strong>Parent:</strong> <span id="modalParentName"></span></div>
+                <div class="mb-3"><strong>Phone Number:</strong> <span id="modalPhoneNumber"></span></div>
                 <div class="mb-3">
                     <strong>Message:</strong>
                     <div class="alert alert-light mt-2" style="background-color: #f8f9fa; border-left: 4px solid #4f46e5; white-space: pre-wrap; word-wrap: break-word;">
@@ -144,7 +227,6 @@
     </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -152,9 +234,7 @@
                 <h5 class="modal-title">Confirm Delete</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="deleteModalBody">
-                Are you sure you want to delete this SMS log?
-            </div>
+            <div class="modal-body" id="deleteModalBody"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
@@ -163,7 +243,6 @@
     </div>
 </div>
 
-<!-- Resend Confirmation Modal -->
 <div class="modal fade" id="resendModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -171,9 +250,7 @@
                 <h5 class="modal-title">Confirm Resend SMS</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="resendModalBody">
-                Are you sure you want to resend this SMS?
-            </div>
+            <div class="modal-body" id="resendModalBody"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="confirmResendBtn">Resend</button>
@@ -182,219 +259,242 @@
     </div>
 </div>
 
-<!-- ================= STYLES ================= -->
 <style>
-.card {
-    border-radius: 0.6rem;
-    transition: transform 0.3s ease;
+.table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
-
-.card:hover {
-    transform: translateY(-2px);
+.large-table th {
+    background-color: #f8fafc;
+    color: #334155;
+    font-weight: 600;
 }
-
-/* Table hover effect */
 table.table tbody tr:hover {
-    background-color: rgba(79, 70, 229, 0.08);
+    background-color: rgba(79, 70, 229, 0.04);
 }
-
-.table td {
-    vertical-align: middle;
-}
-
-/* Message column styling */
 .message-cell {
     max-width: 300px;
     word-break: break-word;
 }
-
 .message-preview {
     font-size: 0.85rem;
     line-height: 1.4;
 }
-
 .view-message-btn {
     font-size: 0.75rem;
     text-decoration: none;
     color: #4f46e5;
 }
-
 .view-message-btn:hover {
     text-decoration: underline;
-    color: #4338ca;
 }
-
-/* Truncate text with ellipsis */
 .text-truncate {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-/* Touch scroll for mobile */
-.table-responsive.touch-scroll {
-    -webkit-overflow-scrolling: touch;
-    overflow-x: auto;
-}
-
-/* Checkbox styling */
 .form-check-input {
     width: 18px;
     height: 18px;
     cursor: pointer;
 }
-
-.form-check-input:checked {
-    background-color: #dc3545;
-    border-color: #dc3545;
-}
-
-/* Status badges */
-.badge {
-    font-size: 0.75rem;
-    padding: 0.35rem 0.65rem;
-}
-
-/* Action buttons layout */
-.action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.btn-sm {
-    font-size: 0.75rem;
+.action-btn {
     padding: 0.25rem 0.5rem;
-}
-
-/* Full width table on small devices */
-@media (max-width: 767px) {
-    .table {
-        font-size: 0.8rem;
-    }
-    .container-fluid {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-    h4.mb-0 {
-        font-size: 1rem;
-    }
-    .message-cell {
-        max-width: 180px;
-    }
-    .message-preview {
-        font-size: 0.75rem;
-    }
-    .view-message-btn {
-        font-size: 0.7rem;
-    }
-    .btn-sm {
-        padding: 0.2rem 0.4rem;
-        font-size: 0.7rem;
-    }
-    .action-buttons {
-        min-width: 70px;
-    }
-}
-
-@media (max-width: 576px) {
-    .table th, .table td {
-        padding: 0.4rem;
-    }
-    .message-cell {
-        max-width: 140px;
-    }
+    font-size: 0.75rem;
 }
 </style>
 
-<!-- ================= JAVASCRIPT ================= -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = document.getElementById('selectAll');
     const smsCheckboxes = document.querySelectorAll('.sms-checkbox');
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
     const selectedCountSpan = document.getElementById('selectedCount');
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusText = document.getElementById('statusText');
     
     let currentDeleteId = null;
     let currentResendId = null;
     let isBulkDelete = false;
     let selectedIds = [];
     
-    // View Message Modal
+    // Bootstrap Modal instances
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const resendModal = new bootstrap.Modal(document.getElementById('resendModal'));
     const viewMessageModal = new bootstrap.Modal(document.getElementById('viewMessageModal'));
+    
+    // Onyesha loading ya "Tafadhali subiri..."
+    function showLoading() {
+        if (loadingOverlay && statusIcon && statusText) {
+            statusIcon.className = "spinner-border text-danger";
+            statusIcon.removeAttribute('role');
+            statusIcon.style.width = "2rem";
+            statusIcon.style.height = "2rem";
+            statusIcon.innerHTML = "";
+            statusText.className = "mb-0 text-dark fw-bold";
+            statusText.innerText = "Tafadhali subiri...";
+            loadingOverlay.classList.remove('d-none');
+            loadingOverlay.style.opacity = '1';
+        }
+    }
+
+    // Badilisha popup kuwa Success au Failed
+    function showStatusResult(isSuccess, messageText, autoReload = false) {
+        if (!loadingOverlay || !statusIcon || !statusText) return;
+        
+        if (isSuccess) {
+            statusIcon.className = "text-success d-flex align-items-center justify-content-center";
+            statusIcon.style.width = "auto";
+            statusIcon.style.height = "auto";
+            statusIcon.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                  <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                </svg>`;
+            statusText.className = "mb-0 text-success fw-bold";
+        } else {
+            statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
+            statusIcon.style.width = "auto";
+            statusIcon.style.height = "auto";
+            statusIcon.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-x-circle-fill" viewBox="0 0 16 16">
+                  <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 1 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293z"/>
+                </svg>`;
+            statusText.className = "mb-0 text-danger fw-bold";
+        }
+        
+        statusText.innerText = messageText;
+        
+        // Ficha popup baada ya sekunde 2
+        setTimeout(function() {
+            if (autoReload) {
+                location.reload();
+            } else {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    loadingOverlay.classList.add('d-none');
+                    loadingOverlay.style.opacity = '1';
+                }, 400);
+            }
+        }, 2000);
+    }
+
+    // Washa loading wakati wa kufanya filter au kurefresh kurasa
+    const filterForm = document.getElementById('filterForm');
+    if (filterForm) {
+        filterForm.addEventListener('submit', showLoading);
+    }
+
+    document.querySelectorAll('.global-load-trigger').forEach(element => {
+        element.addEventListener('click', showLoading);
+    });
+    
+    // Ficha Kiotomatiki mafanikio (Success Tick) baada ya sekunde 2.5 kurasa ikipakia upya
+    {% if messages or sms_success %}
+        if (loadingOverlay) {
+            setTimeout(function() {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(function() {
+                    loadingOverlay.classList.add('d-none');
+                    loadingOverlay.style.opacity = '1'; 
+                }, 400);
+            }, 2500);
+        }
+    {% endif %}
+
+    // View Message Modal
     document.querySelectorAll('.view-message-btn').forEach(button => {
         button.addEventListener('click', function() {
-            const message = this.getAttribute('data-message');
-            const studentName = this.getAttribute('data-student');
-            const parentName = this.getAttribute('data-parent');
-            const phoneNumber = this.getAttribute('data-phone');
-            
-            document.getElementById('modalStudentName').textContent = studentName;
-            document.getElementById('modalParentName').textContent = parentName;
-            document.getElementById('modalPhoneNumber').textContent = phoneNumber;
-            document.getElementById('modalMessage').textContent = message;
-            
+            document.getElementById('modalStudentName').textContent = this.getAttribute('data-student');
+            document.getElementById('modalParentName').textContent = this.getAttribute('data-parent');
+            document.getElementById('modalPhoneNumber').textContent = this.getAttribute('data-phone');
+            document.getElementById('modalMessage').textContent = this.getAttribute('data-message');
             viewMessageModal.show();
         });
     });
     
-    // Update bulk delete button visibility and count
+    // Update bulk delete button
     function updateBulkDeleteButton() {
         const checkedBoxes = document.querySelectorAll('.sms-checkbox:checked');
         const count = checkedBoxes.length;
-        
-        if (count > 0) {
-            bulkDeleteBtn.style.display = 'block';
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.style.display = count > 0 ? 'inline-block' : 'none';
             selectedCountSpan.textContent = count;
-        } else {
-            bulkDeleteBtn.style.display = 'none';
-            selectedCountSpan.textContent = 0;
         }
     }
     
-    // Select/Deselect All
+    // Select All functionality
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
-            smsCheckboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
-            });
+            smsCheckboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
             updateBulkDeleteButton();
         });
     }
     
-    // Individual checkbox change
-    smsCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            updateBulkDeleteButton();
-            
-            // Update select all checkbox state
-            if (selectAllCheckbox) {
-                const allChecked = smsCheckboxes.length === document.querySelectorAll('.sms-checkbox:checked').length;
-                selectAllCheckbox.checked = allChecked;
-            }
-        });
+    smsCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateBulkDeleteButton);
     });
     
-    // Get selected IDs
-    function getSelectedIds() {
-        const checkedBoxes = document.querySelectorAll('.sms-checkbox:checked');
-        return Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-id')));
-    }
-    
-    // Single delete button click
+    // Delete single SMS
     document.querySelectorAll('.delete-single').forEach(button => {
         button.addEventListener('click', function() {
             currentDeleteId = this.getAttribute('data-id');
             const studentName = this.getAttribute('data-name');
             isBulkDelete = false;
             document.getElementById('deleteModalBody').innerHTML = `Are you sure you want to delete SMS log for <strong>${studentName}</strong>?`;
-            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
             deleteModal.show();
         });
     });
     
-    // Resend button click
-    const resendModal = new bootstrap.Modal(document.getElementById('resendModal'));
+    // Bulk delete trigger
+    window.confirmBulkDelete = function() {
+        const checkedBoxes = document.querySelectorAll('.sms-checkbox:checked');
+        const count = checkedBoxes.length;
+        if (count === 0) return;
+        isBulkDelete = true;
+        selectedIds = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.id));
+        document.getElementById('deleteModalBody').innerHTML = `Are you sure you want to delete <strong>${count}</strong> selected SMS log(s)?`;
+        deleteModal.show();
+    };
+    
+    // Confirm Delete via AJAX
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        deleteModal.hide(); 
+        showLoading();      
+        
+        let url, body = null;
+        if (isBulkDelete) {
+            url = "{% url 'bulk_delete_sms_logs_teacher' %}";
+            body = JSON.stringify({ ids: selectedIds });
+        } else {
+            url = `/teacher/sms/delete/${currentDeleteId}/`;
+        }
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body,
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatusResult(true, "Imefutwa kikamilifu!", true);
+            } else {
+                showStatusResult(false, data.message || "Imeshindikana kufuta!");
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showStatusResult(false, "Hitilafu imetokea kwenye mfumo!");
+        });
+    });
+    
+    // Resend SMS Button Clicked
     document.querySelectorAll('.resend-sms').forEach(button => {
         button.addEventListener('click', function() {
             currentResendId = this.getAttribute('data-id');
@@ -404,111 +504,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Confirm resend button
+    // Confirm Resend via AJAX
     document.getElementById('confirmResendBtn').addEventListener('click', function() {
-        if (!currentResendId) {
-            resendModal.hide();
-            return;
-        }
+        if (!currentResendId) return;
+        
+        resendModal.hide(); 
+        showLoading();      
         
         fetch(`/teacher/sms/resend/${currentResendId}/`, {
             method: 'POST',
             headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                showStatusResult(true, "Imetumwa kikamilifu!", true);
             } else {
-                alert('Error: ' + data.message);
+                showStatusResult(false, data.message || "Imeshindikana kutuma!");
             }
-            resendModal.hide();
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while resending SMS.');
-            resendModal.hide();
+            showStatusResult(false, "Hitilafu imetokea wakati wa kutuma!");
         });
     });
     
-    // Bulk delete button click
-    window.confirmBulkDelete = function() {
-        const count = document.querySelectorAll('.sms-checkbox:checked').length;
-        if (count === 0) return;
-        
-        isBulkDelete = true;
-        selectedIds = getSelectedIds();
-        document.getElementById('deleteModalBody').innerHTML = `Are you sure you want to delete <strong>${count}</strong> selected SMS log(s)? This action cannot be undone.`;
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-        deleteModal.show();
-    };
-    
-    // Confirm delete button
-    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
-        const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-        
-        if (isBulkDelete) {
-            // Bulk delete
-            if (selectedIds.length === 0) {
-                deleteModal.hide();
-                return;
-            }
-            
-            fetch('/teacher/sms/bulk-delete/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({ ids: selectedIds })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-                deleteModal.hide();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while deleting.');
-                deleteModal.hide();
-            });
-        } else {
-            // Single delete
-            if (!currentDeleteId) {
-                deleteModal.hide();
-                return;
-            }
-            
-            fetch(`/teacher/sms/delete/${currentDeleteId}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-                deleteModal.hide();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while deleting.');
-                deleteModal.hide();
-            });
-        }
-    });
-    
-    // Function to get CSRF token
+    // Get CSRF token
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {

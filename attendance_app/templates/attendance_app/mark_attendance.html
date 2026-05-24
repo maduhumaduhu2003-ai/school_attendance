@@ -3,6 +3,26 @@
 
 {% block content %}
 
+<!-- Global Loading and Status Popup (Same as Register Student Page) -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            
+            <div class="text-start">
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inahifadhi...</h6>
+                <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
+                    Tafadhali subiri, attendance inahifadhiwa...
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <!-- Card wrapper -->
 <div class="card shadow-sm mb-4">
     <div class="card-body">
@@ -41,7 +61,7 @@
 
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover align-middle mb-0">
-                    <thead style="background-color: #4f46e5; color: #fff;">
+                    <thead class="custom-table-header">
                         <tr>
                             <th style="width: 5%">#</th>
                             <th style="width: 15%">Admission No</th>
@@ -52,8 +72,14 @@
                     </thead>
                     <tbody>
                         {% for student in students %}
-                        <tr id="row-{{ student.id }}">
-                            <td class="text-center">{{ forloop.counter|add:students.start_index|add:"-1" }}</td>
+                        <tr id="row-{{ student.id }}" class="attendance-row">
+                            <td class="text-center">
+                                {% if students.has_other_pages %}
+                                    {{ students.start_index|add:forloop.counter0 }}
+                                {% else %}
+                                    {{ forloop.counter }}
+                                {% endif %}
+                            </td>
                             <td class="text-center">
                                 <strong>{{ student.admission_number }}</strong>
                             </td>
@@ -70,12 +96,11 @@
                             <td>
                                 <div class="attendance-options">
                                     <div class="form-check form-check-inline">
-                                        <input class="form-check-input" 
+                                        <input class="form-check-input status-radio" 
                                                type="radio" 
                                                name="attendance_{{ student.id }}"
                                                id="present_{{ student.id }}"
                                                value="present"
-                                               data-status="present"
                                                {% if not request.POST %}checked{% endif %}
                                                onchange="updateRowColor({{ student.id }}, 'present')">
                                         <label class="form-check-label text-success" for="present_{{ student.id }}">
@@ -84,12 +109,11 @@
                                     </div>
 
                                     <div class="form-check form-check-inline">
-                                        <input class="form-check-input" 
+                                        <input class="form-check-input status-radio" 
                                                type="radio" 
                                                name="attendance_{{ student.id }}"
                                                id="absent_{{ student.id }}"
                                                value="absent"
-                                               data-status="absent"
                                                onchange="updateRowColor({{ student.id }}, 'absent')">
                                         <label class="form-check-label text-danger" for="absent_{{ student.id }}">
                                             <i class="bi bi-x-circle-fill"></i> Absent
@@ -97,12 +121,11 @@
                                     </div>
 
                                     <div class="form-check form-check-inline">
-                                        <input class="form-check-input" 
+                                        <input class="form-check-input status-radio" 
                                                type="radio" 
                                                name="attendance_{{ student.id }}"
                                                id="sick_{{ student.id }}"
                                                value="sick"
-                                               data-status="sick"
                                                onchange="updateRowColor({{ student.id }}, 'sick')">
                                         <label class="form-check-label text-warning" for="sick_{{ student.id }}">
                                             <i class="bi bi-emoji-frown-fill"></i> Sick
@@ -111,12 +134,12 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-sm btn-outline-secondary mark-all-present" 
+                                <button type="button" class="btn btn-sm btn-outline-success mark-present-btn" 
                                         data-student-id="{{ student.id }}" 
                                         title="Mark as Present">
                                     <i class="bi bi-check-lg"></i>
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-danger mark-all-absent" 
+                                <button type="button" class="btn btn-sm btn-outline-danger mark-absent-btn" 
                                         data-student-id="{{ student.id }}" 
                                         title="Mark as Absent">
                                     <i class="bi bi-x-lg"></i>
@@ -141,9 +164,12 @@
                 </table>
             </div>
 
-            <!-- Pagination Section -->
+            <!-- Pagination Warnings -->
             {% if students.has_other_pages %}
-            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
+            <div class="alert alert-warning mt-3 py-2 small">
+                <i class="bi bi-exclamation-triangle"></i> Caution: Submit attendance page by page before navigating away.
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-3">
                 <div class="text-muted small">
                     Showing {{ students.start_index }} to {{ students.end_index }} of {{ students.paginator.count }} students
                 </div>
@@ -163,13 +189,9 @@
 
                         {% for num in students.paginator.page_range %}
                             {% if num == students.number %}
-                            <li class="page-item active">
-                                <span class="page-link">{{ num }}</span>
-                            </li>
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                             {% elif num > students.number|add:'-3' and num < students.number|add:'3' %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                            </li>
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
                             {% endif %}
                         {% endfor %}
 
@@ -201,7 +223,7 @@
                     </button>
                 </div>
                 <div>
-                    <button type="submit" class="btn btn-primary submit-btn" id="submitBtn">
+                    <button type="button" class="btn btn-primary submit-btn" id="submitBtn">
                         <i class="bi bi-save"></i> Submit Attendance
                     </button>
                     <a href="{% url 'teacher_dashboard' %}" class="btn btn-secondary">
@@ -237,7 +259,11 @@
 
 <!-- Styles -->
 <style>
-/* Card styling */
+.custom-table-header {
+    background-color: #4f46e5; 
+    color: #fff;
+}
+
 .card {
     border-radius: 0.6rem;
     border: none;
@@ -247,10 +273,8 @@
     padding: 1.5rem;
 }
 
-/* Table styling */
 .table-hover tbody tr:hover {
-    background-color: rgba(79, 70, 229, 0.08);
-    cursor: pointer;
+    background-color: rgba(79, 70, 229, 0.04);
 }
 
 .table-bordered th,
@@ -259,7 +283,6 @@
     vertical-align: middle;
 }
 
-/* Radio button styling */
 .form-check-input {
     cursor: pointer;
     margin-top: 0.2rem;
@@ -275,33 +298,29 @@
     font-weight: 500;
 }
 
-/* Attendance options */
 .attendance-options {
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
 }
 
-/* Row color based on selection */
 tr.present-row {
-    background-color: rgba(25, 135, 84, 0.05);
+    background-color: rgba(25, 135, 84, 0.06) !important;
 }
 
 tr.absent-row {
-    background-color: rgba(220, 53, 69, 0.05);
+    background-color: rgba(220, 53, 69, 0.06) !important;
 }
 
 tr.sick-row {
-    background-color: rgba(255, 193, 7, 0.05);
+    background-color: rgba(255, 193, 7, 0.06) !important;
 }
 
-/* Quick action buttons */
 .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
 }
 
-/* Submit button */
 .submit-btn {
     background-color: #4f46e5;
     border: none;
@@ -315,7 +334,6 @@ tr.sick-row {
     transition: all 0.2s;
 }
 
-/* Pagination styling */
 .pagination {
     gap: 0.25rem;
 }
@@ -336,228 +354,237 @@ tr.sick-row {
     color: #4338ca;
 }
 
-/* ================= MOBILE OPTIMIZATION ================= */
 @media (max-width: 768px) {
-    .card-body {
-        padding: 1rem;
-    }
-
-    h4 {
-        font-size: 1.1rem;
-    }
-
-    .table th,
-    .table td {
-        font-size: 0.8rem;
-        padding: 0.5rem;
-    }
-
-    .attendance-options {
-        flex-direction: column;
-        gap: 0.4rem;
-    }
-
-    .form-check-inline {
-        margin-right: 0;
-    }
-
-    .submit-btn,
-    .btn-secondary {
-        width: 100%;
-        margin-top: 0.5rem;
-    }
-
-    .d-flex.flex-sm-row {
-        flex-direction: column;
-    }
-
-    .pagination .page-link {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-    }
-    
-    .pagination {
-        justify-content: center;
-    }
-}
-
-/* Loading state */
-.btn-loading {
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-.btn-loading i {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    .card-body { padding: 1rem; }
+    h4 { font-size: 1.1rem; }
+    .table th, .table td { font-size: 0.8rem; padding: 0.5rem; }
+    .attendance-options { flex-direction: column; gap: 0.4rem; }
+    .form-check-inline { margin-right: 0; }
+    .submit-btn, .btn-secondary { width: 100%; margin-top: 0.5rem; }
+    .d-flex.flex-sm-row { flex-direction: column; }
+    .pagination .page-link { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
 }
 </style>
 
 <!-- JavaScript -->
 <script>
-// Update row color based on selection
+let formDirty = false;
+
 function updateRowColor(studentId, status) {
     const row = document.getElementById(`row-${studentId}`);
     if (!row) return;
     
-    // Remove existing classes
     row.classList.remove('present-row', 'absent-row', 'sick-row');
+    if (status === 'present') row.classList.add('present-row');
+    else if (status === 'absent') row.classList.add('absent-row');
+    else if (status === 'sick') row.classList.add('sick-row');
     
-    // Add appropriate class
-    if (status === 'present') {
-        row.classList.add('present-row');
-    } else if (status === 'absent') {
-        row.classList.add('absent-row');
-    } else if (status === 'sick') {
-        row.classList.add('sick-row');
-    }
-    
-    // Update count
     updateSelectedCount();
 }
 
-// Update selected count (only for current page)
 function updateSelectedCount() {
-    let presentCount = 0;
-    let absentCount = 0;
-    let sickCount = 0;
+    let presentCount = 0, absentCount = 0, sickCount = 0;
     
     document.querySelectorAll('tbody input[type="radio"]:checked').forEach(radio => {
-        const status = radio.value;
-        if (status === 'present') presentCount++;
-        else if (status === 'absent') absentCount++;
-        else if (status === 'sick') sickCount++;
+        if (radio.value === 'present') presentCount++;
+        else if (radio.value === 'absent') absentCount++;
+        else if (radio.value === 'sick') sickCount++;
     });
     
     const total = presentCount + absentCount + sickCount;
     const countSpan = document.getElementById('selectedCount');
     if (countSpan) {
-        countSpan.innerHTML = `${total} students (${presentCount} present, ${absentCount} absent, ${sickCount} sick)`;
-        
-        // Change color based on counts
-        if (absentCount > 0) {
-            countSpan.classList.remove('bg-info');
-            countSpan.classList.add('bg-warning');
+        countSpan.innerHTML = `${total} students (${presentCount} P, ${absentCount} A, ${sickCount} S)`;
+        if (absentCount > 0 || sickCount > 0) {
+            countSpan.className = "badge bg-warning text-dark";
         } else {
-            countSpan.classList.remove('bg-warning');
-            countSpan.classList.add('bg-info');
+            countSpan.className = "badge bg-info";
         }
     }
 }
 
-// Select all as present on current page only
 function selectAll(status) {
-    document.querySelectorAll('tbody input[type="radio"]').forEach(radio => {
-        if (radio.value === status) {
-            radio.checked = true;
-            // Trigger change event
-            const studentId = radio.name.split('_')[1];
-            if (studentId) {
-                updateRowColor(studentId, status);
-            }
-        }
+    document.querySelectorAll(`tbody input[type="radio"][value="${status}"]`).forEach(radio => {
+        radio.checked = true;
+        const studentId = radio.name.split('_')[1];
+        if (studentId) updateRowColor(studentId, status);
     });
-    updateSelectedCount();
+    formDirty = true;
 }
 
-// Clear all selections on current page only
 function clearAll() {
     document.querySelectorAll('tbody input[type="radio"]').forEach(radio => {
         radio.checked = false;
-    });
-    updateSelectedCount();
-}
-
-// Quick mark buttons
-document.querySelectorAll('.mark-all-present').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const studentId = this.dataset.studentId;
-        const radio = document.getElementById(`present_${studentId}`);
-        if (radio) {
-            radio.checked = true;
-            updateRowColor(studentId, 'present');
-            updateSelectedCount();
-        }
-    });
-});
-
-document.querySelectorAll('.mark-all-absent').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const studentId = this.dataset.studentId;
-        const radio = document.getElementById(`absent_${studentId}`);
-        if (radio) {
-            radio.checked = true;
-            updateRowColor(studentId, 'absent');
-            updateSelectedCount();
-        }
-    });
-});
-
-// Form submission with confirmation
-document.getElementById('submitBtn')?.addEventListener('click', function(e) {
-    e.preventDefault();
-    
-    // Show confirmation modal
-    const totalStudents = document.querySelectorAll('tbody tr').length;
-    const totalCountSpan = document.getElementById('totalStudentsCount');
-    if (totalCountSpan) {
-        totalCountSpan.textContent = totalStudents;
-    }
-    
-    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
-    confirmModal.show();
-});
-
-document.getElementById('confirmSubmit')?.addEventListener('click', function() {
-    // Add loading state
-    const btn = document.getElementById('submitBtn');
-    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting...';
-    btn.classList.add('btn-loading');
-    
-    // Submit the form
-    document.getElementById('attendanceForm').submit();
-});
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Set initial row colors based on checked radios
-    document.querySelectorAll('tbody input[type="radio"]:checked').forEach(radio => {
         const studentId = radio.name.split('_')[1];
         if (studentId) {
-            updateRowColor(studentId, radio.value);
+            const row = document.getElementById(`row-${studentId}`);
+            if (row) row.classList.remove('present-row', 'absent-row', 'sick-row');
         }
     });
     updateSelectedCount();
+    formDirty = true;
+}
+
+// Loading popup controls
+const loadingOverlay = document.getElementById('globalLoading');
+const statusIcon = document.getElementById('statusIcon');
+const statusTitle = document.getElementById('statusTitle');
+const statusText = document.getElementById('statusText');
+
+function showLoading(title, text) {
+    if (loadingOverlay) {
+        statusIcon.className = "spinner-border text-danger";
+        statusIcon.style.width = "2rem";
+        statusIcon.style.height = "2rem";
+        statusIcon.innerHTML = "";
+        
+        statusTitle.className = "mb-1 fw-bold text-dark";
+        statusTitle.innerText = title || "Inahifadhi...";
+        
+        statusText.innerText = text || "Tafadhali subiri, attendance inahifadhiwa...";
+        
+        loadingOverlay.classList.remove('d-none');
+        loadingOverlay.style.opacity = '1';
+    }
+}
+
+function showResultAndHide(isSuccess, message, title, redirectUrl) {
+    if (loadingOverlay) {
+        if (isSuccess) {
+            statusIcon.className = "text-success d-flex align-items-center justify-content-center";
+            statusIcon.style.fontSize = "2rem";
+            statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+            statusTitle.className = "mb-1 fw-bold text-success";
+            statusTitle.innerText = title || "Umefanikiwa!";
+        } else {
+            statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
+            statusIcon.style.fontSize = "2rem";
+            statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+            statusTitle.className = "mb-1 fw-bold text-danger";
+            statusTitle.innerText = title || "Imeshindikana!";
+        }
+        statusText.innerText = message;
+        
+        setTimeout(function() {
+            loadingOverlay.style.opacity = '0';
+            setTimeout(function() {
+                loadingOverlay.classList.add('d-none');
+                loadingOverlay.style.opacity = '1';
+                if (redirectUrl) {
+                    window.location.href = redirectUrl;
+                }
+            }, 400);
+        }, 2000);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Set row colors on initial view rendering
+    document.querySelectorAll('tbody input[type="radio"]:checked').forEach(radio => {
+        const studentId = radio.name.split('_')[1];
+        if (studentId) updateRowColor(studentId, radio.value);
+    });
     
-    // Add row click handler for easier selection
-    document.querySelectorAll('tbody tr').forEach(row => {
+    // Click target normalization for Rows
+    document.querySelectorAll('tbody tr.attendance-row').forEach(row => {
         row.addEventListener('click', function(e) {
-            // Don't trigger if clicking on radio or button
-            if (e.target.type === 'radio' || e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+            if (e.target.closest('button') || e.target.closest('.attendance-options') || e.target.tagName === 'A') {
                 return;
             }
-            
-            // Find the first radio in this row (present)
             const radio = this.querySelector('input[type="radio"][value="present"]');
-            if (radio) {
+            if (radio && !radio.checked) {
                 radio.checked = true;
                 const studentId = radio.name.split('_')[1];
                 updateRowColor(studentId, 'present');
-                updateSelectedCount();
+                formDirty = true;
             }
         });
     });
-});
 
-// Warn before leaving if form is dirty
-let formDirty = false;
-document.querySelectorAll('tbody input[type="radio"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-        formDirty = true;
+    // Action button event listeners
+    document.querySelectorAll('.mark-present-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const studentId = this.dataset.studentId;
+            const radio = document.getElementById(`present_${studentId}`);
+            if (radio) {
+                radio.checked = true;
+                updateRowColor(studentId, 'present');
+                formDirty = true;
+            }
+        });
+    });
+
+    document.querySelectorAll('.mark-absent-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const studentId = this.dataset.studentId;
+            const radio = document.getElementById(`absent_${studentId}`);
+            if (radio) {
+                radio.checked = true;
+                updateRowColor(studentId, 'absent');
+                formDirty = true;
+            }
+        });
+    });
+
+    // Input-specific modification checks
+    document.querySelectorAll('tbody input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', () => { formDirty = true; });
+    });
+
+    // Intercept layout base for Confirmation
+    document.getElementById('submitBtn')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        const totalStudents = document.querySelectorAll('tbody tr.attendance-row').length;
+        const totalCountSpan = document.getElementById('totalStudentsCount');
+        if (totalCountSpan) totalCountSpan.textContent = totalStudents;
+        
+        const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        confirmModal.show();
+    });
+
+    // Async Form Dispatching with Loading Popup
+    document.getElementById('confirmSubmit')?.addEventListener('click', function() {
+        formDirty = false;
+        
+        const confirmModalEl = document.getElementById('confirmModal');
+        const confirmModal = bootstrap.Modal.getInstance(confirmModalEl);
+        if (confirmModal) confirmModal.hide();
+        
+        // Show loading popup
+        showLoading("Inahifadhi Attendance...", "Tafadhali subiri, attendance inahifadhiwa kwenye mfumo...");
+        
+        const btn = document.getElementById('submitBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting...';
+            btn.classList.add('btn-loading');
+        }
+
+        const form = document.getElementById('attendanceForm');
+        const formData = new FormData(form);
+        const actionUrl = form.getAttribute('action') || window.location.href;
+
+        fetch(actionUrl, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => {
+            if (response.ok || response.redirected) {
+                showResultAndHide(true, "Attendance imehifadhiwa kwa mafanikio!", "Umefanikiwa!", "{% url 'view_attendance' %}");
+            } else {
+                throw new Error('Server error occurred');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showResultAndHide(false, "Tatizo la mfumo limejitokeza. Jaribu tena.", "Imeshindikana!", null);
+            if (btn) {
+                btn.innerHTML = '<i class="bi bi-save"></i> Submit Attendance';
+                btn.classList.remove('btn-loading');
+            }
+        });
     });
 });
 
@@ -568,11 +595,5 @@ window.addEventListener('beforeunload', function(e) {
         return e.returnValue;
     }
 });
-
-// Mark form as clean after submit
-document.getElementById('attendanceForm')?.addEventListener('submit', () => {
-    formDirty = false;
-});
 </script>
-
 {% endblock %}

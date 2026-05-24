@@ -312,12 +312,12 @@ class Enrollment(models.Model):
 # ============================================================
 
 class ParentProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='parent_profile', db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='parent_profiles', db_index=True)
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='parents', db_index=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'student'], name='unique_parent_student')
+            models.UniqueConstraint(fields=['user', 'student'], name='unique_parent_student_pair')
         ]
         indexes = [
             models.Index(fields=['student']),

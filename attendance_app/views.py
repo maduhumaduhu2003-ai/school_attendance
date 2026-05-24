@@ -71,6 +71,10 @@ from .forms import (
     AcademicYearForm,
 )
 from .utils import auto_lock_expired_academic_year, send_sms
+import datetime
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
+from django.http import JsonResponse
+from django.urls import reverse
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -138,44 +142,63 @@ def get_students_by_teacher_scope(classroom, stream=None, academic_year=None):
 # ================= AUTHENTICATION VIEWS =================
 
 @never_cache
+@ensure_csrf_cookie  # Hii inahakikisha CSRF cookie inatumwa kwa browser
 def login_view(request):
     admin_exists = User.objects.filter(role='admin').exists()
+    
+    # Check if AJAX request
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     if request.method == 'POST':
+        # Get credentials
         username = request.POST.get('username')
         password = request.POST.get('password')
         lat = request.POST.get('lat')
         lng = request.POST.get('lng')
 
+        # Validate location
         try:
-            lat = float(lat)
-            lng = float(lng)
+            lat = float(lat) if lat else None
+            lng = float(lng) if lng else None
         except (TypeError, ValueError):
+            if is_ajax:
+                return JsonResponse({'success': False, 'message': 'Location error: allow GPS access.'})
             messages.error(request, "Location error: allow GPS access.")
             return redirect('login')
 
-        distance = distance_in_meters(lat, lng, SCHOOL_LAT, SCHOOL_LNG)
+        # Check distance if location provided
+        if lat and lng:
+            distance = distance_in_meters(lat, lng, SCHOOL_LAT, SCHOOL_LNG)
+            if distance is None:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': 'Could not calculate distance.'})
+                messages.error(request, "Could not calculate distance.")
+                return redirect('login')
 
-        if distance is None:
-            messages.error(request, "Could not calculate distance.")
-            return redirect('login')
+            if distance > MAX_DISTANCE_METERS:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': 'Access denied: you are outside school area.'})
+                messages.error(request, "Access denied: you are outside school area.")
+                return redirect('login')
 
-        if distance > MAX_DISTANCE_METERS:
-            messages.error(request, "Access denied: you are outside school area.")
-            return redirect('login')
-
+        # Authenticate user
         user = authenticate(request, username=username, password=password)
 
         if not user:
+            if is_ajax:
+                return JsonResponse({'success': False, 'message': 'Invalid username or password!'})
             messages.error(request, "Invalid username or password!")
             return redirect('login')
 
+        # Update role if superuser
         if user.is_superuser and user.role != 'admin':
             user.role = 'admin'
             user.save()
 
+        # Login user
         login(request, user)
 
+        # Determine redirect URL based on role
         role_redirects = {
             'admin': 'admin_dashboard',
             'teacher': 'teacher_dashboard',
@@ -183,16 +206,26 @@ def login_view(request):
         }
 
         if user.role in role_redirects:
-            return redirect(role_redirects[user.role])
+            redirect_url = reverse(role_redirects[user.role])
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Welcome back, {user.get_full_name() or user.username}!',
+                    'redirect_url': redirect_url
+                })
+            return redirect(redirect_url)
 
+        # Invalid role
         logout(request)
+        if is_ajax:
+            return JsonResponse({'success': False, 'message': 'Invalid role!'})
         messages.error(request, "Invalid role!")
         return redirect('login')
 
+    # GET request - render login page
     return render(request, 'attendance_app/login.html', {
         'admin_exists': admin_exists
     })
-
 
 def format_phone_number(phone):
     if not phone:
@@ -1333,7 +1366,7 @@ def register_student_teacher(request):
         parent_phone = request.POST.get('parent_phone', '').strip()
 
         if parent_full_name and parent_phone:
-            # TUMIA FORMAT_PHONE_NUMBER ILIYOPO KWENYE HELPER FUNCTIONS
+            # phone number format
             parent_phone_clean = format_phone_number(parent_phone)
             
             if parent_phone_clean:
@@ -1552,44 +1585,79 @@ def edit_student_teacher(request, student_id):
         messages.error(request, "Unable to update student. Please try again.")
         return redirect('my_students')
 
+import logging
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.cache import never_cache
+from django.db import transaction
+from .models import StudentProfile, AcademicYear, Enrollment
+
+logger = logging.getLogger(__name__)
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def delete_student(request, student_id):
+    # 1. Hakikisha mwanafunzi yupo
+    student = get_object_or_404(StudentProfile, id=student_id)
+    
+    # 2. Pata mwaka wa masomo ulio hai (Active)
+    active_year = AcademicYear.objects.filter(is_active=True).first()
+    if not active_year:
+        messages.error(request, "Mfumo hauna Mwaka wa Masomo ulio hai kwa sasa.")
+        return redirect("manage_student" if request.user.role == "admin" else "my_students")
 
+    # 3. Pata usajili (Enrollment) ya mwanafunzi kwa mwaka huu
+    enrollment = student.enrollments.filter(academic_year=active_year).first()
+    if not enrollment:
+        messages.warning(request, "Mwanafunzi huyu hana usajili katika mwaka huu wa masomo.")
+        return redirect("manage_student" if request.user.role == "admin" else "my_students")
+
+    # ============================================================
+    # KIWANGO CHA ULINZI 1: USALAMA WA MWALIMU (TEACHER AUTHC)
+    # ============================================================
+    if request.user.role == "teacher":
+        # Mwalimu anaweza kumtoa mwanafunzi tu ikiwa yeye ndiye Class Teacher wa darasa hilo
+        if enrollment.class_teacher != request.user.teacher_profile:
+            messages.error(request, "Huna mamlaka ya kumtoa mwanafunzi asiye wa darasa lako!")
+            return redirect("my_students")
+
+    # ============================================================
+    # KIWANGO CHA ULINZI 2: UTENDAJI KAZI (ACTION EXECUTION)
+    # ============================================================
     try:
-        student = get_object_or_404(StudentProfile, id=student_id)
-
-        active_year = AcademicYear.objects.filter(is_active=True).first()
-
-        # DELETE ONLY CURRENT YEAR ENROLLMENT
-        enrollment = student.enrollments.filter(
-            academic_year=active_year
-        ).first()
-
-        if enrollment:
-            enrollment.delete()
-
-            messages.success(
-                request,
-                "Student removed from current academic year successfully."
-            )
-        else:
-            messages.warning(
-                request,
-                "No enrollment found for current academic year."
-            )
+        with transaction.atomic():  # Inalinda database isiharibike kukiwa na error midway
+            
+            # KAMA NI ADMIN na amebonyeza "Futa Kabisa Mfumoni" (Mfano: Alisajiliwa kimakosa kabisa)
+            if request.user.role == "admin" and request.GET.get("permanent") == "true":
+                student_name = student.user.get_full_name() or student.user.username
+                # Hii itafuta User, StudentProfile na Enrollments zote kwa sababu ya CASCADE
+                student.user.delete() 
+                
+                messages.success(request, f"Mwanafunzi {student_name} amefutwa kabisa kwenye mfumo.")
+                return redirect("manage_student")
+            
+            # KAMA NI MWALIMU au ADMIN wa kawaida (Soft Delete / De-enrollment)
+            else:
+                # Kiutaalamu: Kama mwanafunzi alikuwepo darasani, usifute row! Badili status kuwa 'Inactive'
+                # Hii inalinda ushupavu wa data (Data Integrity) kwenye tables kama Attendance
+                enrollment.status = "Inactive"
+                enrollment.save()
+                
+                messages.success(
+                    request, 
+                    f"Mwanafunzi amesimamishwa/ameondolewa kwenye darasa kwa mwaka huu ({active_year})."
+                )
 
     except Exception as e:
-        logger.error(f"Error deleting student {student_id}: {e}")
-        messages.error(request, "Failed to remove student from class.")
+        logger.error(f"Error executing delete_student for ID {student_id}: {e}")
+        messages.error(request, "Imeshindikana kukamilisha ombi lako. Tatizo la kiufundi limetokea.")
 
-    # Redirect based on role
+    # Redirect kulingana na Role
     if request.user.role == "teacher":
         return redirect("my_students")
-    else:
-        return redirect("manage_student")
+    return redirect("manage_student")
 
 
 @never_cache
@@ -1776,11 +1844,18 @@ def mark_attendance(request):
 
     if request.method == "POST":
         today = timezone.localdate()
+        
+        # Track SMS results
+        total_sms_sent = 0
+        total_sms_failed = 0
+        sms_errors = []
+        low_balance_detected = False
 
         for student in students:
             status = request.POST.get(f'attendance_{student.id}', 'present')
             student_enrollment = Enrollment.objects.filter(student=student, academic_year=active_year).first()
 
+            # Save attendance
             Attendance.objects.update_or_create(
                 student=student,
                 date=today,
@@ -1788,28 +1863,66 @@ def mark_attendance(request):
                 defaults={'status': status, 'marked_by': teacher}
             )
 
+            # Send SMS only for absent students
             if status == 'absent':
+                # Check if SMS already sent today
                 start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
                 end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
                 sms_exists = SMSLog.objects.filter(student=student, timestamp__range=(start, end)).exists()
 
                 if not sms_exists:
                     try:
-                        sms_ok = send_absent_sms(student, teacher=teacher)
-                        if not sms_ok:
-                            messages.warning(request, f"Could not send absent SMS for {student.user.get_full_name()}")
+                        success_count, failed_count, error_msgs = send_absent_sms(student, teacher=teacher)
+                        total_sms_sent += success_count
+                        total_sms_failed += failed_count
+                        
+                        # Check for low balance error
+                        for msg in error_msgs:
+                            if 'salio' in msg.lower() or 'balance' in msg.lower():
+                                low_balance_detected = True
+                            sms_errors.append(f"{student.user.get_full_name()}: {msg}")
+                            
                     except Exception as e:
+                        total_sms_failed += 1
                         logger.error(f"Error sending absent SMS for {student.id}: {e}")
+                        sms_errors.append(f"{student.user.get_full_name()}: System error")
 
-        messages.success(request, f"Attendance marked successfully for {today}")
+        # Prepare feedback message
+        feedback_parts = [f" Attendance marked successfully for {today.strftime('%d/%m/%Y')}"]
+        
+        if total_sms_sent > 0:
+            feedback_parts.append(f" SMS sent: {total_sms_sent} parent(s)")
+        
+        if total_sms_failed > 0:
+            feedback_parts.append(f" SMS failed: {total_sms_failed}")
+        
+        if low_balance_detected:
+            feedback_parts.append(" ONYO: Salio la SMS limepungua au halipo!")
+        
+        # Show main success message
+        messages.success(request, " | ".join(feedback_parts))
+        
+        # Show individual error details (max 3)
+        for error in sms_errors[:3]:
+            messages.warning(request, f"{error}")
+        
+        if len(sms_errors) > 3:
+            messages.info(request, f"... na {len(sms_errors) - 3} errors nyingine")
+        
+        # Special alert for low balance
+        if low_balance_detected:
+            messages.error(request, " TAHADHARI: Salio la SMS halipo! Wasiliana na Admin kuongeza salio.")
+        
         return redirect('view_attendance')
 
-    return render(request, 'attendance_app/mark_attendance.html', {
+    context = {
         'students': students,
         'classroom': classroom,
         'stream': stream,
         'teacher': teacher,
-    })
+    }
+    return render(request, 'attendance_app/mark_attendance.html', context)
+
 
 
 @never_cache
@@ -1844,51 +1957,76 @@ def view_attendance(request):
     else:
         selected_date = timezone.localdate()
 
-    # OPTIMIZED: Get students in one query
-    students_qs = StudentProfile.objects.filter(
+    # GET ALL STUDENTS in the class (for total counts)
+    all_students_qs = StudentProfile.objects.filter(
         enrollments__classroom=classroom,
         enrollments__academic_year=active_year
     ).select_related('user').distinct()
     
     if stream:
-        students_qs = students_qs.filter(enrollments__stream=stream)
+        all_students_qs = all_students_qs.filter(enrollments__stream=stream)
     
-    student_ids = list(students_qs.values_list('id', flat=True))
-    students_count = len(student_ids)
+    # Get ALL student IDs
+    all_student_ids = list(all_students_qs.values_list('id', flat=True))
+    students_count = len(all_student_ids)
     
-    # OPTIMIZED: Get attendance in one query with gender aggregation
-    from django.db.models import Q, Count, Case, When, IntegerField
+    # Get gender counts from ALL students
+    male_student_ids = list(all_students_qs.filter(user__gender__iexact='Male').values_list('id', flat=True))
+    female_student_ids = list(all_students_qs.filter(user__gender__iexact='Female').values_list('id', flat=True))
+    male_count = len(male_student_ids)
+    female_count = len(female_student_ids)
     
+    # Get attendance for selected date
     attendance_qs = Attendance.objects.filter(
-        student_id__in=student_ids,
+        student_id__in=all_student_ids,
         date=selected_date
     ).select_related('student__user', 'marked_by__user')
     
-    # Aggregations
+    # Calculate totals from attendance records
     total_present = attendance_qs.filter(status='present').count()
     total_absent = attendance_qs.filter(status='absent').count()
     total_sick = attendance_qs.filter(status='sick').count()
     total_records = total_present + total_absent + total_sick
     
-    present_percentage = round((total_present / total_records) * 100, 2) if total_records else 0
-    absent_percentage = round((total_absent / total_records) * 100, 2) if total_records else 0
-    sick_percentage = round((total_sick / total_records) * 100, 2) if total_records else 0
+    # Calculate percentages based on students who have attendance records
+    if total_records > 0:
+        present_percentage = round((total_present / total_records) * 100, 2)
+        absent_percentage = round((total_absent / total_records) * 100, 2)
+        sick_percentage = round((total_sick / total_records) * 100, 2)
+    else:
+        present_percentage = absent_percentage = sick_percentage = 0
     
-    # Gender breakdown
-    male_student_ids = list(students_qs.filter(user__gender='male').values_list('id', flat=True))
-    female_student_ids = list(students_qs.filter(user__gender='female').values_list('id', flat=True))
-    
-    male_present = attendance_qs.filter(student_id__in=male_student_ids, status='present').count()
-    male_absent = attendance_qs.filter(student_id__in=male_student_ids, status='absent').count()
-    male_sick = attendance_qs.filter(student_id__in=male_student_ids, status='sick').count()
+    # Calculate Male attendance from attendance records
+    male_attendance = attendance_qs.filter(student_id__in=male_student_ids)
+    male_present = male_attendance.filter(status='present').count()
+    male_absent = male_attendance.filter(status='absent').count()
+    male_sick = male_attendance.filter(status='sick').count()
     male_total = male_present + male_absent + male_sick
     
-    female_present = attendance_qs.filter(student_id__in=female_student_ids, status='present').count()
-    female_absent = attendance_qs.filter(student_id__in=female_student_ids, status='absent').count()
-    female_sick = attendance_qs.filter(student_id__in=female_student_ids, status='sick').count()
+    # Calculate Male percentages
+    if male_total > 0:
+        male_present_pct = round((male_present / male_total) * 100, 2)
+        male_absent_pct = round((male_absent / male_total) * 100, 2)
+        male_sick_pct = round((male_sick / male_total) * 100, 2)
+    else:
+        male_present_pct = male_absent_pct = male_sick_pct = 0
+    
+    # Calculate Female attendance from attendance records
+    female_attendance = attendance_qs.filter(student_id__in=female_student_ids)
+    female_present = female_attendance.filter(status='present').count()
+    female_absent = female_attendance.filter(status='absent').count()
+    female_sick = female_attendance.filter(status='sick').count()
     female_total = female_present + female_absent + female_sick
+    
+    # Calculate Female percentages
+    if female_total > 0:
+        female_present_pct = round((female_present / female_total) * 100, 2)
+        female_absent_pct = round((female_absent / female_total) * 100, 2)
+        female_sick_pct = round((female_sick / female_total) * 100, 2)
+    else:
+        female_present_pct = female_absent_pct = female_sick_pct = 0
 
-    # Pagination
+    # Pagination for attendance records
     paginator = Paginator(attendance_qs, 25)
     page_number = request.GET.get('page')
     attendance_records = paginator.get_page(page_number)
@@ -1907,24 +2045,25 @@ def view_attendance(request):
         "present_percentage": present_percentage,
         "absent_percentage": absent_percentage,
         "sick_percentage": sick_percentage,
-        "male_count": len(male_student_ids),
+        # Male counts
+        "male_count": male_count,
         "male_present": male_present,
         "male_absent": male_absent,
         "male_sick": male_sick,
-        "male_present_pct": round((male_present / male_total) * 100, 2) if male_total else 0,
-        "male_absent_pct": round((male_absent / male_total) * 100, 2) if male_total else 0,
-        "male_sick_pct": round((male_sick / male_total) * 100, 2) if male_total else 0,
-        "female_count": len(female_student_ids),
+        "male_present_pct": male_present_pct,
+        "male_absent_pct": male_absent_pct,
+        "male_sick_pct": male_sick_pct,
+        # Female counts
+        "female_count": female_count,
         "female_present": female_present,
         "female_absent": female_absent,
         "female_sick": female_sick,
-        "female_present_pct": round((female_present / female_total) * 100, 2) if female_total else 0,
-        "female_absent_pct": round((female_absent / female_total) * 100, 2) if female_total else 0,
-        "female_sick_pct": round((female_sick / female_total) * 100, 2) if female_total else 0,
+        "female_present_pct": female_present_pct,
+        "female_absent_pct": female_absent_pct,
+        "female_sick_pct": female_sick_pct,
     }
 
     return render(request, "attendance_app/view_attendance.html", context)
-
 
 @never_cache
 @login_required
@@ -1940,6 +2079,11 @@ def edit_attendance(request, pk):
         if new_status in ["present", "absent", "sick"]:
             attendance.status = new_status
             attendance.save()
+            
+            # Hapa tunaiweka kwenye session ya Django Messages kabla ya kurudisha JSON.
+            # Ukurasa ukijirefresh kupitia JS, base.html itaikuta na kuonyesha Toast kiotomatiki.
+            messages.success(request, f"Attendance updated to {new_status.capitalize()} successfully.")
+            
             return JsonResponse({"success": True, "message": f"Attendance updated to {new_status.capitalize()} successfully."})
         return JsonResponse({"success": False, "message": "Invalid status selected."})
 
@@ -2179,126 +2323,268 @@ def teacher_sms_logs(request):
     classroom = teacher_enrollment.classroom
     stream = teacher_enrollment.stream
     students_in_class = get_students_by_teacher_scope(classroom, stream, academic_year=active_year)
-    logs = SMSLog.objects.filter(student__in=students_in_class).select_related('student', 'parent').order_by('-timestamp')
     
+    # 1. Pata logs zote za wanafunzi wa darasa husika kwanza
+    logs = SMSLog.objects.filter(student__in=students_in_class).select_related('student__user', 'parent__user')
+    
+    # 2. CHUJA KWA SEARCH QUERY (Kama ipo kwenye GET request)
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        logs = logs.filter(
+            Q(student__user__first_name__icontains=search_query) |
+            Q(student__user__last_name__icontains=search_query) |
+            Q(parent__user__first_name__icontains=search_query) |
+            Q(parent__user__last_name__icontains=search_query) |
+            Q(parent__user__phone_number__icontains=search_query)
+        )
+    
+    # 3. CHUJA KWA STATUS (Kama ipo kwenye GET request)
+    selected_status = request.GET.get('status', '').strip()
+    if selected_status:
+        logs = logs.filter(status=selected_status)
+        
+    # 4. Panga kwa kupanga kwa kuanzia SMS ya hivi karibuni (Ordering)
+    logs = logs.order_by('-timestamp')
+    
+    # 5. PAGINATION (Kuweka kurasa)
     paginator = Paginator(logs, 25)
     page_number = request.GET.get('page')
     paginated_logs = paginator.get_page(page_number)
     
+    # 6. RUDISHA DATA KWENYE TEMPLATE
     return render(request, 'attendance_app/teacher_sms_logs.html', {
         'logs': paginated_logs,
         'teacher': teacher,
         'classroom': classroom,
         'stream': stream,
+        'search_query': search_query,        # Inarudisha text iliyotafutwa kwenye input field
+        'selected_status': selected_status,  # Inarudisha status iliyochaguliwa kwenye dropdown
     })
 
+
+from django.http import Http404, JsonResponse
+from django.views.decorators.http import require_POST
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
+@require_POST
 def delete_sms_log(request, sms_id):
-    teacher = get_object_or_404(TeacherProfile, user=request.user)
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    if not active_year:
-        return JsonResponse({'success': False, 'error': 'No active academic year'})
-    
-    teacher_enrollment = Enrollment.objects.filter(
-        class_teacher=teacher,
-        academic_year=active_year
-    ).select_related('classroom', 'stream').first()
-    
-    if not teacher_enrollment or not teacher_enrollment.classroom:
-        return JsonResponse({'success': False, 'error': 'Teacher not assigned to a classroom'})
-    
-    students_in_class = get_students_by_teacher_scope(teacher_enrollment.classroom, teacher_enrollment.stream, academic_year=active_year)
-    
+    """Delete single SMS log - Returns JSON for toast notifications"""
     try:
+        teacher = get_object_or_404(TeacherProfile, user=request.user)
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_year:
+            return JsonResponse({
+                'success': False, 
+                'message': '❌ Hakuna mwaka wa masomo ulio hai'
+            })
+        
+        teacher_enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
+        
+        if not teacher_enrollment or not teacher_enrollment.classroom:
+            return JsonResponse({
+                'success': False, 
+                'message': '❌ Hujapewa darasa la kufundisha'
+            })
+        
+        students_in_class = get_students_by_teacher_scope(
+            teacher_enrollment.classroom, 
+            teacher_enrollment.stream, 
+            academic_year=active_year
+        )
+        
         sms_log = get_object_or_404(SMSLog, id=sms_id, student__in=students_in_class)
+        student_name = sms_log.student.user.get_full_name()
         sms_log.delete()
-        return JsonResponse({'success': True, 'message': 'SMS log deleted successfully'})
-    except SMSLog.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'SMS log not found'})
+        
+        logger.info(f"SMS log {sms_id} deleted by teacher {teacher.user.username}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f' {student_name} SMS log deleted'
+        })
+        
+    except Http404:
+        return JsonResponse({
+            'success': False, 
+            'message': 'dint found any message'
+        })
+    except Exception as e:
+        logger.error(f"Error deleting SMS log {sms_id}: {e}")
+        return JsonResponse({
+            'success': False, 
+            'message': f'error: {str(e)[:100]}'
+        })
 
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def bulk_delete_sms_logs_teacher(request):
-    if request.method == "POST":
-        try:
-            import json
-            data = json.loads(request.body)
-            ids = data.get('ids', [])
-            if not ids:
-                return JsonResponse({'success': False, 'message': 'No IDs provided'})
-            
-            teacher = get_object_or_404(TeacherProfile, user=request.user)
-            active_year = AcademicYear.objects.filter(is_active=True).first()
-            teacher_enrollment = Enrollment.objects.filter(
-                class_teacher=teacher,
-                academic_year=active_year
-            ).select_related('classroom', 'stream').first()
-            
-            if teacher_enrollment and teacher_enrollment.classroom:
-                students_in_class = get_students_by_teacher_scope(
-                    teacher_enrollment.classroom, teacher_enrollment.stream, academic_year=active_year
-                )
-                deleted_count = SMSLog.objects.filter(id__in=ids, student__in=students_in_class).delete()[0]
-                return JsonResponse({'success': True, 'message': f'{deleted_count} SMS log(s) deleted successfully', 'deleted_count': deleted_count})
-            
-            return JsonResponse({'success': False, 'message': 'Access denied'})
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': str(e)})
-    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    """Bulk delete multiple SMS logs - Returns JSON for toast notifications"""
+    if request.method != "POST":
+        return JsonResponse({
+            'success': False, 
+            'message': 'method not accepted'
+        })
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        ids = data.get('ids', [])
+        
+        if not ids:
+            return JsonResponse({
+                'success': False, 
+                'message': 'sms not'
+            })
+        
+        teacher = get_object_or_404(TeacherProfile, user=request.user)
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_year:
+            return JsonResponse({
+                'success': False, 
+                'message': 'No active academic year'
+            })
+        
+        teacher_enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
+        
+        if not teacher_enrollment or not teacher_enrollment.classroom:
+            return JsonResponse({
+                'success': False, 
+                'message': 'your not enrolled to class'
+            })
+        
+        students_in_class = get_students_by_teacher_scope(
+            teacher_enrollment.classroom, 
+            teacher_enrollment.stream, 
+            academic_year=active_year
+        )
+        
+        deleted_count = SMSLog.objects.filter(
+            id__in=ids, 
+            student__in=students_in_class
+        ).delete()[0]
+        
+        logger.info(f"Bulk deleted {deleted_count} SMS logs by teacher {teacher.user.username}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f' {deleted_count} SMS log(s) success deleted!',
+            'deleted_count': deleted_count
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False, 
+            'message': 'incorrect data'
+        })
+    except Exception as e:
+        logger.error(f"Error in bulk delete SMS logs: {e}")
+        return JsonResponse({
+            'success': False, 
+            'message': f' Error: {str(e)[:100]}'
+        })
 
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def resend_sms(request, sms_id):
+    """Resend SMS - Returns JSON for toast notifications"""
     try:
         teacher = request.user.teacher_profile
     except TeacherProfile.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Teacher profile not found'})
+        return JsonResponse({
+            'success': False, 
+            'message': 'No teacher profile found'
+        })
 
     active_year = AcademicYear.objects.filter(is_active=True).first()
+    if not active_year:
+        return JsonResponse({
+            'success': False, 
+            'message': ' No active academic year'
+        })
+    
     teacher_enrollment = Enrollment.objects.filter(
         class_teacher=teacher,
         academic_year=active_year
     ).select_related('classroom', 'stream').first()
     
     if not teacher_enrollment or not teacher_enrollment.classroom:
-        return JsonResponse({'success': False, 'message': 'You are not assigned to any classroom'})
+        return JsonResponse({
+            'success': False, 
+            'message': ' not enrolled'
+        })
     
-    students_in_class = get_students_by_teacher_scope(teacher_enrollment.classroom, teacher_enrollment.stream, academic_year=active_year)
+    students_in_class = get_students_by_teacher_scope(
+        teacher_enrollment.classroom, 
+        teacher_enrollment.stream, 
+        academic_year=active_year
+    )
+    
     sms_log = get_object_or_404(SMSLog, id=sms_id, student__in=students_in_class)
+    student_name = sms_log.student.user.get_full_name()
 
     if not sms_log.parent or not sms_log.parent.user.phone_number:
-        return JsonResponse({'success': False, 'message': f'Parent phone number missing for {sms_log.student.user.get_full_name()}.'})
+        return JsonResponse({
+            'success': False, 
+            'message': f' Namba ya simu ya mzazi wa {student_name} haipo'
+        })
 
     if not sms_log.message or sms_log.message.strip() == "":
-        return JsonResponse({'success': False, 'message': 'SMS message is empty. Cannot resend.'})
+        return JsonResponse({
+            'success': False, 
+            'message': ' Ujumbe wa SMS uko tupu. Haiwezi kutumwa tena.'
+        })
 
     try:
         parent_phone = sms_log.parent.user.phone_number
-        sms_sent = send_sms(parent_phone, sms_log.message)
+        sms_sent, response_msg = send_sms(parent_phone, sms_log.message)
 
         if sms_sent:
             sms_log.status = "sent"
             sms_log.timestamp = timezone.now()
             sms_log.save()
-            logger.info(f"SMS resent for {sms_log.student.user.get_full_name()} to {parent_phone}")
-            return JsonResponse({'success': True, 'message': 'SMS resent successfully!'})
+            logger.info(f"SMS resent for {student_name} to {parent_phone}")
+            return JsonResponse({
+                'success': True, 
+                'message': f' SMS imetumwa tena kwa mzazi wa {student_name}!'
+            })
         else:
             sms_log.status = "failed"
             sms_log.save()
-            return JsonResponse({'success': False, 'message': 'Failed to send SMS. Please try again.'})
+            
+            # Check for balance issue
+            if 'salio' in response_msg.lower() or 'balance' in response_msg.lower():
+                return JsonResponse({
+                    'success': False, 
+                    'message': f' {response_msg}'
+                })
+            else:
+                return JsonResponse({
+                    'success': False, 
+                    'message': f' {response_msg}'
+                })
+                
     except Exception as e:
         logger.error(f"Resend SMS exception for log {sms_id}: {e}")
         sms_log.status = "failed"
         sms_log.save()
-        return JsonResponse({'success': False, 'message': str(e)[:100]})
+        return JsonResponse({
+            'success': False, 
+            'message': f' Imeshindikana: {str(e)[:100]}'
+        })
 
 
 # ================= CLASSROOM & ACADEMIC YEAR VIEWS =================
@@ -3187,50 +3473,88 @@ def normalize_parent_phone(parent_phone):
 
 
 def send_absent_sms(student, teacher=None):
-    parents = ParentProfile.objects.filter(student=student)
+    """
+    Send SMS to all parents of absent student
+    Returns: (success_count, failed_count, messages)
+    """
+    parents = ParentProfile.objects.filter(student=student).select_related('user')
+    
     if not parents.exists():
         logger.warning(f"No parent found for student {student.user.get_full_name()}")
-        return False
+        return 0, 1, ["No parent registered for this student"]
 
     if teacher is None:
         active_year = AcademicYear.objects.filter(is_active=True).first()
-        classroom_ids = student.enrollments.filter(academic_year=active_year, status='Active').values_list('classroom_id', flat=True)
+        classroom_ids = student.enrollments.filter(
+            academic_year=active_year, 
+            status='Active'
+        ).values_list('classroom_id', flat=True)
         teacher = TeacherProfile.objects.filter(
             class_enrollments__classroom_id__in=classroom_ids,
             class_enrollments__academic_year=active_year
         ).first()
 
     teacher_phone = teacher.user.phone_number if teacher and teacher.user.phone_number else "N/A"
+    teacher_name = teacher.user.get_full_name() if teacher else "Mwalimu"
+    
     message_template = (
         f"HABARI MZAZI: Mtoto wako {student.user.get_full_name()} "
-        f"hajafika shuleni leo. "
-        f"Tafadhali wasiliana na mwalimu wa darasa kwa namba {teacher_phone}."
+        f"hajafika shuleni leo {timezone.now().strftime('%d/%m/%Y')}. "
+        f"Tafadhali wasiliana na mwalim {teacher_name} kwa namba {teacher_phone}. Asante."
     )
 
-    sent_any = False
+    success_count = 0
+    failed_count = 0
+    messages_list = []
+    
     for parent in parents:
         parent_phone_raw = parent.user.phone_number
         parent_phone = normalize_parent_phone(parent_phone_raw)
 
         if not parent_phone:
-            logger.warning(f"Invalid parent phone number for parent {parent.user.get_full_name()} ({parent_phone_raw})")
-            SMSLog.objects.create(student=student, parent=parent, message=message_template, status='failed')
+            failed_count += 1
+            msg = f"Invalid phone for {parent.user.get_full_name()}"
+            messages_list.append(msg)
+            SMSLog.objects.create(
+                student=student, 
+                parent=parent, 
+                message=message_template, 
+                status='failed'
+            )
             continue
 
         try:
-            sms_sent = send_sms(parent_phone, message_template)
-            status = 'sent' if sms_sent else 'failed'
-            SMSLog.objects.create(student=student, parent=parent, message=message_template, status=status)
-            if sms_sent:
-                logger.info(f"SMS sent for student {student.id}, parent {parent.id}: {parent_phone}")
-                sent_any = True
+            success, response_msg = send_sms(parent_phone, message_template)
+            status = 'sent' if success else 'failed'
+            
+            SMSLog.objects.create(
+                student=student, 
+                parent=parent, 
+                message=message_template, 
+                status=status
+            )
+            
+            if success:
+                success_count += 1
+                logger.info(f"SMS sent to {parent_phone} for {student.user.get_full_name()}")
             else:
-                logger.error(f"SMS failed for student {student.id}, parent {parent.id}: {parent_phone}")
+                failed_count += 1
+                messages_list.append(f"{parent.user.get_full_name()}: {response_msg}")
+                logger.error(f"SMS failed to {parent_phone}: {response_msg}")
+                
         except Exception as e:
-            logger.error(f"SMS sending exception for student {student.id}, parent {parent.id}: {e}")
-            SMSLog.objects.create(student=student, parent=parent, message=message_template, status='failed')
-
-    return sent_any
+            failed_count += 1
+            error_msg = str(e)
+            messages_list.append(f"{parent.user.get_full_name()}: {error_msg[:50]}")
+            logger.error(f"SMS exception for {student.id}: {e}")
+            SMSLog.objects.create(
+                student=student, 
+                parent=parent, 
+                message=message_template, 
+                status='failed'
+            )
+    
+    return success_count, failed_count, messages_list
 
 
 # ================= ACADEMIC YEAR PROMOTION VIEWS =================
