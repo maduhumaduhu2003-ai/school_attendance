@@ -1,8 +1,30 @@
 {% extends 'attendance_app/admin_base.html' %}
+{% load static %}
 
 {% block title %}Edit Teacher{% endblock %}
 
 {% block content %}
+
+<!-- Global Loading and Status Popup (Same as Register Student Page) -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            
+            <div class="text-start">
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inahifadhi...</h6>
+                <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
+                    Tafadhali subiri, taarifa za mwalimu zinahifadhiwa...
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <div class="container mt-4">
     <div class="card shadow-sm">
         <div class="card-body">
@@ -43,7 +65,7 @@
             </div>
             {% endif %}
 
-            <form method="POST">
+            <form method="post" id="editTeacherForm" class="loading-form" data-title="Inahifadhi Taarifa za Mwalimu" data-text="Tafadhali subiri, mfumo unahifadhi mabadiliko ya mwalimu...">
                 {% csrf_token %}
                 
                 <div class="row g-3">
@@ -65,25 +87,10 @@
 
                     <div class="col-md-6">
                         <label class="form-label">Gender <span class="text-danger">*</span></label>
-                        
                         <select class="form-select" name="gender" required>
                             <option value="">-- Select Gender --</option>
-
-                            <option value="Male"
-                                {% if teacher.user.gender == 'Male' %}
-                                    selected
-                                {% endif %}
-                            >
-                                Male
-                            </option>
-
-                            <option value="Female"
-                                {% if teacher.user.gender == 'Female' %}
-                                    selected
-                                {% endif %}
-                            >
-                                Female
-                            </option>
+                            <option value="Male" {% if teacher.user.gender == 'Male' %}selected{% endif %}>Male</option>
+                            <option value="Female" {% if teacher.user.gender == 'Female' %}selected{% endif %}>Female</option>
                         </select>
                     </div>
                     
@@ -123,13 +130,13 @@
 
                 <hr class="my-4">
 
-                    <h5>Reset Password</h5>
+                <h5>Reset Password</h5>
 
-                    <div class="col-md-6">
-                        <label class="form-label">New Password</label>
-                        <input type="password" class="form-control" name="password">
-                        <small class="text-muted">Leave blank if you don't want to change password</small>
-                    </div>
+                <div class="col-md-6">
+                    <label class="form-label">New Password</label>
+                    <input type="password" class="form-control" name="password">
+                    <small class="text-muted">Leave blank if you don't want to change password</small>
+                </div>
 
                 <div class="mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
@@ -143,74 +150,6 @@
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const classroomSelect = document.getElementById('classroomSelect');
-    const streamSelect = document.getElementById('streamSelect');
-
-    const currentStreamId = "{{ current_stream.id|default:'' }}";
-    const currentStreamName = "{{ current_stream.name|default:'' }}";
-
-    function loadStreams() {
-        const classroomId = classroomSelect.value;
-
-        if (!classroomId) {
-            streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
-            return;
-        }
-
-        streamSelect.innerHTML = '<option value="">Loading streams...</option>';
-
-        fetch(`/get-streams/${classroomId}/?available_only=1`)
-            .then(response => response.json())
-            .then(data => {
-                let options = '<option value="">-- Select Stream --</option>';
-
-                let currentIncluded = false;
-
-                if (data.streams && data.streams.length > 0) {
-                    data.streams.forEach(stream => {
-                        const selected = (currentStreamId == stream.id) ? 'selected' : '';
-                        
-                        if (currentStreamId == stream.id) {
-                            currentIncluded = true;
-                        }
-
-                        options += `<option value="${stream.id}" ${selected}>${stream.name}</option>`;
-                    });
-                }
-
-                // IMPORTANT: Add current stream if missing
-                if (currentStreamId && !currentIncluded) {
-                    options =
-                        `<option value="${currentStreamId}" selected>
-                            ${currentStreamName} (Current)
-                        </option>` + options;
-                }
-
-                if (!data.streams || data.streams.length === 0) {
-                    options += '<option value="" disabled>No available streams</option>';
-                }
-
-                streamSelect.innerHTML = options;
-            })
-            .catch(error => {
-                console.error('Error loading streams:', error);
-                streamSelect.innerHTML = '<option value="">Error loading streams</option>';
-            });
-    }
-
-    if (classroomSelect) {
-        classroomSelect.addEventListener('change', loadStreams);
-
-        // Load streams on page load
-        if (classroomSelect.value) {
-            loadStreams();
-        }
-    }
-});
-</script>
 
 <style>
 .form-label {
@@ -229,5 +168,195 @@ document.addEventListener('DOMContentLoaded', function() {
     border-color: #e2e8f0;
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ================= LOADING POPUP CONTROLS =================
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+    const editForm = document.getElementById('editTeacherForm');
+
+    function showLoading(title, text) {
+        if (loadingOverlay) {
+            // Reset to spinner state
+            statusIcon.className = "spinner-border text-danger";
+            statusIcon.style.width = "2rem";
+            statusIcon.style.height = "2rem";
+            statusIcon.innerHTML = "";
+            
+            statusTitle.className = "mb-1 fw-bold text-dark";
+            statusTitle.innerText = title || "Inahifadhi...";
+            
+            statusText.innerText = text || "Tafadhali subiri, taarifa za mwalimu zinahifadhiwa...";
+            
+            loadingOverlay.classList.remove('d-none');
+            loadingOverlay.style.opacity = '1';
+        }
+    }
+
+    function showResultAndHide(isSuccess, message, title, redirectUrl) {
+        if (loadingOverlay) {
+            if (isSuccess) {
+                // Success state - Green checkmark
+                statusIcon.className = "text-success d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-success";
+                statusTitle.innerText = title || "Umefanikiwa!";
+            } else {
+                // Error state - Red X mark
+                statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-danger";
+                statusTitle.innerText = title || "Imeshindikana!";
+            }
+            statusText.innerText = message;
+            
+            // Hide after 2 seconds and redirect
+            setTimeout(function() {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(function() {
+                    loadingOverlay.classList.add('d-none');
+                    loadingOverlay.style.opacity = '1';
+                    if (redirectUrl) {
+                        window.location.href = redirectUrl;
+                    }
+                }, 400);
+            }, 2000);
+        }
+    }
+
+    // ================= STREAM SELECTION =================
+    const classroomSelect = document.getElementById('classroomSelect');
+    const streamSelect = document.getElementById('streamSelect');
+    const currentStreamId = "{{ current_stream.id|default:'' }}";
+    const currentStreamName = "{{ current_stream.name|default:'' }}";
+
+    function loadStreams() {
+        const classroomId = classroomSelect.value;
+
+        if (!classroomId) {
+            streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
+            return;
+        }
+
+        streamSelect.innerHTML = '<option value="">Loading streams...</option>';
+
+        fetch(`/get-streams/${classroomId}/?available_only=1`)
+            .then(response => response.json())
+            .then(data => {
+                let options = '<option value="">-- Select Stream --</option>';
+                let currentIncluded = false;
+
+                if (data.streams && data.streams.length > 0) {
+                    data.streams.forEach(stream => {
+                        const selected = (currentStreamId == stream.id) ? 'selected' : '';
+                        if (currentStreamId == stream.id) {
+                            currentIncluded = true;
+                        }
+                        options += `<option value="${stream.id}" ${selected}>${stream.name}</option>`;
+                    });
+                }
+
+                // Add current stream if missing
+                if (currentStreamId && !currentIncluded) {
+                    options = `<option value="${currentStreamId}" selected>${currentStreamName} (Current)</option>` + options;
+                }
+
+                if (!data.streams || data.streams.length === 0) {
+                    options += '<option value="" disabled>No available streams</option>';
+                }
+
+                streamSelect.innerHTML = options;
+            })
+            .catch(error => {
+                console.error('Error loading streams:', error);
+                streamSelect.innerHTML = '<option value="">Error loading streams</option>';
+            });
+    }
+
+    if (classroomSelect) {
+        classroomSelect.addEventListener('change', loadStreams);
+        if (classroomSelect.value) {
+            loadStreams();
+        }
+    }
+
+    // ================= FORM SUBMIT HANDLER WITH LOADING POPUP =================
+    if (editForm) {
+        editForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            // Validate form
+            if (!this.checkValidity()) {
+                this.classList.add('was-validated');
+                return;
+            }
+            
+            // Get custom title and text from form attribute
+            const customTitle = this.getAttribute('data-title') || "Inahifadhi Taarifa za Mwalimu";
+            const customText = this.getAttribute('data-text') || "Tafadhali subiri, mfumo unahifadhi mabadiliko ya mwalimu...";
+            
+            // Show loading popup
+            showLoading(customTitle, customText);
+            
+            // Disable submit button to prevent double submission
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inahifadhi...';
+            
+            // Create FormData object
+            const formData = new FormData(this);
+            
+            // Send AJAX request
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showResultAndHide(true, data.message || "Taarifa za mwalimu zimehifadhiwa kwa mafanikio!", "Umefanikiwa!", data.redirect_url || "{% url 'manage_teacher' %}");
+                } else {
+                    showResultAndHide(false, data.message || "Imeshindikana kuhifadhi mabadiliko. Jaribu tena.", "Imeshindikana!", null);
+                    // Re-enable button
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showResultAndHide(false, "Tatizo la mfumo limejitokeza. Jaribu tena baadae.", "Kosa la Mfumo!", null);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            });
+        });
+    }
+    
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
 
 {% endblock %}
