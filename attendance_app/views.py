@@ -3204,52 +3204,109 @@ def teacher_profile_view(request):
     }
     return render(request, "attendance_app/teacher_profile.html", context)
 
+from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.shortcuts import render, redirect
+from django.views.decorators.cache import never_cache
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def admin_profile(request):
-    if request.method == 'POST':
-        if 'update_profile' in request.POST:
-            first_name = request.POST.get('first_name', '').strip()
-            last_name = request.POST.get('last_name', '').strip()
-            email = request.POST.get('email', '').strip()
-            username = request.POST.get('username', '').strip()
-            phone_number = request.POST.get('phone_number', '').strip()
-            if phone_number:
-                formatted_phone = format_phone_number(phone_number)
-                if not formatted_phone:
-                    messages.error(request, "Invalid phone number format!")
-                    return redirect('admin_profile')
-                phone_number = formatted_phone
 
+    profile_success = None
+    password_success = None
+
+    if request.method == "POST":
+
+        # ================= UPDATE PROFILE =================
+        if request.POST.get('update_profile'):
             user = request.user
-            user.first_name = first_name
-            user.last_name = last_name
-            user.email = email
-            user.username = username
+            user.first_name = request.POST.get(
+                "first_name",
+                user.first_name
+            )
+
+            user.last_name = request.POST.get(
+                "last_name",
+                user.last_name
+            )
+
+            user.username = request.POST.get(
+                "username",
+                user.username
+            )
+
+            user.email = request.POST.get(
+                "email",
+                user.email
+            )
+
+            # PHONE NUMBER
+            phone_number = request.POST.get(
+                "phone_number",
+                ""
+            ).strip()
+
+            if phone_number:
+
+                formatted_phone = format_phone_number(phone_number)
+
+                if not formatted_phone:
+                    messages.error(
+                        request,
+                        "Invalid phone number format!"
+                    )
+                    return redirect('admin_profile')
+
+                user.phone_number = formatted_phone
+
+            else:
+                user.phone_number = ""
+
+            # SAVE USER
             user.save()
 
-            messages.success(request, "Profile updated successfully!")
-            return redirect('admin_profile')
+            profile_success = "Profile updated successfully!"
 
-        elif 'change_password' in request.POST:
-            old_password = request.POST.get('old_password')
-            new_password1 = request.POST.get('new_password1')
-            new_password2 = request.POST.get('new_password2')
+        # ================= CHANGE PASSWORD =================
+        elif request.POST.get('change_password'):
 
-            if not request.user.check_password(old_password):
-                messages.error(request, "Old password is incorrect.")
-            elif new_password1 != new_password2:
-                messages.error(request, "New passwords do not match.")
+            old_password = request.POST.get("old_password")
+            new_password1 = request.POST.get("new_password1")
+            new_password2 = request.POST.get("new_password2")
+
+            if request.user.check_password(old_password):
+
+                if new_password1 == new_password2:
+
+                    request.user.set_password(new_password1)
+                    request.user.save()
+
+                    update_session_auth_hash(
+                        request,
+                        request.user
+                    )
+
+                    password_success = "Password changed successfully!"
+
+                else:
+                    password_success = "New passwords do not match!"
+
             else:
-                request.user.set_password(new_password1)
-                request.user.save()
-                update_session_auth_hash(request, request.user)
-                messages.success(request, "Password changed successfully!")
-            return redirect('admin_profile')
+                password_success = "Old password is incorrect!"
 
-    return render(request, 'attendance_app/admin_profile.html', {})
+    context = {
+        "profile_success": profile_success,
+        "password_success": password_success,
+    }
+
+    return render(
+        request,
+        "attendance_app/admin_profile.html",
+        context
+    )
 
 
 @never_cache
@@ -3559,292 +3616,247 @@ def send_absent_sms(student, teacher=None):
 
 # ================= ACADEMIC YEAR PROMOTION VIEWS =================
 
+import re
+
 def get_next_form_name(current_name):
     """
-    FIXED: Get next form name for Form I - Form VI
-    Handles both 'Form I' and 'Form 1' formats
+    Reliable promotion: Form I → Form VI
     """
+
     if not current_name:
         return None
-    
-    # Convert to string and clean
-    name = str(current_name).strip()
-    
-    # Promotion mapping (case insensitive)
-    promotion_map = {
-        'Form i': 'Form II',
-        'Form 1': 'Form II',
-        'Form I': 'Form II',
-        'Form ii': 'Form III',
-        'Form 2': 'Form III',
-        'Form II': 'Form III', 
-        'Form iii': 'Form IV',
-        'Form 3': 'Form IV',
-        'Form III': 'Form IV',
-        'Form iv': 'Form V',
-        'Form 4': 'Form V',
-        'Form IV': None,
+
+    name = str(current_name).strip().lower()
+
+    # normalize common formats
+    mapping = {
+        "form i": "Form II",
+        "form 1": "Form II",
+        "form ii": "Form III",
+        "form 2": "Form III",
+        "form iii": "Form IV",
+        "form 3": "Form IV",
+        "form iv": "Form V",
+        "form 4": "Form V",
+        "form v": "Form VI",
+        "form 5": "Form VI",
+        "form vi": None,
+        "form 6": None,
     }
-    
-    # Try exact match (case insensitive)
-    name_lower = name.lower()
-    if name_lower in promotion_map:
-        return promotion_map[name_lower]
-    
-    # Try to extract number
-    import re
+
+    if name in mapping:
+        return mapping[name]
+
+    # fallback: extract number
     match = re.search(r'(\d+)', name)
     if match:
         num = int(match.group(1))
-        if 1 <= num <= 5:
-            return f'Form {num + 1}'
-        elif num == 6:
+        if num >= 6:
             return None
-    
-    # Try Roman numerals
-    roman_match = re.search(r'(I|II|III|IV|V|VI)', name, re.IGNORECASE)
-    if roman_match:
-        roman = roman_match.group(1).upper()
-        roman_map = {'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6}
-        num = roman_map.get(roman)
-        if num and 1 <= num <= 5:
-            next_roman = {1: 'II', 2: 'III', 3: 'IV', 4: 'V', 5: 'VI'}[num]
-            return f'Form {next_roman}'
-        elif num == 6:
-            return None
-    
+        return f"Form {num + 1}"
+
     return None
 
+
+from django.db import transaction
+from django.utils import timezone
+from django.contrib import messages
 
 @transaction.atomic
 def generate_academic_year(request):
     """
-    FIXED VERSION: Generate new academic year with correct promotion for Form I - Form VI
+    FIXED VERSION: Safe academic year generation + promotion system
     """
+
     last_year = AcademicYear.objects.order_by('-year_start').first()
 
     # ================= FIRST YEAR =================
     if not last_year:
         current_year = timezone.now().year
+
         new_year = AcademicYear.objects.create(
             year_start=current_year,
             is_active=True,
             is_locked=False
         )
-        messages.success(request, f" First academic year {new_year} created!")
+
+        messages.success(request, f"First academic year {new_year} created!")
         return redirect('academic_years')
 
     new_start = last_year.year_start + 1
 
-    # Check if next year already exists
     if AcademicYear.objects.filter(year_start=new_start).exists():
         messages.error(request, f"Academic Year {new_start}/{new_start+1} already exists!")
         return redirect('academic_years')
 
     try:
-        # ================= 1. GET OLD ACTIVE YEAR =================
-        old_year = AcademicYear.objects.filter(is_active=True).first()
-        if not old_year:
-            old_year = last_year
+        # ================= LOCK OLD YEAR SAFELY =================
+        old_year = last_year
+        old_year.is_active = False
+        old_year.is_locked = True
+        old_year.save()
 
-        # ================= 2. CREATE NEW YEAR =================
+        # ================= CREATE NEW YEAR =================
         new_year = AcademicYear.objects.create(
             year_start=new_start,
             is_active=True,
             is_locked=False
         )
 
-        # ================= 3. LOCK OLD YEAR =================
-        old_year.is_active = False
-        old_year.is_locked = True
-        old_year.save()
+        # ================= COPY CLASSROOMS + STREAMS =================
+        classroom_map = {}
 
-        # ================= 4. COPY CLASSROOMS AND STREAMS =================
-        classroom_mapping = {}
-        
-        for old_classroom in Classroom.objects.filter(year=old_year):
-            new_classroom = Classroom.objects.create(
-                name=old_classroom.name,
+        for cls in Classroom.objects.filter(year=old_year):
+            new_cls = Classroom.objects.create(
+                name=cls.name,
                 year=new_year
             )
-            classroom_mapping[old_classroom.id] = new_classroom
+            classroom_map[cls.id] = new_cls
 
-            # Copy streams
-            for stream in old_classroom.streams.all():
+            for st in cls.streams.all():
                 Stream.objects.create(
-                    name=stream.name,
-                    classroom=new_classroom
+                    name=st.name,
+                    classroom=new_cls
                 )
 
-        # ================= 5. PROMOTE STUDENTS =================
-        students_promoted = 0
-        students_graduated = 0
-        students_repeating = 0
-        students_failed = 0
+        # ================= STUDENT PROMOTION =================
+        students_promoted = students_graduated = students_repeating = students_failed = 0
 
-        old_enrollments = Enrollment.objects.filter(
+        enrollments = Enrollment.objects.filter(
             academic_year=old_year,
             status='Active',
             student__isnull=False
-        ).select_related('student', 'classroom', 'stream', 'student__user')
+        ).select_related('student', 'classroom', 'stream')
 
-        for old in old_enrollments:
-            student = old.student
-            current_classroom = old.classroom
-            
-            if not student or not current_classroom:
+        for enr in enrollments:
+            student = enr.student
+            old_class = enr.classroom
+
+            if not student or not old_class:
                 students_failed += 1
                 continue
 
-            # Get next class name using the fixed function
-            next_class_name = get_next_form_name(current_classroom.name)
+            next_class = get_next_form_name(old_class.name)
 
-            # Case 1: Student graduates (Form VI)
-            if next_class_name is None:
-                old.status = 'Graduated'
-                old.save()
+            # ===== GRADUATION =====
+            if next_class is None:
+                enr.status = 'Graduated'
+                enr.save()
                 students_graduated += 1
                 continue
 
-            # Case 2: Find new classroom for promotion
-            new_classroom = Classroom.objects.filter(
-                name__iexact=next_class_name,
+            # ===== FIND NEW CLASSROOM =====
+            new_class = Classroom.objects.filter(
+                name=next_class,
                 year=new_year
             ).first()
 
-            if not new_classroom:
-                # Try to find same classroom in new year (repeating)
-                same_class_new = classroom_mapping.get(current_classroom.id)
-                if same_class_new:
-                    new_stream = None
-                    if old.stream:
-                        new_stream = Stream.objects.filter(
-                            name=old.stream.name,
-                            classroom=same_class_new
-                        ).first()
-                    
-                    if not Enrollment.objects.filter(
-                        student=student,
-                        academic_year=new_year
-                    ).exists():
-                        Enrollment.objects.create(
-                            student=student,
-                            classroom=same_class_new,
-                            stream=new_stream,
-                            academic_year=new_year,
-                            status='Active'
-                        )
-                        students_repeating += 1
-                else:
+            # ===== IF NOT FOUND → REPEAT SAME CLASS =====
+            if not new_class:
+                new_class = classroom_map.get(old_class.id)
+
+                if not new_class:
                     students_failed += 1
-                continue
+                    continue
 
-            # Case 3: Normal promotion - find matching stream
-            new_stream = None
-            if old.stream:
-                new_stream = Stream.objects.filter(
-                    name=old.stream.name,
-                    classroom=new_classroom
-                ).first()
-
-            # Prevent duplicate enrollment
-            if not Enrollment.objects.filter(
-                student=student,
-                academic_year=new_year
-            ).exists():
-                Enrollment.objects.create(
-                    student=student,
-                    classroom=new_classroom,
-                    stream=new_stream,
-                    academic_year=new_year,
-                    status='Active'
-                )
+                students_repeating += 1
+            else:
                 students_promoted += 1
 
-            # Mark old enrollment as promoted
-            old.status = 'Promoted'
-            old.save()
+            # ===== STREAM MATCH =====
+            new_stream = None
+            if enr.stream:
+                new_stream = Stream.objects.filter(
+                    name=enr.stream.name,
+                    classroom=new_class
+                ).first()
 
-        # ================= 6. PROMOTE TEACHERS =================
-        teachers_updated = 0
-        teachers_failed = 0
+            # ===== CREATE NEW ENROLLMENT SAFELY =====
+            Enrollment.objects.get_or_create(
+                student=student,
+                academic_year=new_year,
+                defaults={
+                    'classroom': new_class,
+                    'stream': new_stream,
+                    'status': 'Active'
+                }
+            )
+
+            enr.status = 'Promoted'
+            enr.save()
+
+        # ================= TEACHER PROMOTION (FIXED) =================
+        teachers_updated = teachers_failed = 0
 
         teacher_assignments = Enrollment.objects.filter(
             academic_year=old_year,
             class_teacher__isnull=False
-        ).select_related('class_teacher__user', 'classroom', 'stream')
+        ).select_related('class_teacher', 'classroom', 'stream').distinct()
 
         for assign in teacher_assignments:
             teacher = assign.class_teacher
-            old_classroom = assign.classroom
-            old_stream = assign.stream
+            old_class = assign.classroom
 
-            if not teacher or not old_classroom:
+            if not teacher or not old_class:
                 teachers_failed += 1
                 continue
 
-            # Get next class for this teacher
-            next_class_name = get_next_form_name(old_classroom.name)
+            next_class = get_next_form_name(old_class.name)
 
-            if next_class_name is None:
-                # Teacher of Form VI - assign to Form I next year
-                new_classroom = Classroom.objects.filter(
-                    name__iexact='Form I',
-                    year=new_year
-                ).first()
-            else:
-                new_classroom = Classroom.objects.filter(
-                    name__iexact=next_class_name,
-                    year=new_year
-                ).first()
+            if next_class is None:
+                next_class = "Form I"
 
-            if not new_classroom:
+            new_class = Classroom.objects.filter(
+                name=next_class,
+                year=new_year
+            ).first()
+
+            if not new_class:
                 teachers_failed += 1
                 continue
 
-            # Find matching stream
             new_stream = None
-            if old_stream:
+            if assign.stream:
                 new_stream = Stream.objects.filter(
-                    name=old_stream.name,
-                    classroom=new_classroom
+                    name=assign.stream.name,
+                    classroom=new_class
                 ).first()
 
-            # Create or update teacher assignment
-            teacher_enrollment, created = Enrollment.objects.update_or_create(
+            Enrollment.objects.update_or_create(
                 class_teacher=teacher,
                 academic_year=new_year,
                 defaults={
-                    'classroom': new_classroom,
+                    'classroom': new_class,
                     'stream': new_stream,
                     'student': None
                 }
             )
+
             teachers_updated += 1
 
-        # ================= 7. SUCCESS MESSAGE =================
-        success_message = f"""
-         Academic Year {new_year} Created Successfully!
-        
-         PROMOTION SUMMARY:
-        • Students Promoted: {students_promoted}
-        • Students Graduated (Form VI): {students_graduated}
-        • Students Repeating: {students_repeating}
-        • Students Failed: {students_failed}
-        • Teachers Moved: {teachers_updated}
-        • Teachers Failed: {teachers_failed}
-        
-         Old academic year ({old_year}) is now LOCKED and data preserved.
-        """
-        
-        messages.success(request, success_message)
+        # ================= SUCCESS MESSAGE =================
+        messages.success(request,
+            f"""Academic Year {new_year} created successfully!
+
+Students:
+- Promoted: {students_promoted}
+- Repeating: {students_repeating}
+- Graduated: {students_graduated}
+- Failed: {students_failed}
+
+Teachers:
+- Updated: {teachers_updated}
+- Failed: {teachers_failed}
+"""
+        )
+
         return redirect('academic_years')
 
     except Exception as e:
-        logger.error(f"Academic year generation failed: {str(e)}")
-        messages.error(request, f"Error generating academic year: {str(e)}")
+        messages.error(request, f"Error: {str(e)}")
         return redirect('academic_years')
-
+    
+    
 @never_cache
 @login_required
 def academic_year_summary(request):

@@ -15,9 +15,9 @@
             </div>
             
             <div class="text-start">
-                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inahifadhi...</h6>
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">saving...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
-                    Tafadhali subiri, tunahifadhi mabadiliko yako...
+                    please wait saving changes...
                 </p>
             </div>
 
@@ -33,7 +33,7 @@
 
         <div class="mb-3">
             <h5 class="mb-2 text-primary">Update School Logo</h5>
-            <form method="POST" enctype="multipart/form-data" id="settingsForm" class="action-form" data-action-title="Inahifadhi Nembo...">
+            <form method="POST" enctype="multipart/form-data" id="settingsForm" class="action-form" data-action-title="Saving Logo...">
                 {% csrf_token %}
                 {{ form.as_p }}
                 <!-- Live preview container -->
@@ -184,8 +184,8 @@ document.addEventListener("DOMContentLoaded", function() {
             statusIcon.style.height = "2rem";
             statusIcon.innerHTML = "";
             statusTitle.className = "mb-1 fw-bold text-dark";
-            statusTitle.innerText = title || "Inahifadhi...";
-            statusText.innerText = text || "Tafadhali subiri, tunahifadhi mabadiliko yako...";
+            statusTitle.innerText = title || "saving...";
+            statusText.innerText = text || "please wait saving changes...";
             loadingOverlay.classList.remove('d-none');
         }
     }
@@ -195,8 +195,8 @@ document.addEventListener("DOMContentLoaded", function() {
         settingsForm.addEventListener('submit', function(e) {
             // Check if a file is selected
             const fileInput = document.querySelector('input[type="file"]');
-            const actionTitle = "Inahifadhi Nembo...";
-            const actionText = "Tafadhali subiri, tunahifadhi nembo mpya ya shule...";
+            const actionTitle = "uploading...";
+            const actionText = "please wait uploading school logo...";
             
             // Show loading spinner
             showLoadingSpinner(actionTitle, actionText);
@@ -204,7 +204,7 @@ document.addEventListener("DOMContentLoaded", function() {
             // Disable submit button to prevent double submission
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inahifadhi...';
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
             }
             
             // Allow form to submit normally

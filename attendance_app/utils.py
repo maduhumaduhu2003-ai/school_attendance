@@ -52,11 +52,11 @@ def send_sms(phone_number, message):
         
         # Check for specific errors
         if 'insufficient' in error_msg.lower() or 'balance' in error_msg.lower():
-            return False, "⚠️ Salio la SMS halipo. Tafadhali wasiliana na Admin."
+            return False, " Salio la SMS halipo. Tafadhali wasiliana na Admin."
         elif 'network' in error_msg.lower():
-            return False, "❌ Tatizo la mtandao. Jaribu tena."
+            return False, " Tatizo la mtandao. Jaribu tena."
         else:
-            return False, f"❌ SMS failed: {error_msg[:100]}"
+            return False, f" SMS failed: {error_msg[:100]}"
 
 
 def auto_lock_expired_academic_year():

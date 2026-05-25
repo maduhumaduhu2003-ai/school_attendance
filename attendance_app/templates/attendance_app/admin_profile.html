@@ -29,9 +29,9 @@
             </div>
             
             <div class="text-start">
-                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inahifadhi...</h6>
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Saving...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
-                    Tafadhali subiri, tunahifadhi mabadiliko yako...
+                    please wait saving changes...
                 </p>
             </div>
 
@@ -59,59 +59,60 @@
                 <div class="tab-content">
                     <!-- PROFILE TAB -->
                     <div class="tab-pane fade show active" id="profile" role="tabpanel">
-                        <form method="POST" id="profileForm" class="action-form" data-action-title="Inahifadhi Profaili..." data-action-text="Tafadhali subiri, tunahifadhi mabadiliko ya profaili yako...">
+                        <form method="POST" id="profileForm">
                             {% csrf_token %}
 
                             <div class="mb-3">
                                 <label class="form-label">First Name</label>
-                                <input type="text" name="first_name" class="form-control form-control-sm" value="{{ request.user.first_name }}">
+                                <input type="text" name="first_name" class="form-control form-control-sm" value="{{ request.user.first_name }}" required>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Last Name</label>
-                                <input type="text" name="last_name" class="form-control form-control-sm" value="{{ request.user.last_name }}">
+                                <input type="text" name="last_name" class="form-control form-control-sm" value="{{ request.user.last_name }}" required>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Email</label>
-                                <input type="email" name="email" class="form-control form-control-sm" value="{{ request.user.email }}">
+                                <input type="email" name="email" class="form-control form-control-sm" value="{{ request.user.email }}" required>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Username</label>
-                                <input type="text" name="username" class="form-control form-control-sm" value="{{ request.user.username }}">
+                                <input type="text" name="username" class="form-control form-control-sm" value="{{ request.user.username }}" required>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Phone Number</label>
                                 <input type="text" name="phone_number" class="form-control form-control-sm" value="{{ request.user.phone_number|default:'' }}">
+                                <small class="text-muted">Format: 0712345678 or +255712345678</small>
                             </div>
 
-                            <button type="submit" name="update_profile" class="btn btn-primary w-100 profile-submit-btn">Update Profile</button>
+                            <button type="submit" name="update_profile" value="1" class="btn btn-primary w-100" id="profileSubmitBtn">update profile</button>
                         </form>
                     </div>
 
                     <!-- PASSWORD TAB -->
                     <div class="tab-pane fade" id="password" role="tabpanel">
-                        <form method="POST" id="passwordForm" class="action-form" data-action-title="Inabadilisha Nenosiri..." data-action-text="Tafadhali subiri, tunabadilisha nenosiri lako...">
+                        <form method="POST" id="passwordForm">
                             {% csrf_token %}
 
                             <div class="mb-3">
                                 <label class="form-label">Old Password</label>
-                                <input type="password" name="old_password" class="form-control form-control-sm" placeholder="Enter old password">
+                                <input type="password" name="old_password" class="form-control form-control-sm" placeholder="Enter old password" required>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">New Password</label>
-                                <input type="password" name="new_password1" class="form-control form-control-sm" placeholder="Enter new password">
+                                <input type="password" name="new_password1" class="form-control form-control-sm" placeholder="Enter new password" required>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Confirm New Password</label>
-                                <input type="password" name="new_password2" class="form-control form-control-sm" placeholder="Confirm new password">
+                                <input type="password" name="new_password2" class="form-control form-control-sm" placeholder="Confirm new password" required>
                             </div>
 
-                            <button type="submit" name="change_password" class="btn btn-warning w-100 password-submit-btn">Change Password</button>
+                            <button type="submit" name="change_password" value="1" class="btn btn-warning w-100" id="passwordSubmitBtn"> change password
                         </form>
                     </div>
                 </div>
@@ -133,77 +134,87 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function showLoadingSpinner(title, text) {
         if (loadingOverlay) {
-            // Reset to spinner only - NO icons
             statusIcon.className = "spinner-border text-danger";
             statusIcon.style.width = "2rem";
             statusIcon.style.height = "2rem";
             statusIcon.innerHTML = "";
             statusTitle.className = "mb-1 fw-bold text-dark";
-            statusTitle.innerText = title || "Inahifadhi...";
-            statusText.innerText = text || "Tafadhali subiri, tunahifadhi mabadiliko yako...";
+            statusTitle.innerText = title || "Saving...";
+            statusText.innerText = text || "Please wait, saving your changes...";
             loadingOverlay.classList.remove('d-none');
         }
     }
 
     // ================= PROFILE FORM SUBMIT =================
-    const profileForm = document.getElementById('profileForm');
-    const profileSubmitBtn = document.querySelector('.profile-submit-btn');
+// ================= PROFILE FORM SUBMIT =================
+const profileForm = document.getElementById('profileForm');
+const profileSubmitBtn = document.getElementById('profileSubmitBtn');
 
-    if (profileForm) {
-        profileForm.addEventListener('submit', function(e) {
-            const actionTitle = this.getAttribute('data-action-title') || "Inahifadhi Profaili...";
-            const actionText = this.getAttribute('data-action-text') || "Tafadhali subiri, tunahifadhi mabadiliko ya profaili yako...";
-            
-            // Show loading spinner
-            showLoadingSpinner(actionTitle, actionText);
-            
-            // Disable submit button to prevent double submission
+if (profileForm) {
+
+    profileForm.addEventListener('submit', function() {
+
+        showLoadingSpinner(
+            "Saving Profile...",
+            "Please wait, updating your profile information..."
+        );
+
+        // delay kidogo kabla disable
+        setTimeout(() => {
+
             if (profileSubmitBtn) {
+
                 profileSubmitBtn.disabled = true;
-                profileSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inahifadhi...';
+
+                profileSubmitBtn.innerHTML =
+                    '<span class="spinner-border spinner-border-sm"></span> Saving...';
             }
-            
-            // Allow form to submit normally
-            return true;
-        });
-    }
+
+        }, 100);
+
+        return true;
+    });
+}
 
     // ================= PASSWORD FORM SUBMIT =================
-    const passwordForm = document.getElementById('passwordForm');
-    const passwordSubmitBtn = document.querySelector('.password-submit-btn');
+// ================= PASSWORD FORM SUBMIT =================
+const passwordForm = document.getElementById('passwordForm');
+const passwordSubmitBtn = document.getElementById('passwordSubmitBtn');
 
-    if (passwordForm) {
-        passwordForm.addEventListener('submit', function(e) {
-            const actionTitle = this.getAttribute('data-action-title') || "Inabadilisha Nenosiri...";
-            const actionText = this.getAttribute('data-action-text') || "Tafadhali subiri, tunabadilisha nenosiri lako...";
-            
-            // Show loading spinner
-            showLoadingSpinner(actionTitle, actionText);
-            
-            // Disable submit button to prevent double submission
+if (passwordForm) {
+
+    passwordForm.addEventListener('submit', function() {
+
+        showLoadingSpinner(
+            "Changing Password...",
+            "Please wait, updating your password..."
+        );
+
+        setTimeout(() => {
+
             if (passwordSubmitBtn) {
+
                 passwordSubmitBtn.disabled = true;
-                passwordSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inabadilisha...';
+
+                passwordSubmitBtn.innerHTML =
+                    '<span class="spinner-border spinner-border-sm"></span> Updating...';
             }
-            
-            // Allow form to submit normally
-            return true;
-        });
-    }
+
+        }, 100);
+
+        return true;
+    });
+}
 
     // ================= SHOW PASSWORD TAB IF PASSWORD MESSAGE EXISTS =================
     {% if messages %}
         {% for message in messages %}
-            {% if 'Password' in message.message or 'password' in message.message|lower %}
+            {% if 'password' in message.message|lower %}
                 var passwordTab = new bootstrap.Tab(document.getElementById('password-tab'));
                 passwordTab.show();
             {% endif %}
         {% endfor %}
     {% endif %}
-
-    // ================= CHECK FOR DJANGO MESSAGES ON PAGE LOAD =================
-    // If there are messages (success/error), they will appear in base template toasts
-    // No need to show them in loading popup
 });
 </script>
 
