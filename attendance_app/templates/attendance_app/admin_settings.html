@@ -3,7 +3,57 @@
 
 {% block title %}Admin Settings{% endblock %}
 
-{% block extra_css %}
+{% block content %}
+
+<!-- Global Loading Popup (Spinner Only) -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            
+            <div class="text-start">
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inahifadhi...</h6>
+                <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
+                    Tafadhali subiri, tunahifadhi mabadiliko yako...
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="card shadow-sm p-4">
+        <div class="card-header mb-4 text-danger">
+            Admin Settings
+        </div>
+
+        <div class="mb-3">
+            <h5 class="mb-2 text-primary">Update School Logo</h5>
+            <form method="POST" enctype="multipart/form-data" id="settingsForm" class="action-form" data-action-title="Inahifadhi Nembo...">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <!-- Live preview container -->
+                <div class="preview-logo" id="logoPreview" style="display:none;">
+                    <h5>Preview</h5>
+                    <img id="previewImg" src="" alt="Logo Preview">
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-2" id="submitBtn">Update Logo</button>
+            </form>
+        </div>
+
+        {% if school_settings.logo %}
+        <div class="current-logo">
+            <h5>Current Logo</h5>
+            <img src="{{ school_settings.logo.url }}" alt="School Logo">
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <style>
 /* ================= CONTAINER & CARD ================= */
 .container {
@@ -26,12 +76,13 @@
 }
 
 .card-header {
-    background-color: #4f46e5;
-    color: #fff;
+    background-color: #f8fafc;
+    color: #dc2626;
     font-weight: 600;
     font-size: 18px;
     border-top-left-radius: 12px;
     border-top-right-radius: 12px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 /* ================= FORM STYLING ================= */
@@ -113,66 +164,80 @@ form label {
     padding: 12px 16px;
 }
 </style>
-{% endblock %}
 
-{% block content %}
-
-
-<div class="container">
-    <div class="card shadow-sm p-4">
-        <div class="card-header mb-4 text-danger">
-            Admin Settings
-        </div>
-
-        <div class="mb-3">
-            <h5 class="mb-2 text-primary">Update School Logo</h5>
-            <form method="POST" enctype="multipart/form-data">
-                {% csrf_token %}
-                {{ form.as_p }}
-                <!-- Live preview container -->
-                <div class="preview-logo" id="logoPreview" style="display:none;">
-                    <h5>Preview</h5>
-                    <img id="previewImg" src="" alt="Logo Preview">
-                </div>
-                <button type="submit" class="btn btn-primary w-100 mt-2">Update Logo</button>
-            </form>
-        </div>
-
-        {% if school_settings.logo %}
-        <div class="current-logo">
-            <h5>Current Logo</h5>
-            <img src="{{ school_settings.logo.url }}" alt="School Logo">
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    // ================= LOADING POPUP CONTROLS =================
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+    const settingsForm = document.getElementById('settingsForm');
+    const submitBtn = document.getElementById('submitBtn');
 
+    function showLoadingSpinner(title, text) {
+        if (loadingOverlay) {
+            // Reset to spinner only - NO icons
+            statusIcon.className = "spinner-border text-danger";
+            statusIcon.style.width = "2rem";
+            statusIcon.style.height = "2rem";
+            statusIcon.innerHTML = "";
+            statusTitle.className = "mb-1 fw-bold text-dark";
+            statusTitle.innerText = title || "Inahifadhi...";
+            statusText.innerText = text || "Tafadhali subiri, tunahifadhi mabadiliko yako...";
+            loadingOverlay.classList.remove('d-none');
+        }
+    }
 
-    // Logo live preview
+    // ================= FORM SUBMIT HANDLER =================
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', function(e) {
+            // Check if a file is selected
+            const fileInput = document.querySelector('input[type="file"]');
+            const actionTitle = "Inahifadhi Nembo...";
+            const actionText = "Tafadhali subiri, tunahifadhi nembo mpya ya shule...";
+            
+            // Show loading spinner
+            showLoadingSpinner(actionTitle, actionText);
+            
+            // Disable submit button to prevent double submission
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inahifadhi...';
+            }
+            
+            // Allow form to submit normally
+            return true;
+        });
+    }
+
+    // ================= LOGO LIVE PREVIEW =================
     const fileInput = document.querySelector('input[type="file"]');
     const previewContainer = document.getElementById('logoPreview');
     const previewImg = document.getElementById('previewImg');
 
-    fileInput.addEventListener('change', function() {
-        const file = this.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewImg.src = e.target.result;
-                previewContainer.style.display = 'block';
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewContainer.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewImg.src = '';
+                previewContainer.style.display = 'none';
             }
-            reader.readAsDataURL(file);
-        } else {
-            previewImg.src = '';
-            previewContainer.style.display = 'none';
-        }
-    });
+        });
+    }
+
+    // ================= CHECK FOR DJANGO MESSAGES ON PAGE LOAD =================
+    // If there are messages (success/error), they will appear in base template toasts
+    // No need to show them in loading popup
 });
 </script>
-{% endblock %}
+
 {% endblock %}

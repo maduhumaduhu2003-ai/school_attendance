@@ -65,7 +65,7 @@
             </div>
             {% endif %}
 
-            <form method="post" id="editTeacherForm" class="loading-form" data-title="Inahifadhi Taarifa za Mwalimu" data-text="Tafadhali subiri, mfumo unahifadhi mabadiliko ya mwalimu...">
+            <form method="post" id="editTeacherForm">
                 {% csrf_token %}
                 
                 <div class="row g-3">
@@ -139,7 +139,7 @@
                 </div>
 
                 <div class="mt-4 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
                         <i class="bi bi-save"></i> Update Teacher
                     </button>
                     <a href="{% url 'manage_teacher' %}" class="btn btn-secondary">
@@ -177,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusTitle = document.getElementById('statusTitle');
     const statusText = document.getElementById('statusText');
     const editForm = document.getElementById('editTeacherForm');
+    const submitBtn = document.getElementById('submitBtn');
 
     function showLoading(title, text) {
         if (loadingOverlay) {
@@ -192,40 +193,6 @@ document.addEventListener('DOMContentLoaded', function() {
             statusText.innerText = text || "Tafadhali subiri, taarifa za mwalimu zinahifadhiwa...";
             
             loadingOverlay.classList.remove('d-none');
-            loadingOverlay.style.opacity = '1';
-        }
-    }
-
-    function showResultAndHide(isSuccess, message, title, redirectUrl) {
-        if (loadingOverlay) {
-            if (isSuccess) {
-                // Success state - Green checkmark
-                statusIcon.className = "text-success d-flex align-items-center justify-content-center";
-                statusIcon.style.fontSize = "2rem";
-                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
-                statusTitle.className = "mb-1 fw-bold text-success";
-                statusTitle.innerText = title || "Umefanikiwa!";
-            } else {
-                // Error state - Red X mark
-                statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
-                statusIcon.style.fontSize = "2rem";
-                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
-                statusTitle.className = "mb-1 fw-bold text-danger";
-                statusTitle.innerText = title || "Imeshindikana!";
-            }
-            statusText.innerText = message;
-            
-            // Hide after 2 seconds and redirect
-            setTimeout(function() {
-                loadingOverlay.style.opacity = '0';
-                setTimeout(function() {
-                    loadingOverlay.classList.add('d-none');
-                    loadingOverlay.style.opacity = '1';
-                    if (redirectUrl) {
-                        window.location.href = redirectUrl;
-                    }
-                }, 400);
-            }, 2000);
         }
     }
 
@@ -285,77 +252,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ================= FORM SUBMIT HANDLER WITH LOADING POPUP =================
+    // ================= FORM SUBMIT HANDLER =================
     if (editForm) {
-        editForm.addEventListener('submit', function(event) {
-            event.preventDefault();
-            
-            // Validate form
-            if (!this.checkValidity()) {
-                this.classList.add('was-validated');
-                return;
-            }
-            
-            // Get custom title and text from form attribute
-            const customTitle = this.getAttribute('data-title') || "Inahifadhi Taarifa za Mwalimu";
-            const customText = this.getAttribute('data-text') || "Tafadhali subiri, mfumo unahifadhi mabadiliko ya mwalimu...";
-            
+        editForm.addEventListener('submit', function() {
             // Show loading popup
-            showLoading(customTitle, customText);
+            showLoading("Inahifadhi Taarifa za Mwalimu", "Tafadhali subiri, mfumo unahifadhi mabadiliko ya mwalimu...");
             
             // Disable submit button to prevent double submission
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inahifadhi...';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inahifadhi...';
+            }
             
-            // Create FormData object
-            const formData = new FormData(this);
-            
-            // Send AJAX request
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showResultAndHide(true, data.message || "Taarifa za mwalimu zimehifadhiwa kwa mafanikio!", "Umefanikiwa!", data.redirect_url || "{% url 'manage_teacher' %}");
-                } else {
-                    showResultAndHide(false, data.message || "Imeshindikana kuhifadhi mabadiliko. Jaribu tena.", "Imeshindikana!", null);
-                    // Re-enable button
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showResultAndHide(false, "Tatizo la mfumo limejitokeza. Jaribu tena baadae.", "Kosa la Mfumo!", null);
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-            });
+            // Form will submit normally (page reload)
+            return true;
         });
     }
-    
-    // Helper function to get CSRF token
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
+
+    // ================= CHECK FOR DJANGO MESSAGES ON PAGE LOAD =================
+    // Hii itaonyesha popup ikiwa kuna messages kutoka Django
+    {% if messages %}
+        if (loadingOverlay) {
+            // Get the message
+            let isSuccess = false;
+            let messageText = "";
+            {% for message in messages %}
+                messageText = "{{ message|escapejs }}";
+                {% if message.tags == 'success' %}
+                    isSuccess = true;
+                {% endif %}
+            {% endfor %}
+            
+            // Show appropriate icon
+            if (isSuccess) {
+                statusIcon.className = "text-success d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-success";
+                statusTitle.innerText = "Umefanikiwa!";
+            } else {
+                statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-danger";
+                statusTitle.innerText = "Imeshindikana!";
             }
+            statusText.innerText = messageText;
+            
+            // Show popup
+            loadingOverlay.classList.remove('d-none');
+            
+            // Hide after 3 seconds
+            setTimeout(function() {
+                loadingOverlay.classList.add('d-none');
+                // Reset button if we're back on edit page (not redirected)
+                if (submitBtn && window.location.href.indexOf('edit_teacher') !== -1) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-save"></i> Update Teacher';
+                }
+            }, 3000);
         }
-        return cookieValue;
-    }
+    {% endif %}
 });
 </script>
 

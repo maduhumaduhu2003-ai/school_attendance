@@ -1,7 +1,29 @@
 {% extends "attendance_app/admin_base.html" %}
+{% load static %}
+
 {% block title %}Register Student{% endblock %}
 
 {% block content %}
+
+<!-- Global Loading and Status Popup (Same as Register Student Page) -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            
+            <div class="text-start">
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inasajili...</h6>
+                <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
+                    Tafadhali subiri, tunamsajili mwanafunzi mpya...
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
 
 <div class="container mt-3">
 
@@ -23,15 +45,7 @@
             </small>
         </div>
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        <form method="POST">
+        <form method="POST" id="registerStudentForm">
             {% csrf_token %}
 
             <div class="row g-3">
@@ -80,8 +94,8 @@
                     <label class="form-label">Gender <span class="text-danger">*</span></label>
                     <select name="gender" class="form-select" required>
                         <option value="">Select Gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
                     </select>
                 </div>
 
@@ -110,11 +124,11 @@
 
             <!-- BUTTONS -->
             <div class="mt-4 d-flex gap-2">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" id="submitBtn">
                     <i class="bi bi-save"></i> Register Student
                 </button>
 
-                <a href="{% url 'manage_student' %}" class="btn btn-secondary">
+                <a href="{% url 'manage_student' %}" class="btn btn-secondary" id="backBtn">
                     <i class="bi bi-arrow-left"></i> Back
                 </a>
             </div>
@@ -127,35 +141,137 @@
 
 <!-- STREAM AJAX -->
 <script>
-document.getElementById("classroom").addEventListener("change", function () {
+document.addEventListener('DOMContentLoaded', function() {
 
-    let classroomId = this.value;
-    let streamSelect = document.getElementById("stream");
+    // ================= LOADING POPUP CONTROLS =================
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+    const registerForm = document.getElementById('registerStudentForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const backBtn = document.getElementById('backBtn');
 
-    streamSelect.innerHTML = '<option>Loading...</option>';
-
-    if (!classroomId) {
-        streamSelect.innerHTML = '<option value="">Select Stream</option>';
-        return;
+    function showLoading(title, text) {
+        if (loadingOverlay) {
+            statusIcon.className = "spinner-border text-danger";
+            statusIcon.style.width = "2rem";
+            statusIcon.style.height = "2rem";
+            statusIcon.innerHTML = "";
+            statusTitle.className = "mb-1 fw-bold text-dark";
+            statusTitle.innerText = title || "Tafadhali subiri...";
+            statusText.innerText = text || "Inasindika ombi lako...";
+            loadingOverlay.classList.remove('d-none');
+        }
     }
 
-    fetch(`/get-streams/${classroomId}/`)
-        .then(res => res.json())
-        .then(data => {
-
-            let options = '<option value="">Select Stream</option>';
-
-            data.streams.forEach(stream => {
-                options += `<option value="${stream.id}">${stream.name}</option>`;
-            });
-
-            streamSelect.innerHTML = options;
-
-        })
-        .catch(() => {
-            streamSelect.innerHTML = '<option>Error loading streams</option>';
+    // ================= BACK BUTTON LOADING =================
+    if (backBtn) {
+        backBtn.addEventListener('click', function(e) {
+            showLoading("Inarudi...", "Tafadhali subiri, tunakupeleka kwenye orodha ya wanafunzi...");
         });
+    }
 
+    // ================= FORM SUBMIT LOADING =================
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            // Show loading popup
+            showLoading("Inasajili Mwanafunzi...", "Tafadhali subiri, tunamsajili mwanafunzi mpya kwenye mfumo...");
+            
+            // Disable submit button to prevent double submission
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inasajili...';
+            }
+            
+            // Form will submit normally
+            return true;
+        });
+    }
+
+    // ================= STREAM AJAX =================
+    const classroomSelect = document.getElementById("classroom");
+    const streamSelect = document.getElementById("stream");
+
+    if (classroomSelect) {
+        classroomSelect.addEventListener("change", function () {
+            let classroomId = this.value;
+
+            if (!classroomId) {
+                streamSelect.innerHTML = '<option value="">-- Select Classroom First --</option>';
+                return;
+            }
+
+            streamSelect.innerHTML = '<option>Loading streams...</option>';
+
+            fetch(`/get-streams/${classroomId}/`)
+                .then(res => res.json())
+                .then(data => {
+                    let options = '<option value="">-- Select Stream --</option>';
+                    
+                    if (data.streams && data.streams.length > 0) {
+                        data.streams.forEach(stream => {
+                            options += `<option value="${stream.id}">${stream.name}</option>`;
+                        });
+                    } else {
+                        options += '<option disabled>No streams available</option>';
+                    }
+                    
+                    streamSelect.innerHTML = options;
+                })
+                .catch(() => {
+                    streamSelect.innerHTML = '<option>Error loading streams</option>';
+                });
+        });
+    }
+
+});
+
+// ================= CHECK FOR DJANGO MESSAGES ON PAGE LOAD =================
+document.addEventListener('DOMContentLoaded', function() {
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    {% if messages %}
+        if (loadingOverlay) {
+            let isSuccess = false;
+            let messageText = "";
+            {% for message in messages %}
+                messageText = "{{ message|escapejs }}";
+                {% if message.tags == 'success' %}
+                    isSuccess = true;
+                {% endif %}
+            {% endfor %}
+            
+            if (isSuccess) {
+                statusIcon.className = "text-success d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-success";
+                statusTitle.innerText = "Umefanikiwa!";
+            } else {
+                statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
+                statusIcon.style.fontSize = "2rem";
+                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+                statusTitle.className = "mb-1 fw-bold text-danger";
+                statusTitle.innerText = "Imeshindikana!";
+            }
+            statusText.innerText = messageText;
+            loadingOverlay.classList.remove('d-none');
+            
+            setTimeout(function() {
+                loadingOverlay.classList.add('d-none');
+                // Reset button if still on same page (error case)
+                if (submitBtn && window.location.href.indexOf('register_student_admin') !== -1) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-save"></i> Register Student';
+                }
+            }, 3000);
+        }
+    {% endif %}
 });
 </script>
 

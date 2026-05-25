@@ -1,12 +1,31 @@
 {% extends 'attendance_app/admin_base.html' %}
+{% load static %}
 
 {% block title %}Academic Years{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
 
-    <!-- TOAST MESSAGES -->
-    <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
+<!-- Global Loading Popup (Spinner Only - No Success/Failed Icons) -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            
+            <div class="text-start">
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inashughulikia...</h6>
+                <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
+                    Tafadhali subiri, tunachakata ombi lako...
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="container mt-4">
 
     <div class="card shadow-sm">
         <div class="card-body">
@@ -14,7 +33,7 @@
             <!-- PAGE TITLE & BUTTON -->
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h3 class="mb-0 text-danger">Academic Years</h3>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#generateYearModal">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#generateYearModal" id="generateYearBtn">
                     Generate Academic Year
                 </button>
             </div>
@@ -47,8 +66,12 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal{{ year.id }}">Edit</button>
-                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ year.id }}">Delete</button>
+                                <button class="btn btn-sm btn-warning edit-btn" data-bs-toggle="modal" data-bs-target="#editModal{{ year.id }}" data-year-name="{{ year.year_start }}/{{ year.year_end }}">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-btn" data-bs-toggle="modal" data-bs-target="#deleteModal{{ year.id }}" data-year-name="{{ year.year_start }}/{{ year.year_end }}">
+                                    Delete
+                                </button>
                             </td>
                         </tr>
                         {% empty %}
@@ -69,7 +92,7 @@
 <div class="modal fade" id="deleteModal{{ year.id }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form method="POST" action="{% url 'delete_academic_year' year.id %}">
+            <form method="POST" action="{% url 'delete_academic_year' year.id %}" class="action-form">
                 {% csrf_token %}
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title">Confirm Delete</h5>
@@ -80,7 +103,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                    <button type="submit" class="btn btn-danger delete-confirm-btn">Yes, Delete</button>
                 </div>
             </form>
         </div>
@@ -91,9 +114,9 @@
 <div class="modal fade" id="editModal{{ year.id }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form method="POST" action="{% url 'edit_academic_year' year.id %}">
+            <form method="POST" action="{% url 'edit_academic_year' year.id %}" class="action-form">
                 {% csrf_token %}
-                <div class="modal-header ">
+                <div class="modal-header">
                     <h5 class="modal-title text-danger">Edit Academic Year</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -109,7 +132,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-warning">Save Changes</button>
+                    <button class="btn btn-warning edit-confirm-btn">Save Changes</button>
                 </div>
             </form>
         </div>
@@ -119,27 +142,27 @@
 
 <!-- GENERATE YEAR MODAL -->
 <div class="modal fade" id="generateYearModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header  text-danger">
-        <h5 class="modal-title">Generate Academic Year</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body text-center">
-        <p>This will:</p>
-        <ul class="text-start">
-          <li>Lock the current academic year</li>
-          <li>Generate a new academic year automatically</li>
-          <li>Set it as ACTIVE</li>
-        </ul>
-        <strong>Are you sure you want to continue?</strong>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <a href="{% url 'generate_academic_year' %}" class="btn btn-primary">Yes, Generate</a>
-      </div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header text-danger">
+                <h5 class="modal-title">Generate Academic Year</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>This will:</p>
+                <ul class="text-start">
+                    <li>Lock the current academic year</li>
+                    <li>Generate a new academic year automatically</li>
+                    <li>Set it as ACTIVE</li>
+                </ul>
+                <strong>Are you sure you want to continue?</strong>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="{% url 'generate_academic_year' %}" class="btn btn-primary generate-confirm-btn" id="generateConfirmBtn">Yes, Generate</a>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <!-- ================= STYLES ================= -->
@@ -179,21 +202,97 @@ document.addEventListener("DOMContentLoaded", function() {
         setTimeout(()=> row.classList.add('show'), index*100);
     });
 
-    // Show Django messages as toast
-    {% for message in messages %}
-        let type = "{% if 'error' in message.tags %}error{% else %}success{% endif %}";
-        let msg = "{{ message|escapejs }}";
-        const toastContainer = document.getElementById('toastContainer');
-        const toastEl = document.createElement('div');
-        toastEl.className = `toast align-items-center border-0 ${type==='error'?'bg-danger':'bg-success'} text-white`;
-        toastEl.role='alert';
-        toastEl.setAttribute('aria-live','assertive');
-        toastEl.setAttribute('aria-atomic','true');
-        toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-        toastContainer.appendChild(toastEl);
-        new bootstrap.Toast(toastEl,{delay:4000}).show();
-        toastEl.addEventListener('hidden.bs.toast', ()=> toastEl.remove());
-    {% endfor %}
+    // ================= LOADING POPUP - SPINNER ONLY =================
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+
+    function showLoadingSpinner(title, text) {
+        if (loadingOverlay) {
+            // Reset to spinner only - NO icons
+            statusIcon.className = "spinner-border text-danger";
+            statusIcon.style.width = "2rem";
+            statusIcon.style.height = "2rem";
+            statusIcon.innerHTML = "";
+            statusTitle.className = "mb-1 fw-bold text-dark";
+            statusTitle.innerText = title || "Inashughulikia...";
+            statusText.innerText = text || "Tafadhali subiri, tunachakata ombi lako...";
+            loadingOverlay.classList.remove('d-none');
+        }
+    }
+
+    // ================= DELETE MODAL HANDLERS =================
+    document.querySelectorAll('#deleteModal .action-form, .modal form[action*="delete_academic_year"]').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            // Get the modal and close it
+            const modal = form.closest('.modal');
+            if (modal) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                }
+            }
+            // Show loading spinner
+            showLoadingSpinner("Inafuta Mwaka...", "Tafadhali subiri, tunafuta mwaka wa masomo...");
+            return true;
+        });
+    });
+
+    // ================= EDIT MODAL HANDLERS =================
+    document.querySelectorAll('#editModal .action-form, .modal form[action*="edit_academic_year"]').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            // Get the modal and close it
+            const modal = form.closest('.modal');
+            if (modal) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                }
+            }
+            // Show loading spinner
+            showLoadingSpinner("Inahifadhi Mabadiliko...", "Tafadhali subiri, tunahifadhi mabadiliko ya mwaka wa masomo...");
+            return true;
+        });
+    });
+
+    // ================= GENERATE YEAR MODAL HANDLER =================
+    const generateConfirmBtn = document.getElementById('generateConfirmBtn');
+    if (generateConfirmBtn) {
+        generateConfirmBtn.addEventListener('click', function(e) {
+            // Close the modal first
+            const modal = document.getElementById('generateYearModal');
+            if (modal) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                }
+            }
+            // Show loading spinner
+            showLoadingSpinner("Inaunda Mwaka Mpya...", "Tafadhali subiri, tunaunda mwaka mpya wa masomo...");
+            
+            // Allow the link to navigate
+            return true;
+        });
+    }
+
+    // ================= GENERATE BUTTON (when opening modal) =================
+    const generateYearBtn = document.getElementById('generateYearBtn');
+    if (generateYearBtn) {
+        generateYearBtn.addEventListener('click', function(e) {
+            // Just show loading when modal opens? No, wait for confirm
+            // This is just to open modal, no loading yet
+        });
+    }
+
+    // ================= EDIT/DELETE BUTTONS (just for opening modal - no loading) =================
+    document.querySelectorAll('.edit-btn, .delete-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            // No loading when opening modal - only when confirming
+        });
+    });
+
 });
 </script>
+
 {% endblock %}

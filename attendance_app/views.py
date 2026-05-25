@@ -71,7 +71,7 @@ from .forms import (
     AcademicYearForm,
 )
 from .utils import auto_lock_expired_academic_year, send_sms
-import datetime
+from datetime import datetime
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.http import JsonResponse
 from django.urls import reverse

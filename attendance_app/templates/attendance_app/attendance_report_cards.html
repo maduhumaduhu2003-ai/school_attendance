@@ -1,8 +1,30 @@
 {% extends 'attendance_app/admin_base.html' %}
+{% load static %}
 
 {% block title %}Attendance Report{% endblock %}
 
 {% block content %}
+
+<!-- Global Loading Popup (Spinner Only) -->
+<div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
+            
+            <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            
+            <div class="text-start">
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inashughulikia...</h6>
+                <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
+                    Tafadhali subiri, tunachakata ombi lako...
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <div class="container mt-4">
 
     <!-- BIG CARD -->
@@ -17,7 +39,7 @@
                     <label for="academicYearSelect" class="fw-bold mb-0">
                         <i class="bi bi-calendar-week"></i> Academic Year:
                     </label>
-                    <select id="academicYearSelect" class="form-select w-auto" onchange="filterByAcademicYear()">
+                    <select id="academicYearSelect" class="form-select w-auto">
                         <option value="">-- All Years --</option>
                         {% for year in all_academic_years %}
                         <option value="{{ year.id }}" {% if selected_academic_year and selected_academic_year.id == year.id %}selected{% endif %}>
@@ -49,8 +71,9 @@
             <div class="row g-4">
                 {% for c in classrooms %}
                 <div class="col-sm-6 col-md-4 col-lg-3">
-                    <div class="card shadow-sm card-hover"
-                         onclick="location.href='{% url 'view_class_attendance' c.id %}?year={{ selected_academic_year.id|default:'' }}'">
+                    <div class="card shadow-sm card-hover classroom-card"
+                         data-url="{% url 'view_class_attendance' c.id %}?year={{ selected_academic_year.id|default:'' }}"
+                         data-classroom-name="{{ c.name }}">
 
                         <div class="card-body text-center">
 
@@ -69,14 +92,6 @@
                             <span class="badge bg-primary rounded-pill">
                                 {{ c.total_students|default:0 }} Students
                             </span>
-                            
-                            <!-- Attendance Summary (if today's data available) -->
-                            {% if c.present_today is not None %}
-                            <div class="mt-2 small">
-                                <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                </div>
-                            </div>
-                            {% endif %}
 
                         </div>
                     </div>
@@ -143,30 +158,83 @@
 </style>
 
 <script>
-function filterByAcademicYear() {
-    const yearSelect = document.getElementById('academicYearSelect');
-    const selectedYear = yearSelect.value;
-    const currentUrl = new URL(window.location.href);
-    
-    if (selectedYear) {
-        currentUrl.searchParams.set('year', selectedYear);
-    } else {
-        currentUrl.searchParams.delete('year');
-    }
-    
-    window.location.href = currentUrl.toString();
-}
-
-// Load saved academic year from URL on page load
 document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const yearParam = urlParams.get('year');
-    if (yearParam) {
-        const yearSelect = document.getElementById('academicYearSelect');
-        if (yearSelect) {
-            yearSelect.value = yearParam;
+    // ================= LOADING POPUP CONTROLS =================
+    const loadingOverlay = document.getElementById('globalLoading');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+
+    function showLoadingSpinner(title, text) {
+        if (loadingOverlay) {
+            // Reset to spinner only - NO icons
+            statusIcon.className = "spinner-border text-danger";
+            statusIcon.style.width = "2rem";
+            statusIcon.style.height = "2rem";
+            statusIcon.innerHTML = "";
+            statusTitle.className = "mb-1 fw-bold text-dark";
+            statusTitle.innerText = title || "Inashughulikia...";
+            statusText.innerText = text || "Tafadhali subiri, tunachakata ombi lako...";
+            loadingOverlay.classList.remove('d-none');
         }
     }
+
+    // ================= ACADEMIC YEAR FILTER =================
+    const yearSelect = document.getElementById('academicYearSelect');
+    
+    function filterByAcademicYear() {
+        const selectedYear = yearSelect.value;
+        const currentUrl = new URL(window.location.href);
+        
+        if (selectedYear) {
+            currentUrl.searchParams.set('year', selectedYear);
+        } else {
+            currentUrl.searchParams.delete('year');
+        }
+        
+        // Show loading before redirect
+        showLoadingSpinner("Inachuja Taarifa...", "Tafadhali subiri, tunachuja ripoti ya mahudhurio kulingana na mwaka uliochagua...");
+        
+        window.location.href = currentUrl.toString();
+    }
+
+    // Add change event listener to year select
+    if (yearSelect) {
+        yearSelect.addEventListener('change', filterByAcademicYear);
+    }
+
+    // ================= CLASSROOM CARDS (Click to view attendance) =================
+    const classroomCards = document.querySelectorAll('.classroom-card');
+    
+    classroomCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            const url = this.getAttribute('data-url');
+            const classroomName = this.getAttribute('data-classroom-name');
+            
+            if (url) {
+                // Show loading popup
+                showLoadingSpinner("Inaandaa Ripoti...", `Tafadhali subiri, tunapakia ripoti ya mahudhurio ya ${classroomName}...`);
+                
+                // Redirect after short delay to show loading
+                setTimeout(() => {
+                    window.location.href = url;
+                }, 100);
+            }
+        });
+    });
+
+    // Load saved academic year from URL on page load (just for display, no loading)
+    const urlParams = new URLSearchParams(window.location.search);
+    const yearParam = urlParams.get('year');
+    if (yearParam && yearSelect) {
+        yearSelect.value = yearParam;
+    }
+
+    // ================= CHECK FOR DJANGO MESSAGES =================
+    {% if messages %}
+        // If there are messages, we don't show them in popup (popup is for loading only)
+        // Messages will appear in base template toasts
+    {% endif %}
 });
 </script>
 
