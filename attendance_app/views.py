@@ -140,14 +140,10 @@ def get_students_by_teacher_scope(classroom, stream=None, academic_year=None):
 
 
 # ================= AUTHENTICATION VIEWS =================
-
 @never_cache
-@ensure_csrf_cookie  # Hii inahakikisha CSRF cookie inatumwa kwa browser
+@ensure_csrf_cookie
 def login_view(request):
     admin_exists = User.objects.filter(role='admin').exists()
-    
-    # Check if AJAX request
-    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     if request.method == 'POST':
         # Get credentials
@@ -161,8 +157,6 @@ def login_view(request):
             lat = float(lat) if lat else None
             lng = float(lng) if lng else None
         except (TypeError, ValueError):
-            if is_ajax:
-                return JsonResponse({'success': False, 'message': 'Location error: allow GPS access.'})
             messages.error(request, "Location error: allow GPS access.")
             return redirect('login')
 
@@ -170,14 +164,10 @@ def login_view(request):
         if lat and lng:
             distance = distance_in_meters(lat, lng, SCHOOL_LAT, SCHOOL_LNG)
             if distance is None:
-                if is_ajax:
-                    return JsonResponse({'success': False, 'message': 'Could not calculate distance.'})
                 messages.error(request, "Could not calculate distance.")
                 return redirect('login')
 
             if distance > MAX_DISTANCE_METERS:
-                if is_ajax:
-                    return JsonResponse({'success': False, 'message': 'Access denied: you are outside school area.'})
                 messages.error(request, "Access denied: you are outside school area.")
                 return redirect('login')
 
@@ -185,10 +175,65 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if not user:
-            if is_ajax:
-                return JsonResponse({'success': False, 'message': 'Invalid username or password!'})
-            messages.error(request, "Invalid username or password!")
+            messages.error(request, "Invalid email or password!")
             return redirect('login')
+
+        # ========== CHECK TEACHER STATUS (Active/Inactive) ==========
+        if user.role == 'teacher':
+            # Get active academic year
+            active_year = AcademicYear.objects.filter(is_active=True).first()
+            
+            if active_year:
+                # Get teacher profile
+                teacher_profile = TeacherProfile.objects.filter(user=user).first()
+                
+                if teacher_profile:
+                    # Check if teacher has an enrollment for the active year
+                    teacher_enrollment = Enrollment.objects.filter(
+                        class_teacher=teacher_profile,
+                        academic_year=active_year,
+                        student__isnull=True
+                    ).first()
+                    
+                    # If enrollment exists and status is Inactive, block login
+                    if teacher_enrollment and teacher_enrollment.status == 'Inactive':
+                        messages.error(
+                            request, 
+                            f" your account is INACTIVE for the current academic year "
+                            f"({active_year.year_start}/{active_year.year_end}).\n\n"
+                            f"contact school admin."
+                        )
+                        return redirect('login')
+                    
+                    # If no enrollment found for active year, also block login
+                    if not teacher_enrollment:
+                        messages.error(
+                            request,
+                            f" your account is not enrolled for the current academic year "
+                            f"({active_year.year_start}/{active_year.year_end}).\n\n"
+                            f"please contact admin"
+                        )
+                        return redirect('login')
+                else:
+                    messages.error(request, "your not registered yet contact admin for more information")
+                    return redirect('login')
+            else:
+                messages.error(request, "no active academic year found")
+                return redirect('login')
+        
+        # ========== CHECK STUDENT STATUS (Optional) ==========
+        # if user.role == 'student':
+        #     active_year = AcademicYear.objects.filter(is_active=True).first()
+        #     if active_year:
+        #         student_profile = StudentProfile.objects.filter(user=user).first()
+        #         if student_profile:
+        #             student_enrollment = Enrollment.objects.filter(
+        #                 student=student_profile,
+        #                 academic_year=active_year
+        #             ).first()
+        #             if student_enrollment and student_enrollment.status == 'Inactive':
+        #                 messages.error(request, "Your account is inactive. Please contact the administrator.")
+        #                 return redirect('login')
 
         # Update role if superuser
         if user.is_superuser and user.role != 'admin':
@@ -206,19 +251,11 @@ def login_view(request):
         }
 
         if user.role in role_redirects:
-            redirect_url = reverse(role_redirects[user.role])
-            if is_ajax:
-                return JsonResponse({
-                    'success': True,
-                    'message': f'Welcome back, {user.get_full_name() or user.username}!',
-                    'redirect_url': redirect_url
-                })
-            return redirect(redirect_url)
+            messages.success(request, f"your most welcome, {user.get_full_name() or user.username}!")
+            return redirect(role_redirects[user.role])
 
         # Invalid role
         logout(request)
-        if is_ajax:
-            return JsonResponse({'success': False, 'message': 'Invalid role!'})
         messages.error(request, "Invalid role!")
         return redirect('login')
 
@@ -226,7 +263,8 @@ def login_view(request):
     return render(request, 'attendance_app/login.html', {
         'admin_exists': admin_exists
     })
-
+    
+    
 def format_phone_number(phone):
     if not phone:
         return None
@@ -399,54 +437,49 @@ def admin_dashboard(request):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def manage_teacher(request):
-
-    # Academic years for filter
     academic_years = AcademicYear.objects.all().order_by('-year_start')
-
-    # Selected academic year
     selected_year_id = request.GET.get('year')
-
+    
     if selected_year_id:
-        selected_academic_year = AcademicYear.objects.filter(
-            id=selected_year_id
-        ).first()
+        selected_academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
     else:
-        selected_academic_year = AcademicYear.objects.filter(
-            is_active=True
-        ).first()
-
+        selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
+    
     teachers_list = []
-
-    # Get ALL teachers
-    all_teachers = TeacherProfile.objects.select_related('user').all()
-
-    for teacher in all_teachers:
+    
+    if selected_academic_year:
+        # CHANGE: Get ONLY teachers with enrollment in selected year
+        enrollments = Enrollment.objects.filter(
+            academic_year=selected_academic_year,
+            student__isnull=True  # Teacher assignments only
+        ).select_related(
+            'class_teacher__user', 
+            'classroom', 
+            'stream', 
+            'academic_year'
+        )
         
-        # Get the enrollment for the selected year (if any)
-        enrollment = None
-        if selected_academic_year:
-            enrollment = teacher.class_enrollments.filter(
-                academic_year=selected_academic_year,
-                student__isnull=True
-            ).select_related('classroom', 'stream', 'academic_year').first()
-        
-        teachers_list.append({
-            'teacher_id': teacher.id,
-            'username': teacher.user.username,
-            'full_name': teacher.user.get_full_name(),
-            'gender': teacher.user.gender if teacher.user.gender else '—',
-            'phone': teacher.user.phone_number or '—',
-            'classroom': enrollment.classroom.name if enrollment and enrollment.classroom else None,
-            'stream': enrollment.stream.name if enrollment and enrollment.stream else None,
-            'academic_year': str(selected_academic_year) if selected_academic_year else None,
-            'is_active': enrollment.academic_year.is_active if enrollment and enrollment.academic_year else False,
-        })
-
+        for enrollment in enrollments:
+            teacher = enrollment.class_teacher
+            if teacher:
+                teachers_list.append({
+                    'teacher_id': teacher.id,
+                    'username': teacher.user.username,
+                    'full_name': teacher.user.get_full_name(),
+                    'gender': teacher.user.gender if teacher.user.gender else '—',
+                    'phone': teacher.user.phone_number or '—',
+                    'classroom': enrollment.classroom.name if enrollment.classroom else None,
+                    'stream': enrollment.stream.name if enrollment.stream else None,
+                    'academic_year': str(selected_academic_year),
+                    'is_active': selected_academic_year.is_active,
+                    'teacher_status': enrollment.status,  # 'Active' or 'Inactive'
+                })
+    
     # Pagination
     paginator = Paginator(teachers_list, 25)
     page_number = request.GET.get('page')
     teachers = paginator.get_page(page_number)
-
+    
     return render(request, 'attendance_app/manage_teacher.html', {
         'teachers': teachers,
         'academic_years': academic_years,
@@ -755,21 +788,13 @@ def delete_teacher(request, teacher_id):
     selected_year_id = request.GET.get('year')
     toggle_action = request.GET.get('toggle', '')  # 'activate' or 'deactivate'
     
-    print(f"Delete teacher action: {action}")
-    print(f"Teacher: {teacher_name}")
-    print(f"Year: {selected_year_id}")
-    print(f"Toggle: {toggle_action}")
-    
-    # ================= TOGGLE ACTIVE/INACTIVE (Like Student Deactivate/Reactivate) =================
+    # ================= TOGGLE ACTIVE/INACTIVE =================
     if toggle_action in ['activate', 'deactivate']:
         if not selected_year_id:
             messages.error(request, "Please select an academic year to change teacher status.")
             return redirect('manage_teacher')
         
-        academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
-        if not academic_year:
-            messages.error(request, "Academic year not found.")
-            return redirect('manage_teacher')
+        academic_year = get_object_or_404(AcademicYear, id=selected_year_id)
         
         # Find enrollment for the selected year
         enrollment = Enrollment.objects.filter(
@@ -802,16 +827,11 @@ def delete_teacher(request, teacher_id):
         return redirect('manage_teacher')
     
     # ================= PERMANENT DELETE =================
-    if action == 'permanent':
+    if action == 'permanent' or request.GET.get('permanent') == 'true':
         try:
             with transaction.atomic():
-                # Count records before deletion
                 enrollment_count = Enrollment.objects.filter(class_teacher=teacher).count()
-                
-                # Delete all enrollments (teacher assignments)
                 Enrollment.objects.filter(class_teacher=teacher).delete()
-                
-                # Delete teacher profile and user
                 user_to_delete = teacher.user
                 user_to_delete.delete()
                 
@@ -821,9 +841,6 @@ def delete_teacher(request, teacher_id):
                     f"📊 Removed from {enrollment_count} class assignment(s)."
                 )
                 
-                logger.warning(f"PERMANENT DELETE: Teacher {teacher_name} (ID: {teacher_id}) deleted by admin {request.user.username}")
-                
-                # If admin deletes own account
                 if request.user == user_to_delete:
                     logout(request)
                     return redirect('login')
@@ -840,13 +857,8 @@ def delete_teacher(request, teacher_id):
             messages.error(request, "Please select an academic year to remove teacher from.")
             return redirect('manage_teacher')
         
-        academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
+        academic_year = get_object_or_404(AcademicYear, id=selected_year_id)
         
-        if not academic_year:
-            messages.error(request, "Academic year not found.")
-            return redirect('manage_teacher')
-        
-        # Delete only assignment/enrollment for selected year
         deleted_count, _ = Enrollment.objects.filter(
             class_teacher=teacher,
             academic_year=academic_year,
@@ -862,7 +874,7 @@ def delete_teacher(request, teacher_id):
         else:
             messages.warning(
                 request,
-                f" Teacher {teacher_name} has no assignment in {academic_year.year_start}/{academic_year.year_end}."
+                f"⚠️ Teacher {teacher_name} has no assignment in {academic_year.year_start}/{academic_year.year_end}."
             )
         
         return redirect('manage_teacher')
@@ -882,98 +894,121 @@ def register_student_admin(request):
         messages.error(request, "No active academic year found!")
         return redirect('register_student_admin')
 
-    #  ONLY CLASSROOMS OF ACTIVE YEAR
+    # ONLY CLASSROOMS OF ACTIVE YEAR
     classrooms = Classroom.objects.filter(year=active_year).order_by('name')
-
-    # default empty streams
-    streams = Stream.objects.none()
 
     if request.method == 'POST':
 
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
         gender = request.POST.get('gender')
         password = request.POST.get('password') or "Student@123"
-        admission_number = request.POST.get('admission_number')
-
+        admission_number = request.POST.get('admission_number', '').strip()
         classroom_id = request.POST.get('classroom')
         stream_id = request.POST.get('stream')
-
-        # FORCE ACTIVE YEAR ONLY (ignore form input year completely)
-        academic_year_obj = active_year
-
-        if not classroom_id or not stream_id:
-            messages.error(request, "Please select both classroom and stream.")
-            return redirect('register_student_admin')
-
-        classroom = get_object_or_404(Classroom, id=classroom_id, year=active_year)
-        stream = get_object_or_404(Stream, id=stream_id, classroom=classroom)
-
-        parent_full_name = request.POST.get('parent_full_name')
+        parent_full_name = request.POST.get('parent_full_name', '').strip()
         parent_phone = request.POST.get('parent_phone', '').strip()
 
-        parent_phone = format_phone_number(parent_phone)
-        if not parent_phone:
-            messages.error(request, "Invalid parent phone number format!")
+        # VALIDATIONS
+        if not all([first_name, last_name, admission_number, classroom_id, stream_id, parent_full_name, parent_phone]):
+            messages.error(request, "All fields are required!")
             return redirect('register_student_admin')
 
+        # Format parent phone
+        parent_phone = format_phone_number(parent_phone)
+        if not parent_phone:
+            messages.error(request, "Invalid parent phone number format! Use: 0712345678 or 712345678")
+            return redirect('register_student_admin')
+
+        # Check if admission number exists
         if User.objects.filter(username=admission_number).exists():
             messages.error(request, "Admission number already exists.")
             return redirect('register_student_admin')
 
-        # CREATE STUDENT
-        student_user = User.objects.create(
-            username=admission_number,
-            first_name=first_name,
-            last_name=last_name,
-            gender=gender,
-            role='student',
-            password=make_password(password)
-        )
+        try:
+            with transaction.atomic():
+                # Get classroom and stream
+                classroom = Classroom.objects.get(id=classroom_id, year=active_year)
+                stream = Stream.objects.get(id=stream_id, classroom=classroom)
 
-        student_profile = StudentProfile.objects.create(
-            user=student_user,
-            admission_number=admission_number
-        )
+                # CREATE STUDENT USER
+                student_user = User.objects.create(
+                    username=admission_number,
+                    first_name=first_name,
+                    last_name=last_name,
+                    gender=gender,
+                    role='student',
+                    password=make_password(password)
+                )
 
-        Enrollment.objects.create(
-            student=student_profile,
-            classroom=classroom,
-            stream=stream,
-            academic_year=active_year,
-            status='Active'
-        )
+                # CREATE STUDENT PROFILE
+                student_profile = StudentProfile.objects.create(
+                    user=student_user,
+                    admission_number=admission_number
+                )
 
-        # PARENT
-        names = parent_full_name.split(" ", 1)
-        parent_first = names[0]
-        parent_last = names[1] if len(names) > 1 else ""
+                # CREATE ENROLLMENT
+                Enrollment.objects.create(
+                    student=student_profile,
+                    classroom=classroom,
+                    stream=stream,
+                    academic_year=active_year,
+                    status='Active'
+                )
 
-        if not User.objects.filter(username=parent_phone).exists():
-            parent_user = User.objects.create(
-                username=parent_phone,
-                first_name=parent_first,
-                last_name=parent_last,
-                phone_number=parent_phone,
-                role='parent',
-                password=make_password(parent_phone)
-            )
+                # CREATE OR GET PARENT
+                parent_names = parent_full_name.split(' ', 1)
+                parent_first = parent_names[0]
+                parent_last = parent_names[1] if len(parent_names) > 1 else ''
 
-            ParentProfile.objects.create(
-                user=parent_user,
-                student=student_profile
-            )
+                # Get or create parent user
+                parent_user, created = User.objects.get_or_create(
+                    username=parent_phone,
+                    defaults={
+                        'first_name': parent_first,
+                        'last_name': parent_last,
+                        'phone_number': parent_phone,
+                        'role': 'parent',
+                        'password': make_password(parent_phone)
+                    }
+                )
 
-        messages.success(
-            request,
-            f"Student {first_name} {last_name} registered successfully."
-        )
+                # If user already exists, update their info
+                if not created:
+                    parent_user.first_name = parent_first
+                    parent_user.last_name = parent_last
+                    parent_user.phone_number = parent_phone
+                    parent_user.save()
 
-        return redirect('register_student_admin')
+                # Create parent profile
+                ParentProfile.objects.get_or_create(
+                    user=parent_user,
+                    student=student_profile
+                )
+
+                messages.success(
+                    request,
+                    f"Student {first_name} {last_name} registered successfully for {active_year.year_start}/{active_year.year_end}!\n"
+                    f"Login: {admission_number} | Password: {password}"
+                )
+                return redirect('register_student_admin')
+
+        except Classroom.DoesNotExist:
+            messages.error(request, "Classroom not found for the active academic year.")
+            return redirect('register_student_admin')
+        except Stream.DoesNotExist:
+            messages.error(request, "Stream not found.")
+            return redirect('register_student_admin')
+        except IntegrityError as e:
+            messages.error(request, f"Database error: {str(e)}")
+            return redirect('register_student_admin')
+        except Exception as e:
+            logger.error(f"Error registering student: {e}")
+            messages.error(request, f"Error: {str(e)}")
+            return redirect('register_student_admin')
 
     return render(request, 'attendance_app/register_student_admin.html', {
         'classrooms': classrooms,
-        'streams': streams,
         'active_year': active_year,
     })
     
@@ -1116,19 +1151,18 @@ def classroom_students(request, classroom_id):
     search_query = request.GET.get('search', '')
     selected_stream_id = request.GET.get('stream', '')
     
-    # IMPORTANT FIX: Remove status='Active' filter to show ALL students (Active, Promoted, Graduated)
+    # Get ALL enrollments for this classroom and year
     enrollments = Enrollment.objects.filter(
         classroom=classroom,
         academic_year=academic_year,
         student__isnull=False
-        # REMOVED: status='Active' - This was hiding past/promoted students!
     ).select_related('student__user', 'stream')
     
     # Apply stream filter
     if selected_stream_id:
         enrollments = enrollments.filter(stream_id=selected_stream_id)
     
-    # Build student data
+    # Build student data with parent info
     students_data = []
     for enrollment in enrollments:
         student = enrollment.student
@@ -1138,6 +1172,11 @@ def classroom_students(request, classroom_id):
         full_name = f"{student.user.first_name} {student.user.last_name}".strip()
         if not full_name or not student.user.first_name:
             full_name = student.user.username or "Unknown Student"
+        
+        # Get parent info
+        parent = student.parents.first()
+        parent_name = f"{parent.user.first_name} {parent.user.last_name}".strip() if parent and parent.user else '—'
+        parent_phone = parent.user.phone_number if parent and parent.user and parent.user.phone_number else '—'
         
         # Apply search filter
         if search_query:
@@ -1151,7 +1190,11 @@ def classroom_students(request, classroom_id):
             'full_name': full_name,
             'gender': student.user.gender or '—',
             'stream': enrollment.stream.name if enrollment.stream else '—',
-            'status': enrollment.status,  # This shows 'Active', 'Promoted', or 'Graduated'
+            'status': enrollment.status,
+            'email': student.user.email or '—',
+            'phone': student.user.phone_number or '—',
+            'parent_name': parent_name,
+            'parent_phone': parent_phone,
         })
     
     # Pagination
@@ -1166,6 +1209,7 @@ def classroom_students(request, classroom_id):
         'students': students,
         'search_query': search_query,
         'selected_stream_id': selected_stream_id,
+        'selected_academic_year': academic_year,  # For modal
     }
     
     return render(request, 'attendance_app/classroom_students.html', context)
@@ -1405,11 +1449,12 @@ def register_student_teacher(request):
 def edit_student_page(request, student_id):
 
     student = get_object_or_404(StudentProfile, id=student_id)
-
-    parent = student.parents.first() if student.parents.exists() else None
-
-    # ACTIVE YEAR
+    parent = student.parents.first()
     active_year = AcademicYear.objects.filter(is_active=True).first()
+
+    if not active_year:
+        messages.error(request, "No active academic year found!")
+        return redirect('manage_student')
 
     # GET CURRENT ENROLLMENT FOR ACTIVE YEAR
     enrollment = student.enrollments.filter(
@@ -1417,106 +1462,127 @@ def edit_student_page(request, student_id):
     ).select_related('classroom', 'stream').first()
 
     # FETCH ONLY ACTIVE YEAR CLASSROOMS
-    classrooms = Classroom.objects.filter(
-        year=active_year
-    ).order_by('name')
+    classrooms = Classroom.objects.filter(year=active_year).order_by('name')
 
-    # FETCH STREAMS FOR CURRENT CLASSROOM
+    # GET STREAMS FOR CURRENT CLASSROOM
     streams = Stream.objects.none()
-
     if enrollment and enrollment.classroom:
-        streams = Stream.objects.filter(
-            classroom=enrollment.classroom
-        ).order_by('name')
+        streams = Stream.objects.filter(classroom=enrollment.classroom).order_by('name')
 
     if request.method == 'POST':
 
-        # STUDENT INFO
-        student.user.first_name = request.POST.get(
-            'first_name',
-            student.user.first_name
-        )
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        gender = request.POST.get('gender')
+        admission_number = request.POST.get('admission_number', '').strip()
+        classroom_id = request.POST.get('classroom')
+        stream_id = request.POST.get('stream')
+        parent_full_name = request.POST.get('parent_full_name', '').strip()
+        parent_phone = request.POST.get('parent_phone', '').strip()
 
-        student.user.last_name = request.POST.get(
-            'last_name',
-            student.user.last_name
-        )
+        # VALIDATIONS
+        if not all([first_name, last_name, admission_number, parent_full_name, parent_phone]):
+            messages.error(request, "Please fill all required fields!")
+            return redirect('edit_student_page', student_id=student.id)
 
-        student.user.gender = request.POST.get(
-            'gender',
-            student.user.gender
-        )
+        # Format parent phone
+        parent_phone = format_phone_number(parent_phone)
+        if not parent_phone:
+            messages.error(request, "Invalid parent phone number format!")
+            return redirect('edit_student_page', student_id=student.id)
 
-        student.admission_number = request.POST.get(
-            'admission_number',
-            student.admission_number
-        )
+        try:
+            with transaction.atomic():
+                # UPDATE STUDENT USER
+                student.user.first_name = first_name
+                student.user.last_name = last_name
+                student.user.gender = gender
+                student.user.save()
 
-        student.user.save()
-        student.save()
+                # UPDATE STUDENT PROFILE
+                student.admission_number = admission_number
+                student.save()
 
-        # UPDATE ENROLLMENT
-        if enrollment:
+                # UPDATE ENROLLMENT
+                if classroom_id:
+                    new_classroom = Classroom.objects.filter(id=classroom_id, year=active_year).first()
+                    if new_classroom:
+                        if enrollment:
+                            enrollment.classroom = new_classroom
+                        else:
+                            enrollment = Enrollment(
+                                student=student,
+                                classroom=new_classroom,
+                                academic_year=active_year,
+                                status='Active'
+                            )
+                
+                if stream_id and enrollment:
+                    new_stream = Stream.objects.filter(id=stream_id).first()
+                    if new_stream:
+                        enrollment.stream = new_stream
+                
+                if enrollment:
+                    enrollment.save()
 
-            classroom_id = request.POST.get('classroom')
-            stream_id = request.POST.get('stream')
+                # UPDATE OR CREATE PARENT
+                parent_names = parent_full_name.split(' ', 1)
+                parent_first = parent_names[0]
+                parent_last = parent_names[1] if len(parent_names) > 1 else ''
 
-            if classroom_id:
-                enrollment.classroom = get_object_or_404(
-                    Classroom,
-                    id=classroom_id,
-                    year=active_year
+                # Get or create parent user
+                parent_user, created = User.objects.get_or_create(
+                    username=parent_phone,
+                    defaults={
+                        'first_name': parent_first,
+                        'last_name': parent_last,
+                        'phone_number': parent_phone,
+                        'role': 'parent',
+                        'password': make_password(parent_phone)
+                    }
                 )
 
-            if stream_id:
-                enrollment.stream = get_object_or_404(
-                    Stream,
-                    id=stream_id
-                )
-            else:
-                enrollment.stream = None
+                # Update parent user info if not created or if info changed
+                if not created or parent_user.first_name != parent_first:
+                    parent_user.first_name = parent_first
+                    parent_user.last_name = parent_last
+                    parent_user.phone_number = parent_phone
+                    parent_user.save()
 
-            enrollment.save()
+                # Update or create parent profile
+                if parent:
+                    if parent.user != parent_user:
+                        parent.user = parent_user
+                        parent.save()
+                else:
+                    ParentProfile.objects.create(
+                        user=parent_user,
+                        student=student
+                    )
 
-        # PARENT INFO
-        if parent:
+                messages.success(request, " Student updated successfully!")
+                return redirect('manage_student')
 
-            full_name = request.POST.get(
-                'parent_full_name',
-                ''
-            ).strip()
+        except Classroom.DoesNotExist:
+            messages.error(request, "Selected classroom not found.")
+            return redirect('edit_student_page', student_id=student.id)
+        except Stream.DoesNotExist:
+            messages.error(request, "Selected stream not found.")
+            return redirect('edit_student_page', student_id=student.id)
+        except Exception as e:
+            logger.error(f"Error editing student {student_id}: {e}")
+            messages.error(request, f"Error: {str(e)}")
+            return redirect('edit_student_page', student_id=student.id)
 
-            if full_name:
-                names = full_name.split(' ', 1)
-
-                parent.user.first_name = names[0]
-
-                parent.user.last_name = (
-                    names[1] if len(names) > 1 else ''
-                )
-
-            raw_phone = request.POST.get('parent_phone')
-
-            if raw_phone:
-                try:
-                    parent.user.phone_number = format_phone_number(raw_phone)
-                except Exception:
-                    pass
-
-            parent.user.save()
-            
-        messages.success(request, "Student updated successfully!")
-
-        return redirect('manage_student')
-
-    return render(request, 'attendance_app/edit_student_page.html', {
+    context = {
         'student': student,
         'parent': parent,
         'classrooms': classrooms,
         'streams': streams,
         'enrollment': enrollment,
         'active_year': active_year,
-    })
+    }
+    return render(request, 'attendance_app/edit_student_page.html', context)
 
 
 @login_required
@@ -1595,129 +1661,125 @@ logger = logging.getLogger(__name__)
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def delete_student(request, student_id):
-    """Delete student - Supports soft delete (deactivate) and permanent delete"""
+    """Delete student - Supports soft delete (toggle active/inactive), remove from year, or permanent delete"""
     
     student = get_object_or_404(StudentProfile, id=student_id)
-    active_year = AcademicYear.objects.filter(is_active=True).first()
+    student_name = student.user.get_full_name() or student.user.username
     
-    # Get the action type from request
-    action = request.GET.get('action', 'soft')  # 'soft' or 'permanent'
+    # Get parameters
+    action = request.GET.get('action', 'soft')
+    selected_year_id = request.GET.get('year')
+    toggle_action = request.GET.get('toggle', '')  # 'activate' or 'deactivate'
     
-    if not active_year:
-        messages.error(request, "No active academic year found!")
-        if request.user.role == "teacher":
-            return redirect("my_students")
+    # ================= TOGGLE ACTIVE/INACTIVE (Same as teacher) =================
+    if toggle_action in ['activate', 'deactivate']:
+        if not selected_year_id:
+            messages.error(request, "Please select an academic year to change student status.")
+            if request.user.role == "teacher":
+                return redirect("my_students")
+            return redirect("manage_student")
+        
+        academic_year = get_object_or_404(AcademicYear, id=selected_year_id)
+        
+        # Find enrollment for the selected year
+        enrollment = student.enrollments.filter(academic_year=academic_year).first()
+        
+        if enrollment:
+            if toggle_action == 'activate':
+                enrollment.status = 'Active'
+                enrollment.save()
+                messages.success(
+                    request,
+                    f"Student {student_name} has been REACTIVATED in {academic_year.year_start}/{academic_year.year_end}!"
+                )
+            else:  # deactivate
+                enrollment.status = 'Inactive'
+                enrollment.save()
+                messages.success(
+                    request,
+                    f"Student {student_name} has been DEACTIVATED in {academic_year.year_start}/{academic_year.year_end}."
+                )
+        else:
+            messages.warning(
+                request,
+                f"No enrollment found for {student_name} in {academic_year.year_start}/{academic_year.year_end}."
+            )
+        
+        # Redirect back to where the request came from
+        referer = request.META.get('HTTP_REFERER', 'manage_student')
+        return redirect(referer)
+    
+    # ================= PERMANENT DELETE (Remove all data) =================
+    if action == 'permanent' or request.GET.get('permanent') == 'true':
+        if request.user.role != 'admin':
+            messages.error(request, "Only admin can permanently delete students.")
+            return redirect("manage_student")
+        
+        try:
+            with transaction.atomic():
+                student_user = student.user
+                
+                # Count records before deletion
+                sms_count = SMSLog.objects.filter(student=student).count()
+                attendance_count = Attendance.objects.filter(student=student).count()
+                parent_count = ParentProfile.objects.filter(student=student).count()
+                enrollment_count = student.enrollments.count()
+                
+                # Delete all related data in correct order
+                SMSLog.objects.filter(student=student).delete()
+                ParentProfile.objects.filter(student=student).delete()
+                Attendance.objects.filter(student=student).delete()
+                student.enrollments.all().delete()
+                
+                # Delete student profile and user
+                student.delete()
+                student_user.delete()
+                
+                messages.success(
+                    request, 
+                    f"Student {student_name} PERMANENTLY deleted!\n"
+                    f" Removed: {enrollment_count} enrollments, {attendance_count} attendance records, "
+                    f"{parent_count} parent relationships, {sms_count} SMS logs."
+                )
+                
+                logger.warning(f"PERMANENT DELETE: Student {student_name} (ID: {student_id}) deleted by admin {request.user.username}")
+                
+        except Exception as e:
+            logger.error(f"Error in permanent delete: {e}")
+            messages.error(request, f"Failed to permanently delete student: {str(e)}")
+        
         return redirect("manage_student")
     
-    # ================= FOR TEACHERS: Only soft delete (remove from class) =================
-    if request.user.role == "teacher":
-        # Verify teacher has permission
-        teacher = get_object_or_404(TeacherProfile, user=request.user)
-        teacher_enrollment = Enrollment.objects.filter(
-            class_teacher=teacher,
-            academic_year=active_year
-        ).first()
-        
-        if teacher_enrollment:
-            student_in_class = Enrollment.objects.filter(
-                student=student,
-                classroom=teacher_enrollment.classroom,
-                academic_year=active_year
-            ).exists()
-            
-            if not student_in_class:
-                messages.error(request, "You don't have permission to remove this student!")
+    # ================= SOFT DELETE (Remove from specific year only) =================
+    else:
+        if not selected_year_id:
+            messages.error(request, "Please select an academic year to remove student from.")
+            if request.user.role == "teacher":
                 return redirect("my_students")
-        
-        # SOFT DELETE - Just remove from current class (set status to Inactive)
-        enrollment = student.enrollments.filter(academic_year=active_year).first()
-        if enrollment:
-            enrollment.status = "Inactive"
-            enrollment.save()
-            messages.success(request, f"Student {student.user.get_full_name()} has been removed from {active_year}.")
-        else:
-            messages.warning(request, "No enrollment found for current academic year.")
-        
-        return redirect("my_students")
-    
-    # ================= FOR ADMINS: Choose between soft and permanent delete =================
-    if request.user.role == "admin":
-        
-        # ================= PERMANENT DELETE (Remove all data) =================
-        if action == 'permanent':
-            try:
-                with transaction.atomic():
-                    student_name = student.user.get_full_name() or student.user.username
-                    student_user = student.user
-                    
-                    # Count records before deletion
-                    sms_count = SMSLog.objects.filter(student=student).count()
-                    attendance_count = Attendance.objects.filter(student=student).count()
-                    parent_count = ParentProfile.objects.filter(student=student).count()
-                    enrollment_count = student.enrollments.count()
-                    
-                    # Delete all related data in correct order
-                    SMSLog.objects.filter(student=student).delete()
-                    ParentProfile.objects.filter(student=student).delete()
-                    Attendance.objects.filter(student=student).delete()
-                    student.enrollments.all().delete()
-                    
-                    # Delete student profile and user
-                    student.delete()
-                    student_user.delete()
-                    
-                    messages.success(
-                        request, 
-                        f"Student {student_name} PERMANENTLY deleted!\n"
-                        f"Removed: {enrollment_count} enrollments, {attendance_count} attendance records, "
-                        f"{parent_count} parent relationships, {sms_count} SMS logs."
-                    )
-                    
-                    logger.warning(f"PERMANENT DELETE: Student {student_name} (ID: {student_id}) deleted by admin {request.user.username}")
-                    
-            except Exception as e:
-                logger.error(f"Error in permanent delete: {e}")
-                messages.error(request, f" Failed to permanently delete student: {str(e)}")
-            
             return redirect("manage_student")
         
-        # ================= SOFT DELETE (Deactivate - Remove from current class) =================
+        academic_year = get_object_or_404(AcademicYear, id=selected_year_id)
+        
+        # Delete only enrollment for selected year
+        deleted_count, _ = Enrollment.objects.filter(
+            student=student,
+            academic_year=academic_year
+        ).delete()
+        
+        if deleted_count > 0:
+            messages.success(
+                request,
+                f"Student {student_name} removed from "
+                f"{academic_year.year_start}/{academic_year.year_end} successfully."
+            )
         else:
-            enrollment = student.enrollments.filter(academic_year=active_year).first()
-            
-            if enrollment:
-                # Toggle status between Active and Inactive
-                if enrollment.status == 'Active':
-                    enrollment.status = 'Inactive'
-                    enrollment.save()
-                    messages.success(
-                        request, 
-                        f" Student {student.user.get_full_name()} has been DEACTIVATED (removed from {active_year})."
-                    )
-                elif enrollment.status == 'Inactive':
-                    enrollment.status = 'Active'
-                    enrollment.save()
-                    messages.success(
-                        request, 
-                        f" Student {student.user.get_full_name()} has been REACTIVATED in {active_year}."
-                    )
-                else:
-                    # For Promoted or Graduated students, just remove
-                    enrollment.delete()
-                    messages.success(
-                        request, 
-                        f" Student {student.user.get_full_name()} has been removed from {active_year}."
-                    )
-            else:
-                messages.warning(request, f"No enrollment found for {student.user.get_full_name()} in {active_year}.")
-            
-            return redirect("manage_student")
+            messages.warning(
+                request,
+                f" Student {student_name} has no enrollment in {academic_year.year_start}/{academic_year.year_end}."
+            )
+        
+        return redirect("manage_student")
     
-    # Fallback
-    if request.user.role == "teacher":
-        return redirect("my_students")
-    return redirect("manage_student")
-
 @never_cache
 @login_required
 def my_students(request):
@@ -3716,14 +3778,60 @@ def get_next_form_name(current_name):
     return None
 
 
+import re
 from django.db import transaction
 from django.utils import timezone
 from django.contrib import messages
+
+def get_next_form_name(current_name):
+    """
+    Reliable promotion: Form I → Form II → Form III → Form IV → Graduate
+    Form V → Form VI → Graduate
+    """
+    if not current_name:
+        return None
+
+    name = str(current_name).strip().lower()
+
+    # Promotion mapping - Form IV graduates (does NOT go to Form V)
+    mapping = {
+        "form i": "Form II",
+        "form 1": "Form II",
+        "form ii": "Form III",
+        "form 2": "Form III",
+        "form iii": "Form IV",
+        "form 3": "Form IV",
+        "form iv": None,      # Form IV GRADUATES - does NOT go to Form V!
+        "form 4": None,       # Form IV GRADUATES
+        "form four": None,    # Form IV GRADUATES
+        "form v": "Form VI",  # Form V goes to Form VI
+        "form 5": "Form VI",
+        "form vi": None,      # Form VI graduates
+        "form 6": None,
+    }
+
+    if name in mapping:
+        return mapping[name]
+
+    # fallback: extract number
+    match = re.search(r'(\d+)', name)
+    if match:
+        num = int(match.group(1))
+        if num == 4 or num >= 6:  # Form IV or Form VI+ graduates
+            return None
+        return f"Form {num + 1}"
+
+    return None
+
 
 @transaction.atomic
 def generate_academic_year(request):
     """
     FIXED VERSION: Safe academic year generation + promotion system
+    - Students: Only ACTIVE students are promoted (Inactive students stay behind)
+    - Form IV graduates (does NOT go to Form V)
+    - Form VI graduates
+    - Teachers: Only ACTIVE teachers are promoted (Inactive teachers stay behind)
     """
 
     last_year = AcademicYear.objects.order_by('-year_start').first()
@@ -3778,11 +3886,18 @@ def generate_academic_year(request):
                 )
 
         # ================= STUDENT PROMOTION =================
-        students_promoted = students_graduated = students_repeating = students_failed = 0
+        # Only promote ACTIVE students (Inactive/Promoted/Graduated students are NOT promoted)
+        students_promoted = 0
+        students_graduated = 0
+        students_repeating = 0
+        students_failed = 0
+        students_skipped_inactive = 0
+        students_form4_graduated = 0
+        students_form6_graduated = 0
 
         enrollments = Enrollment.objects.filter(
             academic_year=old_year,
-            status='Active',
+            status='Active',  # ONLY active students are promoted!
             student__isnull=False
         ).select_related('student', 'classroom', 'stream')
 
@@ -3794,16 +3909,31 @@ def generate_academic_year(request):
                 students_failed += 1
                 continue
 
+            # Check if this is Form IV (should graduate)
+            is_form_four = old_class.name.lower() in ['form iv', 'form 4', 'form four']
+            
+            # Check if this is Form VI (should graduate)
+            is_form_six = old_class.name.lower() in ['form vi', 'form 6', 'form six']
+            
             next_class = get_next_form_name(old_class.name)
 
-            # ===== GRADUATION =====
-            if next_class is None:
+            # ===== FORM IV GRADUATION =====
+            if is_form_four:
                 enr.status = 'Graduated'
                 enr.save()
                 students_graduated += 1
+                students_form4_graduated += 1
+                continue
+            
+            # ===== FORM VI GRADUATION =====
+            if is_form_six or (next_class is None and not is_form_four):
+                enr.status = 'Graduated'
+                enr.save()
+                students_graduated += 1
+                students_form6_graduated += 1
                 continue
 
-            # ===== FIND NEW CLASSROOM =====
+            # ===== FIND NEW CLASSROOM for Form I, II, III, V =====
             new_class = Classroom.objects.filter(
                 name=next_class,
                 year=new_year
@@ -3829,26 +3959,37 @@ def generate_academic_year(request):
                     classroom=new_class
                 ).first()
 
-            # ===== CREATE NEW ENROLLMENT SAFELY =====
+            # ===== CREATE NEW ENROLLMENT FOR NEW YEAR =====
             Enrollment.objects.get_or_create(
                 student=student,
                 academic_year=new_year,
                 defaults={
                     'classroom': new_class,
                     'stream': new_stream,
-                    'status': 'Active'
+                    'status': 'Active'  # Students start as Active in new year
                 }
             )
 
+            # Mark old enrollment as Promoted
             enr.status = 'Promoted'
             enr.save()
 
-        # ================= TEACHER PROMOTION (FIXED) =================
-        teachers_updated = teachers_failed = 0
+        # Count inactive students that were skipped
+        students_skipped_inactive = Enrollment.objects.filter(
+            academic_year=old_year,
+            status='Inactive',
+            student__isnull=False
+        ).count()
+
+        # ================= TEACHER PROMOTION =================
+        teachers_promoted = 0
+        teachers_failed = 0
+        teachers_skipped_inactive = 0
 
         teacher_assignments = Enrollment.objects.filter(
             academic_year=old_year,
-            class_teacher__isnull=False
+            class_teacher__isnull=False,
+            status='Active'
         ).select_related('class_teacher', 'classroom', 'stream').distinct()
 
         for assign in teacher_assignments:
@@ -3886,34 +4027,50 @@ def generate_academic_year(request):
                 defaults={
                     'classroom': new_class,
                     'stream': new_stream,
-                    'student': None
+                    'student': None,
+                    'status': 'Active'
                 }
             )
 
-            teachers_updated += 1
+            teachers_promoted += 1
+
+        # Count inactive teachers that were skipped
+        teachers_skipped_inactive = Enrollment.objects.filter(
+            academic_year=old_year,
+            class_teacher__isnull=False,
+            status='Inactive'
+        ).count()
 
         # ================= SUCCESS MESSAGE =================
         messages.success(request,
             f"""Academic Year {new_year} created successfully!
 
-Students:
-- Promoted: {students_promoted}
-- Repeating: {students_repeating}
-- Graduated: {students_graduated}
-- Failed: {students_failed}
+STUDENTS:
+   Promoted: {students_promoted}
+   Repeating: {students_repeating}
+   Graduated: {students_graduated}
+      Form IV Graduates: {students_form4_graduated}
+      Form VI Graduates: {students_form6_graduated}
+   Skipped (Inactive): {students_skipped_inactive}
+   Failed: {students_failed}
 
-Teachers:
-- Updated: {teachers_updated}
-- Failed: {teachers_failed}
+TEACHERS:
+   Promoted (Active): {teachers_promoted}
+   Skipped (Inactive): {teachers_skipped_inactive}
+   Failed: {teachers_failed}
+
+ Old year {old_year.year_start}/{old_year.year_end} has been locked.
+ New year {new_year.year_start}/{new_year.year_end} is now ACTIVE.
 """
         )
 
         return redirect('academic_years')
 
     except Exception as e:
-        messages.error(request, f"Error: {str(e)}")
+        logger.error(f"Error generating academic year: {str(e)}")
+        messages.error(request, f" Error generating academic year: {str(e)}")
         return redirect('academic_years')
-    
+        
     
 @never_cache
 @login_required

@@ -5,22 +5,19 @@
 
 {% block content %}
 
-<!-- Global Loading and Status Popup (Same as Register Student Page) -->
+<!-- Global Loading and Status Popup -->
 <div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
     <div class="d-flex justify-content-center align-items-center h-100">
         <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
-            
             <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            
             <div class="text-start">
                 <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inafuta...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
                     Tafadhali subiri, tunamwondoa mwanafunzi darasani...
                 </p>
             </div>
-
         </div>
     </div>
 </div>
@@ -28,146 +25,80 @@
 <div class="container-fluid p-3">
 
     <div class="card shadow-sm">
-
         <div class="card-body">
 
             <!-- HEADER -->
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2 flex-wrap">
-
                 <div>
                     <h2 class="mb-1 text-danger">
                         <i class="bi bi-people-fill"></i>
                         {{ classroom.name }} Students
                     </h2>
-
                     <p class="text-muted mb-0">
-                        Academic Year:
-                        {{ academic_year.year_start }}/{{ academic_year.year_end }}
+                        Academic Year: {{ academic_year.year_start }}/{{ academic_year.year_end }}
                     </p>
                 </div>
-
                 <a href="{% url 'manage_student' %}?year={{ academic_year.id }}"
                    class="btn btn-secondary btn-sm" id="backBtn">
-
-                    <i class="bi bi-arrow-left"></i>
-                    Back to Classrooms
-
+                    <i class="bi bi-arrow-left"></i> Back to Classrooms
                 </a>
-
             </div>
 
             <!-- FILTER CARD -->
             <div class="card bg-light mb-4">
-
                 <div class="card-body py-3">
-
                     <form method="GET" class="row g-3 align-items-center" id="filterForm">
-
-                        <input type="hidden"
-                               name="year"
-                               value="{{ academic_year.id }}">
-
-                        <input type="hidden"
-                               name="classroom"
-                               value="{{ classroom.id }}">
-
+                        <input type="hidden" name="year" value="{{ academic_year.id }}">
+                        <input type="hidden" name="classroom" value="{{ classroom.id }}">
+                        
                         <!-- SEARCH -->
                         <div class="col-lg-4 col-md-6">
-
                             <label class="form-label fw-bold mb-1">
-                                <i class="bi bi-search"></i>
-                                Search Student
+                                <i class="bi bi-search"></i> Search Student
                             </label>
-
-                            <input type="text"
-                                   name="search"
-                                   value="{{ search_query|default:'' }}"
-                                   class="form-control"
-                                   placeholder="Search by name or admission number">
-
+                            <input type="text" name="search" value="{{ search_query|default:'' }}"
+                                   class="form-control" placeholder="Search by name or admission number">
                         </div>
 
                         <!-- STREAM -->
                         <div class="col-lg-3 col-md-6">
-
                             <label class="form-label fw-bold mb-1">
-                                <i class="bi bi-diagram-3"></i>
-                                Stream
+                                <i class="bi bi-diagram-3"></i> Stream
                             </label>
-
-                            <select name="stream"
-                                    class="form-select">
-
-                                <option value="">
-                                    All Streams
-                                </option>
-
+                            <select name="stream" class="form-select">
+                                <option value="">All Streams</option>
                                 {% for stream in streams %}
-
                                 <option value="{{ stream.id }}"
-                                    {% if selected_stream_id == stream.id|stringformat:"s" %}
-                                        selected
-                                    {% endif %}>
-
+                                    {% if selected_stream_id == stream.id|stringformat:"s" %}selected{% endif %}>
                                     {{ stream.name }}
-
                                 </option>
-
                                 {% endfor %}
-
                             </select>
-
                         </div>
 
                         <!-- BUTTONS -->
                         <div class="col-lg-2 col-md-6">
-
-                            <label class="form-label d-block invisible">
-                                Button
-                            </label>
-
-                            <button type="submit"
-                                    class="btn btn-primary w-100"
-                                    id="filterBtn">
-
-                                <i class="bi bi-funnel-fill"></i>
-                                Filter
-
+                            <label class="form-label d-block invisible">Button</label>
+                            <button type="submit" class="btn btn-primary w-100" id="filterBtn">
+                                <i class="bi bi-funnel-fill"></i> Filter
                             </button>
-
                         </div>
-
                         <div class="col-lg-2 col-md-6">
-
-                            <label class="form-label d-block invisible">
-                                Reset
-                            </label>
-
+                            <label class="form-label d-block invisible">Reset</label>
                             <a href="?year={{ academic_year.id }}&classroom={{ classroom.id }}"
-                               class="btn btn-outline-secondary w-100"
-                               id="resetBtn">
-
+                               class="btn btn-outline-secondary w-100" id="resetBtn">
                                 Reset
-
                             </a>
-
                         </div>
-
                     </form>
-
                 </div>
-
             </div>
 
             <!-- TABLE -->
             <div class="table-container">
-
                 <table class="table table-bordered table-striped align-middle mb-0 large-table">
-
                     <thead>
-
                         <tr>
-
                             <th>No</th>
                             <th>Admission No</th>
                             <th>Student Name</th>
@@ -175,279 +106,229 @@
                             <th>Stream</th>
                             <th>Status</th>
                             <th>Actions</th>
-
                         </tr>
-
                     </thead>
-
                     <tbody>
-
                         {% for student_data in students %}
-
-                        <tr>
-
-                            <td>
-                                {{ forloop.counter0|add:students.start_index }}
-                            </td>
-
-                            <td>
-
-                                <code>
-                                    {{ student_data.admission_number }}
-                                </code>
-
-                            </td>
-
-                            <td class="">
-
-                                {{ student_data.full_name }}
-
-                            </td>
-
-                            <!-- GENDER -->
-                            <td>
-
+                        <tr id="student-row-{{ student_data.id }}">
+                            <td class="text-center">{{ forloop.counter0|add:students.start_index }}</td>
+                            <td class="text-center"><code>{{ student_data.admission_number }}</code></td>
+                            <td>{{ student_data.full_name }}</td>
+                            <td class="text-center">
                                 {% if student_data.gender|lower == 'male' %}
-
-                                    <span class=" px-3 py-2">
-                                        Male
-                                    </span>
-
+                                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">Male</span>
                                 {% elif student_data.gender|lower == 'female' %}
-
-                                    <span class=" px-3 py-2">
-                                        Female
-                                    </span>
-
+                                    <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2">Female</span>
                                 {% else %}
-
-                                    <span class=" px-3 py-2">
-                                        N/A
-                                    </span>
-
+                                    <span class="text-muted px-3 py-2">N/A</span>
                                 {% endif %}
-
                             </td>
-
-                            <!-- STREAM -->
-                            <td>
-
+                            <td class="text-center">
                                 {% if student_data.stream %}
-
-                                    <span class=" ">
-                                        {{ student_data.stream }}
-                                    </span>
-
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ student_data.stream }}</span>
                                 {% else %}
-
-                                    <span class="text-muted">
-                                        —
-                                    </span>
-
+                                    <span class="text-muted">—</span>
                                 {% endif %}
-
                             </td>
-
-                            <!-- STATUS -->
-                            <td>
-
+                            <td class="text-center">
                                 {% if student_data.status == 'Active' %}
-
-                                    <span class="text-success px-3 py-2">
-                                        Active
-                                    </span>
-
+                                    <span class="badge bg-success px-3 py-2">Active</span>
                                 {% elif student_data.status == 'Promoted' %}
-
-                                    <span class="text-muted px-3 py-2">
-                                        Promoted
-                                    </span>
-
+                                    <span class="badge bg-info px-3 py-2">Promoted</span>
                                 {% elif student_data.status == 'Graduated' %}
-
-                                    <span class=" text-danger px-3 py-2">
-                                        Graduated
-                                    </span>
-
+                                    <span class="badge bg-danger px-3 py-2">Graduated</span>
+                                {% elif student_data.status == 'Inactive' %}
+                                    <span class="badge bg-secondary px-3 py-2">Inactive</span>
                                 {% else %}
-
-                                    <span class="text-muted px-3 py-2">
-                                        {{ student_data.status }}
-                                    </span>
-
+                                    <span class="badge bg-warning text-dark px-3 py-2">{{ student_data.status }}</span>
                                 {% endif %}
-
                             </td>
-
-                            <!-- ACTIONS -->
-                            <td>
-
+                            <td class="text-center">
                                 <div class="d-flex flex-wrap justify-content-center gap-1">
+                                    <!-- VIEW BUTTON -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-info action-btn view-student-btn"
+                                            data-student-id="{{ student_data.id }}"
+                                            data-student-name="{{ student_data.full_name }}"
+                                            data-admission-number="{{ student_data.admission_number }}"
+                                            data-gender="{{ student_data.gender }}"
+                                            data-email="{{ student_data.email }}"
+                                            data-phone="{{ student_data.phone }}"
+                                            data-parent-name="{{ student_data.parent_name }}"
+                                            data-parent-phone="{{ student_data.parent_phone }}"
+                                            data-stream="{{ student_data.stream }}"
+                                            data-status="{{ student_data.status }}"
+                                            data-year-id="{{ academic_year.id }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewStudentModal">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
 
+                                    <!-- EDIT BUTTON -->
                                     <a href="{% url 'edit_student_page' student_data.id %}"
                                        class="btn btn-sm btn-warning action-btn edit-student-btn"
                                        data-student-name="{{ student_data.full_name }}">
-
-                                        <i class="bi bi-pencil"></i>
-                                        Edit
-
+                                        <i class="bi bi-pencil"></i> Edit
                                     </a>
 
+                                    <!-- DELETE BUTTON -->
                                     <button type="button"
                                             class="btn btn-sm btn-danger deleteStudentBtn action-btn"
                                             data-href="{% url 'delete_student' student_data.id %}"
                                             data-name="{{ student_data.full_name }}">
-
-                                        <i class="bi bi-trash"></i>
-                                        Delete
-
+                                        <i class="bi bi-trash"></i> Delete
                                     </button>
-
                                 </div>
-
                             </td>
-
                         </tr>
-
                         {% empty %}
-
                         <tr>
-
-                            <td colspan="7"
-                                class="text-center text-danger py-4">
-
-                                <i class="bi bi-inbox"
-                                   style="font-size:2rem;"></i>
-
-                                <br>
-
-                                No students found in
-                                {{ classroom.name }}
-
+                            <td colspan="7" class="text-center text-danger py-4">
+                                <i class="bi bi-inbox" style="font-size:2rem;"></i><br>
+                                No students found in {{ classroom.name }}
                             </td>
-
                         </tr>
-
                         {% endfor %}
-
                     </tbody>
-
                 </table>
-
             </div>
 
             <!-- PAGINATION -->
             {% if students.has_other_pages %}
-
             <nav class="mt-4">
-
                 <ul class="pagination justify-content-center flex-wrap">
-
                     {% if students.has_previous %}
-
                     <li class="page-item">
-
                         <a class="page-link paginate-link"
                            href="?year={{ academic_year.id }}&classroom={{ classroom.id }}&search={{ search_query }}&stream={{ selected_stream_id }}&page={{ students.previous_page_number }}">
-
-                            <i class="bi bi-chevron-left"></i>
-                            Previous
-
+                            <i class="bi bi-chevron-left"></i> Previous
                         </a>
-
                     </li>
-
                     {% else %}
-
                     <li class="page-item disabled">
-
-                        <span class="page-link">
-
-                            <i class="bi bi-chevron-left"></i>
-                            Previous
-
-                        </span>
-
+                        <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
                     </li>
-
                     {% endif %}
-
                     <li class="page-item active">
-
-                        <span class="page-link">
-
-                            Page {{ students.number }}
-                            of
-                            {{ students.paginator.num_pages }}
-
-                        </span>
-
+                        <span class="page-link">Page {{ students.number }} of {{ students.paginator.num_pages }}</span>
                     </li>
-
                     {% if students.has_next %}
-
                     <li class="page-item">
-
                         <a class="page-link paginate-link"
                            href="?year={{ academic_year.id }}&classroom={{ classroom.id }}&search={{ search_query }}&stream={{ selected_stream_id }}&page={{ students.next_page_number }}">
-
-                            Next
-                            <i class="bi bi-chevron-right"></i>
-
+                            Next <i class="bi bi-chevron-right"></i>
                         </a>
-
                     </li>
-
                     {% else %}
-
                     <li class="page-item disabled">
-
-                        <span class="page-link">
-
-                            Next
-                            <i class="bi bi-chevron-right"></i>
-
-                        </span>
-
+                        <span class="page-link">Next <i class="bi bi-chevron-right"></i></span>
                     </li>
-
                     {% endif %}
-
                 </ul>
-
             </nav>
-
             {% endif %}
-
         </div>
-
     </div>
-
 </div>
 
-<!-- DELETE MODAL - Updated with options -->
+<!-- VIEW STUDENT MODAL (With Activate/Deactivate Button) -->
+<div class="modal fade" id="viewStudentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-person-badge"></i> Student Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-5 text-center">
+                        <div class="bg-light rounded-circle d-inline-flex p-3 mb-2">
+                            <i class="bi bi-person-circle" style="font-size: 3rem; color: #4f46e5;"></i>
+                        </div>
+                        <div class="mt-2" id="modalStatusBadge"></div>
+                    </div>
+                    <div class="col-md-7">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong><i class="bi bi-person"></i> Name:</strong></td>
+                                <td><span id="viewStudentName"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-upc-scan"></i> Admission No:</strong></td>
+                                <td><code id="viewAdmissionNumber"></code></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-gender-ambiguous"></i> Gender:</strong></td>
+                                <td><span id="viewStudentGender"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-envelope"></i> Email:</strong></td>
+                                <td><span id="viewStudentEmail"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-telephone"></i> Phone:</strong></td>
+                                <td><span id="viewStudentPhone"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-people"></i> Parent:</strong></td>
+                                <td><span id="viewParentName"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-telephone"></i> Parent Phone:</strong></td>
+                                <td><span id="viewParentPhone"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-diagram-3"></i> Stream:</strong></td>
+                                <td><span id="viewStudentStream"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-calendar-week"></i> Academic Year:</strong></td>
+                                <td><span id="viewStudentYear"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-flag"></i> Status:</strong></td>
+                                <td><span id="viewStudentStatus"></span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <div>
+                    <button type="button" id="activateDeactivateStudentBtn" class="btn btn-warning">
+                        <i class="bi bi-arrow-repeat"></i> <span id="activateBtnText">Activate/Deactivate</span>
+                    </button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <a href="#" id="editStudentFromModal" class="btn btn-primary">Edit Student</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    Confirm Action
+                    <i class="bi bi-exclamation-triangle-fill"></i> Confirm Action
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center py-4" id="deleteModalBody">
-                <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size:2.5rem;"></i>
+                <i class="bi bi-person-x-fill text-danger" style="font-size:2.5rem;"></i>
                 <p class="mt-3 mb-1">
                     Delete <strong id="deleteStudentName"></strong>?
                 </p>
-                <small class="text-muted">
-                    This action cannot be undone.
-                </small>
+                <small class="text-muted">This action cannot be undone.</small>
             </div>
             
-            <!-- Admin Options (Visible only for admin) -->
-            {% if request.user.role == 'admin' %}
+            <!-- Admin Options -->
             <div class="px-4 pb-2">
                 <hr class="my-2">
                 <div class="text-start">
@@ -466,7 +347,7 @@
                         <label class="form-check-label text-danger" for="permanentDeleteRadio">
                             <i class="bi bi-trash3"></i> Permanent Delete - Remove ALL student data
                         </label>
-                        <small class="d-block text-muted ms-4"> This will delete ALL records including attendance, SMS logs, and parent links.</small>
+                        <small class="d-block text-muted ms-4">⚠️ This will delete ALL records including attendance, SMS logs, and parent links.</small>
                     </div>
                     <div id="permanentConfirmDiv" class="mt-2 p-2 bg-light rounded d-none">
                         <label class="form-label text-danger small">Type <strong>PERMANENT_DELETE</strong> to confirm:</label>
@@ -474,123 +355,35 @@
                     </div>
                 </div>
             </div>
-            {% endif %}
             
             <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Cancel
-                </button>
-                <button type="button" id="confirmDeleteBtn" class="btn btn-danger">
-                    Yes, Delete
-                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Yes, Delete</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- STYLES -->
 <style>
-
-/* CARD */
-.card{
-    border-radius:1rem;
+.card { border-radius: 1rem; }
+.btn-primary { background-color: #4f46e5; border: none; }
+.btn-primary:hover { background-color: #4338ca; }
+.table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; }
+.large-table { min-width: 1100px; white-space: nowrap; }
+.large-table th { font-weight: 600; text-align: center; font-size: 1rem; background: #f8f8f8; color: #1e293b; }
+.large-table td { vertical-align: middle; text-align: center; font-size: 0.95rem; }
+.table-striped tbody tr:nth-of-type(odd) { background-color: #f8fafc; }
+.table-striped tbody tr:hover { background-color: rgba(79,70,229,0.08); }
+code { background: #f1f5f9; padding: 0.2rem 0.45rem; border-radius: 5px; color: #dc2626; font-size: 0.85rem; }
+.action-btn { min-width: 70px; }
+@media (max-width: 767px) {
+    .large-table th, .large-table td { font-size: 0.85rem; padding: 0.5rem; }
+    .btn-sm { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
 }
-
-/* BUTTONS */
-.btn-primary{
-    background-color:#4f46e5;
-    border:none;
-}
-
-.btn-primary:hover{
-    background-color:#4338ca;
-}
-
-/* TABLE CONTAINER */
-.table-container{
-    width:100%;
-    overflow-x:auto;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    border-radius:10px;
-}
-
-/* TABLE */
-.large-table{
-    min-width:1100px;
-    white-space:nowrap;
-}
-
-/* TABLE HEAD */
-.large-table th{
-    font-weight:600;
-    text-align:center;
-    font-size:1rem;
-    background:#f8f8f8;
-    color:#1e293b;
-}
-
-/* TABLE BODY */
-.large-table td{
-    vertical-align:middle;
-    text-align:center;
-    font-size:0.95rem;
-}
-
-/* STRIPED */
-.table-striped tbody tr:nth-of-type(odd){
-    background-color:#f8fafc;
-}
-
-/* HOVER */
-.table-striped tbody tr:hover{
-    background-color:rgba(79,70,229,0.08);
-}
-
-/* CODE */
-code{
-    background:#f1f5f9;
-    padding:0.2rem 0.45rem;
-    border-radius:5px;
-    color:#dc2626;
-    font-size:0.85rem;
-}
-
-/* ACTION BUTTONS */
-.action-btn{
-    min-width:70px;
-}
-
-/* MOBILE */
-@media (max-width:767px){
-
-    .large-table th,
-    .large-table td{
-        font-size:0.85rem;
-        padding:0.5rem;
-    }
-
-    .btn-sm{
-        font-size:0.75rem;
-        padding:0.25rem 0.5rem;
-    }
-
-    .badge{
-        font-size:0.72rem;
-    }
-
-    code{
-        font-size:0.75rem;
-    }
-}
-
 </style>
 
-<!-- JAVASCRIPT -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-
-    // ================= LOADING POPUP CONTROLS =================
     const loadingOverlay = document.getElementById('globalLoading');
     const statusIcon = document.getElementById('statusIcon');
     const statusTitle = document.getElementById('statusTitle');
@@ -609,7 +402,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Helper function to show toast
     function showToast(isSuccess, message) {
         let toastContainer = document.querySelector('.toast-container');
         if (!toastContainer) {
@@ -618,33 +410,24 @@ document.addEventListener('DOMContentLoaded', function () {
             toastContainer.style.zIndex = '1100';
             document.body.appendChild(toastContainer);
         }
-        
         const toastId = 'toast-' + Date.now();
         const bgClass = isSuccess ? 'bg-success' : 'bg-danger';
         const icon = isSuccess ? '✅' : '❌';
-        
         const toastHtml = `
             <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0 mb-2 show" role="alert" data-bs-autohide="true" data-bs-delay="5000" style="min-width: 280px;">
                 <div class="d-flex">
-                    <div class="toast-body">
-                        ${icon} ${message}
-                    </div>
+                    <div class="toast-body">${icon} ${message}</div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
                 </div>
             </div>
         `;
-        
         toastContainer.insertAdjacentHTML('beforeend', toastHtml);
         const toastElement = document.getElementById(toastId);
         const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
         toast.show();
-        
-        toastElement.addEventListener('hidden.bs.toast', function() {
-            toastElement.remove();
-        });
+        toastElement.addEventListener('hidden.bs.toast', function() { toastElement.remove(); });
     }
 
-    // Helper function to get CSRF token
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -660,46 +443,101 @@ document.addEventListener('DOMContentLoaded', function () {
         return cookieValue;
     }
 
-    // ================= BACK BUTTON =================
-    const backBtn = document.getElementById('backBtn');
-    if (backBtn) {
-        backBtn.addEventListener('click', function(e) {
-            showLoading("Inarudi...", "Tafadhali subiri, tunakupeleka kwenye orodha ya madarasa...");
+    // ================= VIEW STUDENT MODAL =================
+    const viewStudentModal = document.getElementById('viewStudentModal');
+    let currentModalStudentId = null;
+    let currentModalStudentName = null;
+    let currentModalYearId = null;
+    let currentModalStatus = null;
+
+    if (viewStudentModal) {
+        viewStudentModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            currentModalStudentId = button.getAttribute('data-student-id');
+            currentModalStudentName = button.getAttribute('data-student-name');
+            currentModalYearId = button.getAttribute('data-year-id') || "{{ selected_academic_year.id|default:'' }}";
+            const studentStatus = button.getAttribute('data-status') || 'Inactive';
+            currentModalStatus = studentStatus === 'Active';
+            
+            document.getElementById('viewStudentName').textContent = currentModalStudentName;
+            document.getElementById('viewAdmissionNumber').textContent = button.getAttribute('data-admission-number');
+            document.getElementById('viewStudentGender').textContent = button.getAttribute('data-gender') || '—';
+            document.getElementById('viewStudentEmail').textContent = button.getAttribute('data-email') || '—';
+            document.getElementById('viewStudentPhone').textContent = button.getAttribute('data-phone') || '—';
+            document.getElementById('viewParentName').textContent = button.getAttribute('data-parent-name') || '—';
+            document.getElementById('viewParentPhone').textContent = button.getAttribute('data-parent-phone') || '—';
+            document.getElementById('viewStudentStream').textContent = button.getAttribute('data-stream') || '—';
+            document.getElementById('viewStudentYear').textContent = "{{ academic_year.year_start }}/{{ academic_year.year_end }}";
+            
+            const statusSpan = document.getElementById('viewStudentStatus');
+            const activateBtn = document.getElementById('activateDeactivateStudentBtn');
+            const activateBtnText = document.getElementById('activateBtnText');
+            
+            if (currentModalStatus) {
+                statusSpan.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Active</span>';
+                activateBtn.className = 'btn btn-warning';
+                activateBtnText.innerHTML = '<i class="bi bi-pause-circle"></i> Deactivate Student';
+            } else {
+                statusSpan.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle-fill"></i> Inactive</span>';
+                activateBtn.className = 'btn btn-success';
+                activateBtnText.innerHTML = '<i class="bi bi-play-circle"></i> Activate Student';
+            }
+            
+            const editLink = document.getElementById('editStudentFromModal');
+            if (editLink) {
+                editLink.href = `/edit_student_page/${currentModalStudentId}/`;
+            }
         });
     }
 
-    // ================= FILTER BUTTON =================
-    const filterBtn = document.getElementById('filterBtn');
-    if (filterBtn) {
-        filterBtn.addEventListener('click', function(e) {
-            showLoading("Inachuja Taarifa...", "Tafadhali subiri, tunachuja wanafunzi kulingana na vigezo ulivyochagua...");
+    // ================= ACTIVATE/DEACTIVATE STUDENT =================
+    const activateDeactivateBtn = document.getElementById('activateDeactivateStudentBtn');
+    if (activateDeactivateBtn) {
+        activateDeactivateBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (!currentModalStudentId || !currentModalYearId) {
+                showToast(false, 'No academic year selected. Please select a year first.');
+                return;
+            }
+            
+            const action = currentModalStatus ? 'deactivate' : 'activate';
+            const actionText = action === 'activate' ? 'REACTIVATE' : 'DEACTIVATE';
+            const confirmMsg = `Are you sure you want to ${actionText} ${currentModalStudentName} for the selected academic year?`;
+            
+            if (confirm(confirmMsg)) {
+                const modal = bootstrap.Modal.getInstance(viewStudentModal);
+                if (modal) modal.hide();
+                
+                if (action === 'activate') {
+                    showLoading("Kuactivate Mwanafunzi...", `Tafadhali subiri, tunamreactivate ${currentModalStudentName}...`);
+                } else {
+                    showLoading("Kudeactivate Mwanafunzi...", `Tafadhali subiri, tunamdeactivate ${currentModalStudentName}...`);
+                }
+                
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/delete_student/${currentModalStudentId}/?year=${currentModalYearId}&toggle=${action}`;
+                
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = getCookie('csrftoken');
+                form.appendChild(csrfInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
         });
     }
 
-    // ================= RESET BUTTON =================
-    const resetBtn = document.getElementById('resetBtn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function(e) {
-            showLoading("Inarudisha Mpangilio...", "Tafadhali subiri, tunarudisha orodha ya wanafunzi kwenye mpangilio wa kawaida...");
-        });
-    }
-
-    // ================= PAGINATION LINKS =================
-    document.querySelectorAll('.paginate-link').forEach(link => {
-        link.addEventListener('click', function(e) {
-            showLoading("Inapakia Ukurasa...", "Tafadhali subiri, tunaleta orodha ya wanafunzi wa ukurasa uliochagua...");
-        });
-    });
-
-    // ================= EDIT STUDENT BUTTONS =================
-    document.querySelectorAll('.edit-student-btn').forEach(btn => {
+    // ================= BUTTON LOADING =================
+    document.querySelectorAll('#backBtn, #filterBtn, #resetBtn, .paginate-link, .edit-student-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
-            const studentName = this.getAttribute('data-student-name');
-            showLoading("Inaandaa Ukurasa...", `Tafadhali subiri, tunakupeleka kwenye ukurasa wa kuhariri ${studentName}...`);
+            showLoading("Inaandaa Ukurasa...", "Tafadhali subiri...");
         });
     });
 
-    // ================= DELETE STUDENT MODAL WITH OPTIONS =================
+    // ================= DELETE MODAL =================
     const deleteModalElement = document.getElementById('deleteConfirmModal');
     let deleteModal = null;
     if (deleteModalElement) {
@@ -711,68 +549,48 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentDeleteUrl = null;
     let currentStudentName = null;
 
-    // Admin options elements
     const softDeleteRadio = document.getElementById('softDeleteRadio');
     const permanentDeleteRadio = document.getElementById('permanentDeleteRadio');
     const permanentConfirmDiv = document.getElementById('permanentConfirmDiv');
     const permanentConfirmInput = document.getElementById('permanentConfirmInput');
 
-    // Set delete button click handlers
     document.querySelectorAll('.deleteStudentBtn').forEach(button => {
         button.addEventListener('click', function (e) {
             e.preventDefault();
             currentDeleteUrl = this.getAttribute('data-href');
             currentStudentName = this.getAttribute('data-name');
-            
             if (deleteStudentNameSpan) {
                 deleteStudentNameSpan.textContent = currentStudentName;
             }
-            
-            // Reset form
             if (softDeleteRadio) softDeleteRadio.checked = true;
             if (permanentConfirmDiv) permanentConfirmDiv.classList.add('d-none');
             if (permanentConfirmInput) permanentConfirmInput.value = '';
-            
             if (deleteModal) {
                 deleteModal.show();
             }
         });
     });
 
-    // Show/hide permanent confirm field
     if (permanentDeleteRadio) {
         permanentDeleteRadio.addEventListener('change', function() {
-            if (this.checked) {
-                permanentConfirmDiv.classList.remove('d-none');
-            }
+            if (this.checked) permanentConfirmDiv.classList.remove('d-none');
         });
     }
-
     if (softDeleteRadio) {
         softDeleteRadio.addEventListener('change', function() {
-            if (this.checked) {
-                permanentConfirmDiv.classList.add('d-none');
-            }
+            if (this.checked) permanentConfirmDiv.classList.add('d-none');
         });
     }
 
-    // Confirm delete - ONE handler only
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            
-            if (!currentDeleteUrl) {
-                console.error('No delete URL found');
-                return;
-            }
+            if (!currentDeleteUrl) return;
             
             let deleteUrl = currentDeleteUrl;
             let isPermanent = false;
             
-            // Check if admin selected permanent delete
-            {% if request.user.role == 'admin' %}
             if (permanentDeleteRadio && permanentDeleteRadio.checked) {
-                // Validate confirmation input
                 if (permanentConfirmInput.value !== 'PERMANENT_DELETE') {
                     showToast(false, 'Please type PERMANENT_DELETE to confirm permanent deletion');
                     return;
@@ -782,76 +600,53 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 deleteUrl = currentDeleteUrl + '?action=soft';
             }
-            {% endif %}
             
-            // Close the delete modal
-            if (deleteModal) {
-                deleteModal.hide();
-            }
+            if (deleteModal) deleteModal.hide();
             
-            // Show loading popup
             if (isPermanent) {
                 showLoading("Inafuta Kabisa Mwanafunzi...", `TAHADHARI: Tunafuta data zote za ${currentStudentName} kwenye mfumo...`);
             } else {
                 showLoading("Inafuta Mwanafunzi...", `Tafadhali subiri, tunamwondoa ${currentStudentName} darasani...`);
             }
             
-            // Create form and submit
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = deleteUrl;
-            
-            // Add CSRF token
             const csrfInput = document.createElement('input');
             csrfInput.type = 'hidden';
             csrfInput.name = 'csrfmiddlewaretoken';
             csrfInput.value = getCookie('csrftoken');
             form.appendChild(csrfInput);
-            
             document.body.appendChild(form);
             form.submit();
         });
     }
 
-});
-
-// Check for Django messages on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const loadingOverlay = document.getElementById('globalLoading');
-    const statusIcon = document.getElementById('statusIcon');
-    const statusTitle = document.getElementById('statusTitle');
-    const statusText = document.getElementById('statusText');
-    
+    // Messages on page load
     {% if messages %}
         if (loadingOverlay) {
             let isSuccess = false;
             let messageText = "";
             {% for message in messages %}
                 messageText = "{{ message|escapejs }}";
-                {% if message.tags == 'success' %}
-                    isSuccess = true;
-                {% endif %}
+                {% if message.tags == 'success' %} isSuccess = true; {% endif %}
             {% endfor %}
-            
             if (isSuccess) {
                 statusIcon.className = "text-success d-flex align-items-center justify-content-center";
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
                 statusTitle.className = "mb-1 fw-bold text-success";
-                statusTitle.innerText = "Umefanikiwa!";
+                statusTitle.innerText = "Success!";
             } else {
                 statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
                 statusTitle.className = "mb-1 fw-bold text-danger";
-                statusTitle.innerText = "Imeshindikana!";
+                statusTitle.innerText = "Error!";
             }
             statusText.innerText = messageText;
             loadingOverlay.classList.remove('d-none');
-            
-            setTimeout(function() {
-                loadingOverlay.classList.add('d-none');
-            }, 3000);
+            setTimeout(function() { loadingOverlay.classList.add('d-none'); }, 3000);
         }
     {% endif %}
 });

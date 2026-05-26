@@ -174,48 +174,53 @@
                                 {% endif %}
                             </td>
                             
-                            <!-- A/YEAR & STATUS COLUMN -->
-                            <td class="text-center">
-                                {% if teacher_data.academic_year %}
-                                    <div class="d-flex flex-column align-items-center gap-1">
-                                        <span class="fw-bold">{{ teacher_data.academic_year }}</span>
-                                        {% if teacher_data.is_active %}
-                                            <span class="badge bg-success px-3 py-1">
-                                                <i class="bi bi-check-circle-fill"></i> Active
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-secondary px-3 py-1">
-                                                <i class="bi bi-x-circle-fill"></i> Inactive
-                                            </span>
-                                        {% endif %}
-                                    </div>
-                                {% else %}
-                                    <div class="d-flex flex-column align-items-center gap-1">
-                                        <span class="text-muted small">No Assignment</span>
-                                        <span class="badge bg-warning text-dark px-3 py-1">
-                                            <i class="bi bi-exclamation-triangle-fill"></i> Not Assigned
-                                        </span>
-                                    </div>
-                                {% endif %}
-                            </td>
+<!-- A/YEAR & STATUS COLUMN -->
+<td class="text-center">
+    {% if teacher_data.academic_year %}
+        <div class="d-flex flex-column align-items-center gap-1">
+            <span class="fw-bold">{{ teacher_data.academic_year }}</span>
+            <!-- HAPA BADILISHA: Tumia teacher_status, siyo is_active -->
+            {% if teacher_data.teacher_status == 'Active' %}
+                <span class="badge bg-success px-3 py-1">
+                    <i class="bi bi-check-circle-fill"></i> Active
+                </span>
+            {% elif teacher_data.teacher_status == 'Inactive' %}
+                <span class="badge bg-secondary px-3 py-1">
+                    <i class="bi bi-x-circle-fill"></i> Inactive
+                </span>
+            {% else %}
+                <span class="badge bg-warning text-dark px-3 py-1">
+                    <i class="bi bi-question-circle"></i> No Assignment
+                </span>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="d-flex flex-column align-items-center gap-1">
+            <span class="text-muted small">No Assignment</span>
+            <span class="badge bg-warning text-dark px-3 py-1">
+                <i class="bi bi-exclamation-triangle-fill"></i> Not Assigned
+            </span>
+        </div>
+    {% endif %}
+</td>
                             
                             <!-- ACTIONS COLUMN -->
                             <td class="text-center">
                                 <div class="d-flex flex-wrap justify-content-center gap-1">
-                                    <button type="button"
-                                            class="btn btn-sm btn-info action-btn view-teacher-btn"
-                                            data-teacher-id="{{ teacher_data.teacher_id }}"
-                                            data-teacher-name="{{ teacher_data.full_name }}"
-                                            data-teacher-username="{{ teacher_data.username }}"
-                                            data-teacher-gender="{{ teacher_data.gender|default:'N/A' }}"
-                                            data-teacher-phone="{{ teacher_data.phone|default:'N/A' }}"
-                                            data-teacher-email="{{ teacher_data.email|default:'N/A' }}"
-                                            data-year="{{ selected_academic_year.id }}"
-                                            data-status="{% if teacher_data.is_active %}active{% else %}inactive{% endif %}"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#viewTeacherModal">
-                                        <i class="bi bi-eye"></i> View
-                                    </button>
+<button type="button"
+        class="btn btn-sm btn-info action-btn view-teacher-btn"
+        data-teacher-id="{{ teacher_data.teacher_id }}"
+        data-teacher-name="{{ teacher_data.full_name }}"
+        data-teacher-username="{{ teacher_data.username }}"
+        data-teacher-gender="{{ teacher_data.gender|default:'N/A' }}"
+        data-teacher-phone="{{ teacher_data.phone|default:'N/A' }}"
+        data-teacher-email="{{ teacher_data.email|default:'N/A' }}"
+        data-year="{{ selected_academic_year.id }}"
+        data-teacher-status="{{ teacher_data.teacher_status|default:'Inactive' }}"
+        data-bs-toggle="modal"
+        data-bs-target="#viewTeacherModal">
+    <i class="bi bi-eye"></i> View
+</button>
                                     <a href="{% url 'edit_teacher' teacher_data.teacher_id %}"
                                        class="btn btn-sm btn-warning action-btn edit-teacher-btn"
                                        data-teacher-name="{{ teacher_data.full_name }}">
@@ -496,57 +501,59 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 
-    // ================= VIEW TEACHER MODAL WITH ACTIVATE/DEACTIVATE =================
-    const viewTeacherModal = document.getElementById('viewTeacherModal');
-    let currentModalTeacherId = null;
-    let currentModalTeacherName = null;
-    let currentModalYearId = null;
-    let currentModalStatus = null;
+// ================= VIEW TEACHER MODAL WITH ACTIVATE/DEACTIVATE =================
+const viewTeacherModal = document.getElementById('viewTeacherModal');
+let currentModalTeacherId = null;
+let currentModalTeacherName = null;
+let currentModalYearId = null;
+let currentModalStatus = null;
 
-    if (viewTeacherModal) {
-        viewTeacherModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            currentModalTeacherId = button.getAttribute('data-teacher-id');
-            currentModalTeacherName = button.getAttribute('data-teacher-name');
-            currentModalYearId = button.getAttribute('data-year') || "{{ selected_academic_year.id|default:'' }}";
-            const teacherStatus = button.getAttribute('data-status') || 'inactive';
-            currentModalStatus = teacherStatus === 'active';
-            
-            const teacherUsername = button.getAttribute('data-teacher-username');
-            const teacherGender = button.getAttribute('data-teacher-gender');
-            const teacherPhone = button.getAttribute('data-teacher-phone');
-            const teacherEmail = button.getAttribute('data-teacher-email');
-            
-            // Set modal content
-            document.getElementById('viewTeacherName').textContent = currentModalTeacherName;
-            document.getElementById('viewTeacherUsername').textContent = teacherUsername;
-            document.getElementById('viewTeacherGender').textContent = teacherGender;
-            document.getElementById('viewTeacherPhone').textContent = teacherPhone;
-            document.getElementById('viewTeacherEmail').textContent = teacherEmail;
-            document.getElementById('viewTeacherYear').textContent = "{{ selected_academic_year.year_start }}/{{ selected_academic_year.year_end }}" || 'Not Assigned';
-            
-            // Set status badge and button
-            const statusSpan = document.getElementById('viewTeacherStatus');
-            const activateBtn = document.getElementById('activateDeactivateTeacherBtn');
-            const activateBtnText = document.getElementById('activateBtnText');
-            
-            if (currentModalStatus) {
-                statusSpan.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Active</span>';
-                activateBtn.className = 'btn btn-secondary';
-                activateBtnText.innerHTML = '<i class="bi bi-pause-circle"></i> Deactivate Teacher';
-            } else {
-                statusSpan.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle-fill"></i> Inactive</span>';
-                activateBtn.className = 'btn btn-success';
-                activateBtnText.innerHTML = '<i class="bi bi-play-circle"></i> Activate Teacher';
-            }
-            
-            // Set edit link
-            const editLink = document.getElementById('editTeacherFromModal');
-            if (editLink) {
-                editLink.href = `/edit_teacher/${currentModalTeacherId}/`;
-            }
-        });
-    }
+if (viewTeacherModal) {
+    viewTeacherModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        currentModalTeacherId = button.getAttribute('data-teacher-id');
+        currentModalTeacherName = button.getAttribute('data-teacher-name');
+        currentModalYearId = button.getAttribute('data-year') || "{{ selected_academic_year.id|default:'' }}";
+        
+        // HAPA BADILISHA: Tumia data-teacher-status, siyo data-status
+        const teacherStatus = button.getAttribute('data-teacher-status') || 'Inactive';
+        currentModalStatus = teacherStatus === 'Active';  // true if Active, false if Inactive
+        
+        const teacherUsername = button.getAttribute('data-teacher-username');
+        const teacherGender = button.getAttribute('data-teacher-gender');
+        const teacherPhone = button.getAttribute('data-teacher-phone');
+        const teacherEmail = button.getAttribute('data-teacher-email');
+        
+        // Set modal content
+        document.getElementById('viewTeacherName').textContent = currentModalTeacherName;
+        document.getElementById('viewTeacherUsername').textContent = teacherUsername;
+        document.getElementById('viewTeacherGender').textContent = teacherGender;
+        document.getElementById('viewTeacherPhone').textContent = teacherPhone;
+        document.getElementById('viewTeacherEmail').textContent = teacherEmail;
+        document.getElementById('viewTeacherYear').textContent = "{{ selected_academic_year.year_start }}/{{ selected_academic_year.year_end }}" || 'Not Assigned';
+        
+        // Set status badge and button
+        const statusSpan = document.getElementById('viewTeacherStatus');
+        const activateBtn = document.getElementById('activateDeactivateTeacherBtn');
+        const activateBtnText = document.getElementById('activateBtnText');
+        
+        if (currentModalStatus) {
+            statusSpan.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Active</span>';
+            activateBtn.className = 'btn btn-warning';  // Keep warning color
+            activateBtnText.innerHTML = '<i class="bi bi-pause-circle"></i> Deactivate Teacher';
+        } else {
+            statusSpan.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle-fill"></i> Inactive</span>';
+            activateBtn.className = 'btn btn-success';
+            activateBtnText.innerHTML = '<i class="bi bi-play-circle"></i> Activate Teacher';
+        }
+        
+        // Set edit link
+        const editLink = document.getElementById('editTeacherFromModal');
+        if (editLink) {
+            editLink.href = `/edit_teacher/${currentModalTeacherId}/`;
+        }
+    });
+}
 
     // ================= ACTIVATE/DEACTIVATE TEACHER FROM MODAL =================
     const activateDeactivateBtn = document.getElementById('activateDeactivateTeacherBtn');
