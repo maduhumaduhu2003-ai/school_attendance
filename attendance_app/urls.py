@@ -7,7 +7,7 @@ urlpatterns = [
     path('', views.login_view, name='home'),
     path('login/', views.login_view, name='login'),
     path('register-admin/', views.register_admin, name='register_admin'),
-    path("forgot-password/", views.forgot_password, name="forgo_password"),
+    path("forgot-password/", views.forgot_password, name="forgot_password"),
     path('verify-reset/', views.verify_reset, name='verify_reset'),
     
     # ================= DASHBOARDS =================
