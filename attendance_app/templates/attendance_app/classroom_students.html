@@ -425,62 +425,67 @@
 
 </div>
 
-<!-- DELETE MODAL -->
-<div class="modal fade"
-     id="deleteConfirmModal"
-     tabindex="-1"
-     aria-hidden="true">
-
+<!-- DELETE MODAL - Updated with options -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-
         <div class="modal-content">
-
             <div class="modal-header bg-danger text-white">
-
                 <h5 class="modal-title">
-
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    Confirm Delete
-
+                    Confirm Action
                 </h5>
-
-                <button type="button"
-                        class="btn-close btn-close-white"
-                        data-bs-dismiss="modal"></button>
-
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-
-            <div class="modal-body text-center py-4"
-                 id="deleteModalBody">
-
-                Are you sure you want to delete this student?
-
+            <div class="modal-body text-center py-4" id="deleteModalBody">
+                <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size:2.5rem;"></i>
+                <p class="mt-3 mb-1">
+                    Delete <strong id="deleteStudentName"></strong>?
+                </p>
+                <small class="text-muted">
+                    This action cannot be undone.
+                </small>
             </div>
-
+            
+            <!-- Admin Options (Visible only for admin) -->
+            {% if request.user.role == 'admin' %}
+            <div class="px-4 pb-2">
+                <hr class="my-2">
+                <div class="text-start">
+                    <label class="form-label text-primary fw-bold">
+                        <i class="bi bi-gear"></i> Delete Options:
+                    </label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="delete_type" id="softDeleteRadio" value="soft" checked>
+                        <label class="form-check-label text-warning" for="softDeleteRadio">
+                            <i class="bi bi-person-x"></i> Soft Delete - Remove from current class only
+                        </label>
+                        <small class="d-block text-muted ms-4">Student data is preserved, can be reactivated later.</small>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="delete_type" id="permanentDeleteRadio" value="permanent">
+                        <label class="form-check-label text-danger" for="permanentDeleteRadio">
+                            <i class="bi bi-trash3"></i> Permanent Delete - Remove ALL student data
+                        </label>
+                        <small class="d-block text-muted ms-4"> This will delete ALL records including attendance, SMS logs, and parent links.</small>
+                    </div>
+                    <div id="permanentConfirmDiv" class="mt-2 p-2 bg-light rounded d-none">
+                        <label class="form-label text-danger small">Type <strong>PERMANENT_DELETE</strong> to confirm:</label>
+                        <input type="text" id="permanentConfirmInput" class="form-control form-control-sm" placeholder="PERMANENT_DELETE">
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
             <div class="modal-footer justify-content-center">
-
-                <button type="button"
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal">
-
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     Cancel
-
                 </button>
-
-                <button type="button"
-                        id="confirmDeleteBtn"
-                        class="btn btn-danger">
-
+                <button type="button" id="confirmDeleteBtn" class="btn btn-danger">
                     Yes, Delete
-
                 </button>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
 <!-- STYLES -->
@@ -583,7 +588,6 @@ code{
 
 <!-- JAVASCRIPT -->
 <script>
-
 document.addEventListener('DOMContentLoaded', function () {
 
     // ================= LOADING POPUP CONTROLS =================
@@ -603,6 +607,57 @@ document.addEventListener('DOMContentLoaded', function () {
             statusText.innerText = text || "Inasindika ombi lako...";
             loadingOverlay.classList.remove('d-none');
         }
+    }
+
+    // Helper function to show toast
+    function showToast(isSuccess, message) {
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '1100';
+            document.body.appendChild(toastContainer);
+        }
+        
+        const toastId = 'toast-' + Date.now();
+        const bgClass = isSuccess ? 'bg-success' : 'bg-danger';
+        const icon = isSuccess ? '✅' : '❌';
+        
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0 mb-2 show" role="alert" data-bs-autohide="true" data-bs-delay="5000" style="min-width: 280px;">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${icon} ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+        toast.show();
+        
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     // ================= BACK BUTTON =================
@@ -644,7 +699,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // ================= DELETE STUDENT MODAL =================
+    // ================= DELETE STUDENT MODAL WITH OPTIONS =================
     const deleteModalElement = document.getElementById('deleteConfirmModal');
     let deleteModal = null;
     if (deleteModalElement) {
@@ -652,9 +707,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-    const deleteModalBody = document.getElementById('deleteModalBody');
+    const deleteStudentNameSpan = document.getElementById('deleteStudentName');
     let currentDeleteUrl = null;
     let currentStudentName = null;
+
+    // Admin options elements
+    const softDeleteRadio = document.getElementById('softDeleteRadio');
+    const permanentDeleteRadio = document.getElementById('permanentDeleteRadio');
+    const permanentConfirmDiv = document.getElementById('permanentConfirmDiv');
+    const permanentConfirmInput = document.getElementById('permanentConfirmInput');
 
     // Set delete button click handlers
     document.querySelectorAll('.deleteStudentBtn').forEach(button => {
@@ -662,28 +723,66 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             currentDeleteUrl = this.getAttribute('data-href');
             currentStudentName = this.getAttribute('data-name');
-
-            deleteModalBody.innerHTML = `
-                <i class="bi bi-exclamation-triangle-fill text-danger"
-                   style="font-size:2.5rem;"></i>
-                <p class="mt-3 mb-1">
-                    Delete <strong>${currentStudentName}</strong>?
-                </p>
-                <small class="text-muted">
-                    This action cannot be undone.
-                </small>
-            `;
-
+            
+            if (deleteStudentNameSpan) {
+                deleteStudentNameSpan.textContent = currentStudentName;
+            }
+            
+            // Reset form
+            if (softDeleteRadio) softDeleteRadio.checked = true;
+            if (permanentConfirmDiv) permanentConfirmDiv.classList.add('d-none');
+            if (permanentConfirmInput) permanentConfirmInput.value = '';
+            
             if (deleteModal) {
                 deleteModal.show();
             }
         });
     });
 
-    // Confirm delete - close modal and show loading
+    // Show/hide permanent confirm field
+    if (permanentDeleteRadio) {
+        permanentDeleteRadio.addEventListener('change', function() {
+            if (this.checked) {
+                permanentConfirmDiv.classList.remove('d-none');
+            }
+        });
+    }
+
+    if (softDeleteRadio) {
+        softDeleteRadio.addEventListener('change', function() {
+            if (this.checked) {
+                permanentConfirmDiv.classList.add('d-none');
+            }
+        });
+    }
+
+    // Confirm delete - ONE handler only
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener('click', function(e) {
             e.preventDefault();
+            
+            if (!currentDeleteUrl) {
+                console.error('No delete URL found');
+                return;
+            }
+            
+            let deleteUrl = currentDeleteUrl;
+            let isPermanent = false;
+            
+            // Check if admin selected permanent delete
+            {% if request.user.role == 'admin' %}
+            if (permanentDeleteRadio && permanentDeleteRadio.checked) {
+                // Validate confirmation input
+                if (permanentConfirmInput.value !== 'PERMANENT_DELETE') {
+                    showToast(false, 'Please type PERMANENT_DELETE to confirm permanent deletion');
+                    return;
+                }
+                deleteUrl = currentDeleteUrl + '?action=permanent';
+                isPermanent = true;
+            } else {
+                deleteUrl = currentDeleteUrl + '?action=soft';
+            }
+            {% endif %}
             
             // Close the delete modal
             if (deleteModal) {
@@ -691,12 +790,16 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             
             // Show loading popup
-            showLoading("Inafuta Mwanafunzi...", `Tafadhali subiri, tunamwondoa ${currentStudentName} darasani...`);
+            if (isPermanent) {
+                showLoading("Inafuta Kabisa Mwanafunzi...", `TAHADHARI: Tunafuta data zote za ${currentStudentName} kwenye mfumo...`);
+            } else {
+                showLoading("Inafuta Mwanafunzi...", `Tafadhali subiri, tunamwondoa ${currentStudentName} darasani...`);
+            }
             
             // Create form and submit
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = currentDeleteUrl;
+            form.action = deleteUrl;
             
             // Add CSRF token
             const csrfInput = document.createElement('input');
@@ -708,22 +811,6 @@ document.addEventListener('DOMContentLoaded', function () {
             document.body.appendChild(form);
             form.submit();
         });
-    }
-
-    // Helper function to get CSRF token
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
     }
 
 });
@@ -768,7 +855,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     {% endif %}
 });
-
 </script>
 
 {% endblock %}

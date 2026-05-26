@@ -417,107 +417,34 @@ def manage_teacher(request):
 
     teachers_list = []
 
-    # Optimized query
-    teacher_profiles = TeacherProfile.objects.select_related(
-        'user'
-    ).prefetch_related(
-        'class_enrollments__classroom',
-        'class_enrollments__stream',
-        'class_enrollments__academic_year'
-    )
+    # Get ALL teachers
+    all_teachers = TeacherProfile.objects.select_related('user').all()
 
-    for teacher in teacher_profiles:
-
-        # Filter enrollments
+    for teacher in all_teachers:
+        
+        # Get the enrollment for the selected year (if any)
+        enrollment = None
         if selected_academic_year:
-            enrollments = teacher.class_enrollments.filter(
+            enrollment = teacher.class_enrollments.filter(
                 academic_year=selected_academic_year,
                 student__isnull=True
-            )
-        else:
-            enrollments = teacher.class_enrollments.filter(
-                student__isnull=True
-            )
-
-        # Teacher has enrollments
-        if enrollments.exists():
-
-            seen_rows = set()
-
-            for enrollment in enrollments:
-
-                row_key = (
-                    teacher.id,
-                    enrollment.academic_year_id,
-                    enrollment.classroom_id,
-                    enrollment.stream_id
-                )
-
-                if row_key in seen_rows:
-                    continue
-
-                seen_rows.add(row_key)
-
-                teachers_list.append({
-                    'teacher_id': teacher.id,
-
-                    'username': teacher.user.username,
-
-                    'full_name': teacher.user.get_full_name(),
-
-                    'gender': teacher.user.gender if teacher.user.gender else '—',
-
-                    'phone': teacher.user.phone_number or '—',
-
-                    'classroom': (
-                        enrollment.classroom.name
-                        if enrollment.classroom else None
-                    ),
-
-                    'stream': (
-                        enrollment.stream.name
-                        if enrollment.stream else None
-                    ),
-
-                    'academic_year': (
-                        str(enrollment.academic_year)
-                        if enrollment.academic_year else None
-                    ),
-
-                    'is_active': (
-                        enrollment.academic_year.is_active
-                        if enrollment.academic_year else False
-                    ),
-                })
-
-        # No assignment and no filter selected
-        elif not selected_academic_year:
-
-            teachers_list.append({
-                'teacher_id': teacher.id,
-
-                'username': teacher.user.username,
-
-                'full_name': teacher.user.get_full_name(),
-
-                'gender': teacher.user.gender if teacher.user.gender else '—',
-
-                'phone': teacher.user.phone_number or '—',
-
-                'classroom': None,
-
-                'stream': None,
-
-                'academic_year': None,
-
-                'is_active': False,
-            })
+            ).select_related('classroom', 'stream', 'academic_year').first()
+        
+        teachers_list.append({
+            'teacher_id': teacher.id,
+            'username': teacher.user.username,
+            'full_name': teacher.user.get_full_name(),
+            'gender': teacher.user.gender if teacher.user.gender else '—',
+            'phone': teacher.user.phone_number or '—',
+            'classroom': enrollment.classroom.name if enrollment and enrollment.classroom else None,
+            'stream': enrollment.stream.name if enrollment and enrollment.stream else None,
+            'academic_year': str(selected_academic_year) if selected_academic_year else None,
+            'is_active': enrollment.academic_year.is_active if enrollment and enrollment.academic_year else False,
+        })
 
     # Pagination
     paginator = Paginator(teachers_list, 25)
-
     page_number = request.GET.get('page')
-
     teachers = paginator.get_page(page_number)
 
     return render(request, 'attendance_app/manage_teacher.html', {
@@ -525,7 +452,6 @@ def manage_teacher(request):
         'academic_years': academic_years,
         'selected_academic_year': selected_academic_year,
     })
-
 
 @never_cache
 @login_required
@@ -810,68 +736,138 @@ def edit_teacher(request, id):
     })
 
 
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def delete_teacher(request, teacher_id):
-
+    """Delete teacher - Supports soft delete (toggle active/inactive), remove from year, or permanent delete"""
+    
     teacher = get_object_or_404(
         TeacherProfile.objects.select_related('user'),
         id=teacher_id
     )
-
-    # Selected academic year
+    
+    teacher_name = teacher.user.get_full_name() or teacher.user.username
+    
+    # Get parameters
+    action = request.GET.get('action', 'soft')
     selected_year_id = request.GET.get('year')
-
-    if selected_year_id:
-
-        academic_year = AcademicYear.objects.filter(
-            id=selected_year_id
+    toggle_action = request.GET.get('toggle', '')  # 'activate' or 'deactivate'
+    
+    print(f"Delete teacher action: {action}")
+    print(f"Teacher: {teacher_name}")
+    print(f"Year: {selected_year_id}")
+    print(f"Toggle: {toggle_action}")
+    
+    # ================= TOGGLE ACTIVE/INACTIVE (Like Student Deactivate/Reactivate) =================
+    if toggle_action in ['activate', 'deactivate']:
+        if not selected_year_id:
+            messages.error(request, "Please select an academic year to change teacher status.")
+            return redirect('manage_teacher')
+        
+        academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
+        if not academic_year:
+            messages.error(request, "Academic year not found.")
+            return redirect('manage_teacher')
+        
+        # Find enrollment for the selected year
+        enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=academic_year,
+            student__isnull=True
         ).first()
-
-        if academic_year:
-
-            # Delete only assignment/enrollment for selected year
-            deleted_count, _ = Enrollment.objects.filter(
-                class_teacher=teacher,
-                academic_year=academic_year,
-                student__isnull=True
-            ).delete()
-
-            if deleted_count > 0:
+        
+        if enrollment:
+            if toggle_action == 'activate':
+                enrollment.status = 'Active'
+                enrollment.save()
                 messages.success(
                     request,
-                    f"Teacher removed from "
-                    f"{academic_year.year_start}/{academic_year.year_end} successfully."
+                    f"✅ Teacher {teacher_name} has been REACTIVATED in {academic_year.year_start}/{academic_year.year_end}!"
                 )
-            else:
-                messages.warning(
+            else:  # deactivate
+                enrollment.status = 'Inactive'
+                enrollment.save()
+                messages.success(
                     request,
-                    "No teacher assignment found for selected academic year."
+                    f"✅ Teacher {teacher_name} has been DEACTIVATED in {academic_year.year_start}/{academic_year.year_end}."
                 )
-
         else:
-            messages.error(request, "Academic year not found.")
-
+            messages.warning(
+                request,
+                f"⚠️ No assignment found for {teacher_name} in {academic_year.year_start}/{academic_year.year_end}."
+            )
+        
+        return redirect('manage_teacher')
+    
+    # ================= PERMANENT DELETE =================
+    if action == 'permanent':
+        try:
+            with transaction.atomic():
+                # Count records before deletion
+                enrollment_count = Enrollment.objects.filter(class_teacher=teacher).count()
+                
+                # Delete all enrollments (teacher assignments)
+                Enrollment.objects.filter(class_teacher=teacher).delete()
+                
+                # Delete teacher profile and user
+                user_to_delete = teacher.user
+                user_to_delete.delete()
+                
+                messages.success(
+                    request,
+                    f"✅ Teacher {teacher_name} PERMANENTLY deleted!\n"
+                    f"📊 Removed from {enrollment_count} class assignment(s)."
+                )
+                
+                logger.warning(f"PERMANENT DELETE: Teacher {teacher_name} (ID: {teacher_id}) deleted by admin {request.user.username}")
+                
+                # If admin deletes own account
+                if request.user == user_to_delete:
+                    logout(request)
+                    return redirect('login')
+                    
+        except Exception as e:
+            logger.error(f"Error permanently deleting teacher {teacher_id}: {e}")
+            messages.error(request, f"❌ Failed to permanently delete teacher: {str(e)}")
+            
+        return redirect('manage_teacher')
+    
+    # ================= SOFT DELETE (Remove from specific year only) =================
     else:
-        # No academic year selected → permanent delete
-        user_to_delete = teacher.user
-
-        user_to_delete.delete()
-
-        messages.success(
-            request,
-            "Teacher and all records deleted permanently."
-        )
-
-        # If admin deletes own account
-        if request.user == user_to_delete:
-            logout(request)
-            return redirect('login')
-
-    return redirect('manage_teacher')
-
-
+        if not selected_year_id:
+            messages.error(request, "Please select an academic year to remove teacher from.")
+            return redirect('manage_teacher')
+        
+        academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
+        
+        if not academic_year:
+            messages.error(request, "Academic year not found.")
+            return redirect('manage_teacher')
+        
+        # Delete only assignment/enrollment for selected year
+        deleted_count, _ = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=academic_year,
+            student__isnull=True
+        ).delete()
+        
+        if deleted_count > 0:
+            messages.success(
+                request,
+                f"✅ Teacher {teacher_name} removed from "
+                f"{academic_year.year_start}/{academic_year.year_end} successfully."
+            )
+        else:
+            messages.warning(
+                request,
+                f" Teacher {teacher_name} has no assignment in {academic_year.year_start}/{academic_year.year_end}."
+            )
+        
+        return redirect('manage_teacher')
+    
+    
 # ================= STUDENT MANAGEMENT VIEWS =================
 
 @never_cache
@@ -1599,66 +1595,128 @@ logger = logging.getLogger(__name__)
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def delete_student(request, student_id):
-    # 1. Hakikisha mwanafunzi yupo
-    student = get_object_or_404(StudentProfile, id=student_id)
+    """Delete student - Supports soft delete (deactivate) and permanent delete"""
     
-    # 2. Pata mwaka wa masomo ulio hai (Active)
+    student = get_object_or_404(StudentProfile, id=student_id)
     active_year = AcademicYear.objects.filter(is_active=True).first()
+    
+    # Get the action type from request
+    action = request.GET.get('action', 'soft')  # 'soft' or 'permanent'
+    
     if not active_year:
-        messages.error(request, "Mfumo hauna Mwaka wa Masomo ulio hai kwa sasa.")
-        return redirect("manage_student" if request.user.role == "admin" else "my_students")
-
-    # 3. Pata usajili (Enrollment) ya mwanafunzi kwa mwaka huu
-    enrollment = student.enrollments.filter(academic_year=active_year).first()
-    if not enrollment:
-        messages.warning(request, "Mwanafunzi huyu hana usajili katika mwaka huu wa masomo.")
-        return redirect("manage_student" if request.user.role == "admin" else "my_students")
-
-    # ============================================================
-    # KIWANGO CHA ULINZI 1: USALAMA WA MWALIMU (TEACHER AUTHC)
-    # ============================================================
-    if request.user.role == "teacher":
-        # Mwalimu anaweza kumtoa mwanafunzi tu ikiwa yeye ndiye Class Teacher wa darasa hilo
-        if enrollment.class_teacher != request.user.teacher_profile:
-            messages.error(request, "Huna mamlaka ya kumtoa mwanafunzi asiye wa darasa lako!")
+        messages.error(request, "No active academic year found!")
+        if request.user.role == "teacher":
             return redirect("my_students")
-
-    # ============================================================
-    # KIWANGO CHA ULINZI 2: UTENDAJI KAZI (ACTION EXECUTION)
-    # ============================================================
-    try:
-        with transaction.atomic():  # Inalinda database isiharibike kukiwa na error midway
+        return redirect("manage_student")
+    
+    # ================= FOR TEACHERS: Only soft delete (remove from class) =================
+    if request.user.role == "teacher":
+        # Verify teacher has permission
+        teacher = get_object_or_404(TeacherProfile, user=request.user)
+        teacher_enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=active_year
+        ).first()
+        
+        if teacher_enrollment:
+            student_in_class = Enrollment.objects.filter(
+                student=student,
+                classroom=teacher_enrollment.classroom,
+                academic_year=active_year
+            ).exists()
             
-            # KAMA NI ADMIN na amebonyeza "Futa Kabisa Mfumoni" (Mfano: Alisajiliwa kimakosa kabisa)
-            if request.user.role == "admin" and request.GET.get("permanent") == "true":
-                student_name = student.user.get_full_name() or student.user.username
-                # Hii itafuta User, StudentProfile na Enrollments zote kwa sababu ya CASCADE
-                student.user.delete() 
-                
-                messages.success(request, f"Mwanafunzi {student_name} amefutwa kabisa kwenye mfumo.")
-                return redirect("manage_student")
+            if not student_in_class:
+                messages.error(request, "You don't have permission to remove this student!")
+                return redirect("my_students")
+        
+        # SOFT DELETE - Just remove from current class (set status to Inactive)
+        enrollment = student.enrollments.filter(academic_year=active_year).first()
+        if enrollment:
+            enrollment.status = "Inactive"
+            enrollment.save()
+            messages.success(request, f"Student {student.user.get_full_name()} has been removed from {active_year}.")
+        else:
+            messages.warning(request, "No enrollment found for current academic year.")
+        
+        return redirect("my_students")
+    
+    # ================= FOR ADMINS: Choose between soft and permanent delete =================
+    if request.user.role == "admin":
+        
+        # ================= PERMANENT DELETE (Remove all data) =================
+        if action == 'permanent':
+            try:
+                with transaction.atomic():
+                    student_name = student.user.get_full_name() or student.user.username
+                    student_user = student.user
+                    
+                    # Count records before deletion
+                    sms_count = SMSLog.objects.filter(student=student).count()
+                    attendance_count = Attendance.objects.filter(student=student).count()
+                    parent_count = ParentProfile.objects.filter(student=student).count()
+                    enrollment_count = student.enrollments.count()
+                    
+                    # Delete all related data in correct order
+                    SMSLog.objects.filter(student=student).delete()
+                    ParentProfile.objects.filter(student=student).delete()
+                    Attendance.objects.filter(student=student).delete()
+                    student.enrollments.all().delete()
+                    
+                    # Delete student profile and user
+                    student.delete()
+                    student_user.delete()
+                    
+                    messages.success(
+                        request, 
+                        f"Student {student_name} PERMANENTLY deleted!\n"
+                        f"Removed: {enrollment_count} enrollments, {attendance_count} attendance records, "
+                        f"{parent_count} parent relationships, {sms_count} SMS logs."
+                    )
+                    
+                    logger.warning(f"PERMANENT DELETE: Student {student_name} (ID: {student_id}) deleted by admin {request.user.username}")
+                    
+            except Exception as e:
+                logger.error(f"Error in permanent delete: {e}")
+                messages.error(request, f" Failed to permanently delete student: {str(e)}")
             
-            # KAMA NI MWALIMU au ADMIN wa kawaida (Soft Delete / De-enrollment)
+            return redirect("manage_student")
+        
+        # ================= SOFT DELETE (Deactivate - Remove from current class) =================
+        else:
+            enrollment = student.enrollments.filter(academic_year=active_year).first()
+            
+            if enrollment:
+                # Toggle status between Active and Inactive
+                if enrollment.status == 'Active':
+                    enrollment.status = 'Inactive'
+                    enrollment.save()
+                    messages.success(
+                        request, 
+                        f" Student {student.user.get_full_name()} has been DEACTIVATED (removed from {active_year})."
+                    )
+                elif enrollment.status == 'Inactive':
+                    enrollment.status = 'Active'
+                    enrollment.save()
+                    messages.success(
+                        request, 
+                        f" Student {student.user.get_full_name()} has been REACTIVATED in {active_year}."
+                    )
+                else:
+                    # For Promoted or Graduated students, just remove
+                    enrollment.delete()
+                    messages.success(
+                        request, 
+                        f" Student {student.user.get_full_name()} has been removed from {active_year}."
+                    )
             else:
-                # Kiutaalamu: Kama mwanafunzi alikuwepo darasani, usifute row! Badili status kuwa 'Inactive'
-                # Hii inalinda ushupavu wa data (Data Integrity) kwenye tables kama Attendance
-                enrollment.status = "Inactive"
-                enrollment.save()
-                
-                messages.success(
-                    request, 
-                    f"Mwanafunzi amesimamishwa/ameondolewa kwenye darasa kwa mwaka huu ({active_year})."
-                )
-
-    except Exception as e:
-        logger.error(f"Error executing delete_student for ID {student_id}: {e}")
-        messages.error(request, "Imeshindikana kukamilisha ombi lako. Tatizo la kiufundi limetokea.")
-
-    # Redirect kulingana na Role
+                messages.warning(request, f"No enrollment found for {student.user.get_full_name()} in {active_year}.")
+            
+            return redirect("manage_student")
+    
+    # Fallback
     if request.user.role == "teacher":
         return redirect("my_students")
     return redirect("manage_student")
-
 
 @never_cache
 @login_required
