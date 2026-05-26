@@ -1214,7 +1214,6 @@ def classroom_students(request, classroom_id):
     
     return render(request, 'attendance_app/classroom_students.html', context)
 
-
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher'])
@@ -1671,7 +1670,10 @@ def delete_student(request, student_id):
     selected_year_id = request.GET.get('year')
     toggle_action = request.GET.get('toggle', '')  # 'activate' or 'deactivate'
     
-    # ================= TOGGLE ACTIVE/INACTIVE (Same as teacher) =================
+    # Log the request for debugging
+    logger.info(f"delete_student called: student_id={student_id}, action={action}, year={selected_year_id}, toggle={toggle_action}")
+    
+    # ================= TOGGLE ACTIVE/INACTIVE =================
     if toggle_action in ['activate', 'deactivate']:
         if not selected_year_id:
             messages.error(request, "Please select an academic year to change student status.")
@@ -1685,20 +1687,23 @@ def delete_student(request, student_id):
         enrollment = student.enrollments.filter(academic_year=academic_year).first()
         
         if enrollment:
+            old_status = enrollment.status
             if toggle_action == 'activate':
                 enrollment.status = 'Active'
                 enrollment.save()
                 messages.success(
                     request,
-                    f"Student {student_name} has been REACTIVATED in {academic_year.year_start}/{academic_year.year_end}!"
+                    f" Student {student_name} has been REACTIVATED in {academic_year.year_start}/{academic_year.year_end}!"
                 )
+                logger.info(f"Student {student_name} reactivated: {old_status} -> Active")
             else:  # deactivate
                 enrollment.status = 'Inactive'
                 enrollment.save()
                 messages.success(
                     request,
-                    f"Student {student_name} has been DEACTIVATED in {academic_year.year_start}/{academic_year.year_end}."
+                    f" Student {student_name} has been DEACTIVATED in {academic_year.year_start}/{academic_year.year_end}."
                 )
+                logger.info(f"Student {student_name} deactivated: {old_status} -> Inactive")
         else:
             messages.warning(
                 request,
@@ -1737,7 +1742,7 @@ def delete_student(request, student_id):
                 
                 messages.success(
                     request, 
-                    f"Student {student_name} PERMANENTLY deleted!\n"
+                    f" Student {student_name} PERMANENTLY deleted!\n"
                     f" Removed: {enrollment_count} enrollments, {attendance_count} attendance records, "
                     f"{parent_count} parent relationships, {sms_count} SMS logs."
                 )
@@ -1746,7 +1751,7 @@ def delete_student(request, student_id):
                 
         except Exception as e:
             logger.error(f"Error in permanent delete: {e}")
-            messages.error(request, f"Failed to permanently delete student: {str(e)}")
+            messages.error(request, f" Failed to permanently delete student: {str(e)}")
         
         return redirect("manage_student")
     
@@ -1769,9 +1774,9 @@ def delete_student(request, student_id):
         if deleted_count > 0:
             messages.success(
                 request,
-                f"Student {student_name} removed from "
-                f"{academic_year.year_start}/{academic_year.year_end} successfully."
+                f" Student {student_name} removed from {academic_year.year_start}/{academic_year.year_end} successfully."
             )
+            logger.info(f"Student {student_name} removed from year {academic_year}")
         else:
             messages.warning(
                 request,

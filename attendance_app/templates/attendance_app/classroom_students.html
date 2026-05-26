@@ -303,7 +303,7 @@
                 </div>
                 <div>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <a href="#" id="editStudentFromModal" class="btn btn-primary">Edit Student</a>
+                    <a href="#" id="editStudentFromModal" class="btn btn-primary" data-bs-dismiss="modal">Edit Student</a>
                 </div>
             </div>
         </div>
@@ -329,6 +329,7 @@
             </div>
             
             <!-- Admin Options -->
+            {% if request.user.role == 'admin' %}
             <div class="px-4 pb-2">
                 <hr class="my-2">
                 <div class="text-start">
@@ -347,7 +348,7 @@
                         <label class="form-check-label text-danger" for="permanentDeleteRadio">
                             <i class="bi bi-trash3"></i> Permanent Delete - Remove ALL student data
                         </label>
-                        <small class="d-block text-muted ms-4">⚠️ This will delete ALL records including attendance, SMS logs, and parent links.</small>
+                        <small class="d-block text-muted ms-4">This will delete ALL records including attendance, SMS logs, and parent links.</small>
                     </div>
                     <div id="permanentConfirmDiv" class="mt-2 p-2 bg-light rounded d-none">
                         <label class="form-label text-danger small">Type <strong>PERMANENT_DELETE</strong> to confirm:</label>
@@ -355,6 +356,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -455,12 +457,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const button = event.relatedTarget;
             currentModalStudentId = button.getAttribute('data-student-id');
             currentModalStudentName = button.getAttribute('data-student-name');
-            currentModalYearId = button.getAttribute('data-year-id') || "{{ selected_academic_year.id|default:'' }}";
+            currentModalYearId = button.getAttribute('data-year-id') || "{{ academic_year.id|default:'' }}";
             const studentStatus = button.getAttribute('data-status') || 'Inactive';
             currentModalStatus = studentStatus === 'Active';
             
             document.getElementById('viewStudentName').textContent = currentModalStudentName;
-            document.getElementById('viewAdmissionNumber').textContent = button.getAttribute('data-admission-number');
+            document.getElementById('viewAdmissionNumber').textContent = button.getAttribute('data-admission-number') || '—';
             document.getElementById('viewStudentGender').textContent = button.getAttribute('data-gender') || '—';
             document.getElementById('viewStudentEmail').textContent = button.getAttribute('data-email') || '—';
             document.getElementById('viewStudentPhone').textContent = button.getAttribute('data-phone') || '—';
@@ -493,27 +495,33 @@ document.addEventListener('DOMContentLoaded', function () {
     // ================= ACTIVATE/DEACTIVATE STUDENT =================
     const activateDeactivateBtn = document.getElementById('activateDeactivateStudentBtn');
     if (activateDeactivateBtn) {
-        activateDeactivateBtn.addEventListener('click', function(e) {
+        // Remove existing listeners to avoid duplicates
+        const newBtn = activateDeactivateBtn.cloneNode(true);
+        activateDeactivateBtn.parentNode.replaceChild(newBtn, activateDeactivateBtn);
+        
+        newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             if (!currentModalStudentId || !currentModalYearId) {
-                showToast(false, 'No academic year selected. Please select a year first.');
+                showToast(false, 'Please select an academic year first.');
                 return;
             }
             
             const action = currentModalStatus ? 'deactivate' : 'activate';
             const actionText = action === 'activate' ? 'REACTIVATE' : 'DEACTIVATE';
-            const confirmMsg = `Are you sure you want to ${actionText} ${currentModalStudentName} for the selected academic year?`;
+            const confirmMsg = `Are you sure you want to ${actionText} ${currentModalStudentName}?`;
             
             if (confirm(confirmMsg)) {
+                // Close modal
                 const modal = bootstrap.Modal.getInstance(viewStudentModal);
                 if (modal) modal.hide();
                 
                 if (action === 'activate') {
-                    showLoading("Kuactivate Mwanafunzi...", `Tafadhali subiri, tunamreactivate ${currentModalStudentName}...`);
+                    showLoading("Activating Student...", `Please wait while we activate ${currentModalStudentName}...`);
                 } else {
-                    showLoading("Kudeactivate Mwanafunzi...", `Tafadhali subiri, tunamdeactivate ${currentModalStudentName}...`);
+                    showLoading("Deactivating Student...", `Please wait while we deactivate ${currentModalStudentName}...`);
                 }
                 
+                // Submit form to delete_student with toggle parameter
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = `/delete_student/${currentModalStudentId}/?year=${currentModalYearId}&toggle=${action}`;
@@ -533,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ================= BUTTON LOADING =================
     document.querySelectorAll('#backBtn, #filterBtn, #resetBtn, .paginate-link, .edit-student-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
-            showLoading("Inaandaa Ukurasa...", "Tafadhali subiri...");
+            showLoading("creating page...", "please wait...");
         });
     });
 
@@ -604,9 +612,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (deleteModal) deleteModal.hide();
             
             if (isPermanent) {
-                showLoading("Inafuta Kabisa Mwanafunzi...", `TAHADHARI: Tunafuta data zote za ${currentStudentName} kwenye mfumo...`);
+                showLoading("permanent delete...", `this action deletes  ${currentStudentName} from the system...`);
             } else {
-                showLoading("Inafuta Mwanafunzi...", `Tafadhali subiri, tunamwondoa ${currentStudentName} darasani...`);
+                showLoading("deleting student...", `please wait while we delete ${currentStudentName} from the class...`);
             }
             
             const form = document.createElement('form');
@@ -622,33 +630,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Messages on page load
-    {% if messages %}
-        if (loadingOverlay) {
-            let isSuccess = false;
-            let messageText = "";
-            {% for message in messages %}
-                messageText = "{{ message|escapejs }}";
-                {% if message.tags == 'success' %} isSuccess = true; {% endif %}
-            {% endfor %}
-            if (isSuccess) {
-                statusIcon.className = "text-success d-flex align-items-center justify-content-center";
-                statusIcon.style.fontSize = "2rem";
-                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
-                statusTitle.className = "mb-1 fw-bold text-success";
-                statusTitle.innerText = "Success!";
-            } else {
-                statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
-                statusIcon.style.fontSize = "2rem";
-                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
-                statusTitle.className = "mb-1 fw-bold text-danger";
-                statusTitle.innerText = "Error!";
-            }
-            statusText.innerText = messageText;
-            loadingOverlay.classList.remove('d-none');
-            setTimeout(function() { loadingOverlay.classList.add('d-none'); }, 3000);
-        }
-    {% endif %}
+
 });
 </script>
 

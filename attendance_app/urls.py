@@ -7,7 +7,7 @@ urlpatterns = [
     path('', views.login_view, name='home'),
     path('login/', views.login_view, name='login'),
     path('register-admin/', views.register_admin, name='register_admin'),
-    path("forgot-password/", views.forgot_password, name="forgot_password"),
+    path("forgo-password/", views.forgot_password, name="forgot_password"),
     path('verify-reset/', views.verify_reset, name='verify_reset'),
     
     # ================= DASHBOARDS =================
@@ -22,11 +22,11 @@ urlpatterns = [
     path('edit_attendance/<int:pk>/', views.edit_attendance, name='edit_attendance'),
     path('delete_attendance/<int:pk>/', views.delete_attendance, name='delete_attendance'),
     
-    # ================= SMS LOGS (FIXED) =================
+    # ================= SMS LOGS =================
     path('teacher_sms_logs/', views.teacher_sms_logs, name='teacher_sms_logs'),
     path('sms-logs/', views.sms_logs, name='sms_logs'),
     
-    # FIXED: Delete and Resend URLs for teacher
+    # Teacher SMS URLs
     path('teacher/sms/delete/<int:sms_id>/', views.delete_sms_log, name='delete_sms_log'),
     path('teacher/sms/resend/<int:sms_id>/', views.resend_sms, name='resend_sms'),
     path('teacher/sms/bulk-delete/', views.bulk_delete_sms_logs_teacher, name='bulk_delete_sms_logs_teacher'),
@@ -43,9 +43,16 @@ urlpatterns = [
     path("export-students-pdf/", views.export_students_pdf, name="export_students_pdf"),
     path('register_student_admin/', views.register_student_admin, name='register_student_admin'),
     path('register_student_teacher/', views.register_student_teacher, name='register_student_teacher'),
-    path('manage_student/', views.manage_student, name='manage_student'),  # Removed duplicate
+    path('manage_student/', views.manage_student, name='manage_student'),
     path('students/edit/<int:student_id>/', views.edit_student_page, name='edit_student_page'),
-    path('students/delete/<int:student_id>/', views.delete_student, name='delete_student'),
+    
+    # ===== FIXED: DELETE STUDENT URLs (BOTH PATTERNS) =====
+    # Pattern 1: Without prefix (used by template/JS)
+    path('delete_student/<int:student_id>/', views.delete_student, name='delete_student'),
+    # Pattern 2: With prefix (for compatibility)
+    path('students/delete/<int:student_id>/', views.delete_student, name='delete_student_alt'),
+    
+    # Classroom students URL
     path('classroom/<int:classroom_id>/students/', views.classroom_students, name='classroom_students'),
     
     # ================= TEACHERS =================
@@ -81,8 +88,6 @@ urlpatterns = [
     # ================= AUTH & OTHER =================
     path('logout/', views.logout_view, name='logout'),
     path('reset-password/', views.reset_password, name='reset_password'),
-    path('teacher/sms/resend/<int:sms_id>/', views.resend_sms, name='resend_sms'),  # Duplicate but keep
-    path('teacher_sms_logs/resend/<int:sms_id>/', views.resend_sms, name='resend_sms_old'),  # Keep for compatibility
 ]
 
 if settings.DEBUG:
