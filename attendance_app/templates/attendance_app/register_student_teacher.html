@@ -34,17 +34,17 @@
                 <h6 id="statusTitle" class="mb-1 fw-bold {% if messages %}{% for message in messages %}{% if message.tags == 'success' %}text-success{% else %}text-danger{% endif %}{% endfor %}{% else %}text-dark{% endif %}">
                     {% if messages %}
                         {% for message in messages %}
-                            {% if message.tags == 'success' %}Umefanikiwa!{% else %}Imegoma!{% endif %}
+                            {% if message.tags == 'success' %}successfull!{% else %}error!{% endif %}
                         {% endfor %}
                     {% else %}
-                        Tafadhali subiri...
+                        please wait...
                     {% endif %}
                 </h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
                     {% if messages %}
                         {% for message in messages %}{{ message }}{% endfor %}
                     {% else %}
-                        Inasindika taarifa...
+                        loading...
                     {% endif %}
                 </p>
             </div>
@@ -68,7 +68,7 @@
     <div class="card mb-4 shadow-sm">
         <div class="card-body">
             <h5 class="text-primary"><i class="bi bi-file-earmark-excel-fill"></i> Import Students via Excel</h5>
-            <form method="post" enctype="multipart/form-data" class="loading-form" data-title="Inapakia Faili" data-text="Tafadhali subiri, mfumo unasoma na kusajili wanafunzi kutoka kwenye Excel...">
+            <form method="post" enctype="multipart/form-data" class="loading-form" data-title="preparing file" data-text="please wait...">
                 {% csrf_token %}
                 <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control mb-2" required>
                 <button type="submit" name="import_excel" class="btn btn-success">
@@ -85,7 +85,7 @@
     <div class="card shadow-sm">
         <div class="card-body">
             <h5 class="text-primary"><i class="bi bi-keyboard"></i> Register Manually</h5>
-            <form method="post" class="loading-form" data-title="Inahifadhi Taarifa" data-text="Tafadhali subiri, mfumo unasajili mwanafunzi huyu sasa hivi...">
+            <form method="post" class="loading-form" data-title="Registering Student" data-text="Please wait, the system is registering the student...">
                 {% csrf_token %}
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -144,8 +144,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // 1. Inawasha loading wakati fomu inawasilishwa (Form Submit)
     document.querySelectorAll('.loading-form').forEach(form => {
         form.addEventListener('submit', function() {
-            const customTitle = this.getAttribute('data-title') || "Tafadhali subiri...";
-            const customText = this.getAttribute('data-text') || "Inasindika taarifa...";
+            const customTitle = this.getAttribute('data-title') || "please wait...";
+            const customText = this.getAttribute('data-text') || "loading...";
 
             if (loadingOverlay && statusIcon && statusTitle && statusText) {
                 // Set to Spinner State

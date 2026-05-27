@@ -15,9 +15,9 @@
             </div>
             
             <div class="text-start">
-                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inashughulikia...</h6>
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Loading...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
-                    Tafadhali subiri, tunachakata ombi lako...
+                    please wait ...
                 </p>
             </div>
 
@@ -173,8 +173,8 @@ document.addEventListener('DOMContentLoaded', function() {
             statusIcon.style.height = "2rem";
             statusIcon.innerHTML = "";
             statusTitle.className = "mb-1 fw-bold text-dark";
-            statusTitle.innerText = title || "Inashughulikia...";
-            statusText.innerText = text || "Tafadhali subiri, tunachakata ombi lako...";
+            statusTitle.innerText = title || "Loading...";
+            statusText.innerText = text || "Please wait, we are processing your request...";
             loadingOverlay.classList.remove('d-none');
         }
     }
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Show loading before redirect
-        showLoadingSpinner("Inachuja Taarifa...", "Tafadhali subiri, tunachuja ripoti ya mahudhurio kulingana na mwaka uliochagua...");
+        showLoadingSpinner("filtering...", "Please wait, we are filtering the attendance reports based on the selected academic year...");
         
         window.location.href = currentUrl.toString();
     }
@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (url) {
                 // Show loading popup
-                showLoadingSpinner("Inaandaa Ripoti...", `Tafadhali subiri, tunapakia ripoti ya mahudhurio ya ${classroomName}...`);
+                showLoadingSpinner("preparing report...", `attendance report for ${classroomName}...`);
                 
                 // Redirect after short delay to show loading
                 setTimeout(() => {

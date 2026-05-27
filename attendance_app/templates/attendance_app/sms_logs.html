@@ -15,9 +15,9 @@
             </div>
             
             <div class="text-start">
-                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inafuta...</h6>
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Deleting...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
-                    Tafadhali subiri, tunafuta SMS log(s)... 
+                    please wait, deleting SMS log(s)... 
                 </p>
             </div>
 
@@ -295,8 +295,8 @@ document.addEventListener('DOMContentLoaded', function() {
             statusIcon.style.height = "2rem";
             statusIcon.innerHTML = "";
             statusTitle.className = "mb-1 fw-bold text-dark";
-            statusTitle.innerText = title || "Inafuta...";
-            statusText.innerText = text || "Tafadhali subiri, tunafuta SMS log(s)...";
+            statusTitle.innerText = title || "deleting...";
+            statusText.innerText = text || "please wait, deleting SMS log(s)...";
             loadingOverlay.classList.remove('d-none');
         }
     }
@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Show loading spinner
-            showLoadingSpinner("Inafuta SMS Logs...", `Tafadhali subiri, tunafuta ${selectedIds.length} SMS log(s)...`);
+            showLoadingSpinner("Deleting SMS Logs...", `Please wait, we are deleting ${selectedIds.length} SMS log(s)...`);
             
             fetch('/sms/bulk-delete/', {
                 method: 'POST',
@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const studentName = deleteBtn ? deleteBtn.getAttribute('data-name') : 'SMS log';
             
             // Show loading spinner
-            showLoadingSpinner("Inafuta SMS Log...", `Tafadhali subiri, tunafuta SMS log ya ${studentName}...`);
+            showLoadingSpinner("Deleting SMS Log...", `Please wait, we are deleting SMS log for ${studentName}...`);
             
             fetch(`/sms/delete/${currentDeleteId}/`, {
                 method: 'POST',

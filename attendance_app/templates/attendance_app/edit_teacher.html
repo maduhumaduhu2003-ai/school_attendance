@@ -5,7 +5,7 @@
 
 {% block content %}
 
-<!-- Global Loading and Status Popup (Same as Register Student Page) -->
+<!-- Global Loading and Status Popup -->
 <div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
     <div class="d-flex justify-content-center align-items-center h-100">
         <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
@@ -15,9 +15,9 @@
             </div>
             
             <div class="text-start">
-                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inahifadhi...</h6>
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Saving...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
-                    Tafadhali subiri, taarifa za mwalimu zinahifadhiwa...
+                    Please wait, updating teacher information...
                 </p>
             </div>
 
@@ -97,6 +97,7 @@
                     <div class="col-md-6">
                         <label class="form-label">Phone Number</label>
                         <input type="text" class="form-control" name="phone_number" value="{{ teacher.user.phone_number }}" required>
+                        <small class="text-muted">Format: 0712345678 or +255712345678</small>
                     </div>
                     
                     <div class="col-md-6">
@@ -134,7 +135,7 @@
 
                 <div class="col-md-6">
                     <label class="form-label">New Password</label>
-                    <input type="password" class="form-control" name="password">
+                    <input type="password" class="form-control" name="password" placeholder="Enter new password">
                     <small class="text-muted">Leave blank if you don't want to change password</small>
                 </div>
 
@@ -188,9 +189,9 @@ document.addEventListener('DOMContentLoaded', function() {
             statusIcon.innerHTML = "";
             
             statusTitle.className = "mb-1 fw-bold text-dark";
-            statusTitle.innerText = title || "Inahifadhi...";
+            statusTitle.innerText = title || "Saving...";
             
-            statusText.innerText = text || "Tafadhali subiri, taarifa za mwalimu zinahifadhiwa...";
+            statusText.innerText = text || "Please wait, updating teacher information...";
             
             loadingOverlay.classList.remove('d-none');
         }
@@ -256,12 +257,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (editForm) {
         editForm.addEventListener('submit', function() {
             // Show loading popup
-            showLoading("Inahifadhi Taarifa za Mwalimu", "Tafadhali subiri, mfumo unahifadhi mabadiliko ya mwalimu...");
+            showLoading("Saving...", "Please wait, updating teacher information...");
             
             // Disable submit button to prevent double submission
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Inahifadhi...';
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
             }
             
             // Form will submit normally (page reload)
@@ -269,50 +270,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ================= CHECK FOR DJANGO MESSAGES ON PAGE LOAD =================
-    // Hii itaonyesha popup ikiwa kuna messages kutoka Django
-    {% if messages %}
-        if (loadingOverlay) {
-            // Get the message
-            let isSuccess = false;
-            let messageText = "";
-            {% for message in messages %}
-                messageText = "{{ message|escapejs }}";
-                {% if message.tags == 'success' %}
-                    isSuccess = true;
-                {% endif %}
-            {% endfor %}
-            
-            // Show appropriate icon
-            if (isSuccess) {
-                statusIcon.className = "text-success d-flex align-items-center justify-content-center";
-                statusIcon.style.fontSize = "2rem";
-                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
-                statusTitle.className = "mb-1 fw-bold text-success";
-                statusTitle.innerText = "Umefanikiwa!";
-            } else {
-                statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
-                statusIcon.style.fontSize = "2rem";
-                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
-                statusTitle.className = "mb-1 fw-bold text-danger";
-                statusTitle.innerText = "Imeshindikana!";
-            }
-            statusText.innerText = messageText;
-            
-            // Show popup
-            loadingOverlay.classList.remove('d-none');
-            
-            // Hide after 3 seconds
-            setTimeout(function() {
+    // ================= HIDE LOADING ON PAGE LOAD =================
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            if (loadingOverlay) {
                 loadingOverlay.classList.add('d-none');
-                // Reset button if we're back on edit page (not redirected)
-                if (submitBtn && window.location.href.indexOf('edit_teacher') !== -1) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-save"></i> Update Teacher';
-                }
-            }, 3000);
-        }
-    {% endif %}
+            }
+            // Reset submit button if still on edit page
+            if (submitBtn && window.location.href.indexOf('edit_teacher') !== -1 && submitBtn.disabled) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-save"></i> Update Teacher';
+            }
+        }, 1000);
+    });
 });
 </script>
 

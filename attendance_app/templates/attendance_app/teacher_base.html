@@ -426,8 +426,8 @@ function showGlobalLoading(title, text) {
         <div class="spinner-border text-primary" role="status" style="width: 3.5rem; height: 3.5rem;">
             <span class="visually-hidden">Loading...</span>
         </div>`;
-    document.getElementById('globalModalTitle').innerText = title || "Inaprosesi...";
-    document.getElementById('globalModalText').innerText = text || "Tafadhali subiri...";
+    document.getElementById('globalModalTitle').innerText = title || "Processing...";
+    document.getElementById('globalModalText').innerText = text || "please wait...";
     
     modal.show();
 }
@@ -439,7 +439,7 @@ function showSuccessTick(title, text) {
 
     document.getElementById('globalModalIcon').innerHTML = `
         <i class="bi bi-check-circle-fill text-success status-icon-animated"></i>`;
-    document.getElementById('globalModalTitle').innerText = title || "Umefanikiwa!";
+    document.getElementById('globalModalTitle').innerText = title || "success!";
     document.getElementById('globalModalText').innerText = text || "";
 
     modal.show();
@@ -457,11 +457,11 @@ function showErrorAlert(title, text) {
 
     document.getElementById('globalModalIcon').innerHTML = `
         <i class="bi bi-x-circle-fill text-danger status-icon-animated"></i>`;
-    document.getElementById('globalModalTitle').innerText = title || "Kuna Tatizo!";
+    document.getElementById('globalModalTitle').innerText = title || "error!";
     document.getElementById('globalModalText').innerHTML = `
         <span>${text || ""}</span>
         <div class="mt-3">
-            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Funga</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">close</button>
         </div>`;
 
     modal.show();

@@ -76,6 +76,7 @@ from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.http import JsonResponse
 from django.urls import reverse
 
+
 # Initialize logger
 logger = logging.getLogger(__name__)
 
@@ -353,82 +354,85 @@ def logout_view(request):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def admin_dashboard(request):
-    # Get active academic year
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    # ========== COUNT STUDENTS IN ACTIVE YEAR ONLY ==========
-    # Students are counted based on enrollment in active year with status 'Active'
-    if active_year:
-        total_students = Enrollment.objects.filter(
-            academic_year=active_year,
-            status='Active',
-            student__isnull=False
-        ).values('student').distinct().count()
-    else:
-        total_students = 0
-    
-    # ========== COUNT TEACHERS IN ACTIVE YEAR ONLY ==========
-    # Teachers are counted based on enrollment in active year with class_teacher assigned
-    if active_year:
-        total_teachers = Enrollment.objects.filter(
-            academic_year=active_year,
-            class_teacher__isnull=False
-        ).values('class_teacher').distinct().count()
-    else:
-        total_teachers = 0
-    
-    # ========== COUNT CLASSROOMS IN ACTIVE YEAR ONLY ==========
-    if active_year:
-        classrooms_count = Classroom.objects.filter(year=active_year).count()
-    else:
-        classrooms_count = 0
-    
-    # ========== GET TEACHERS WITH THEIR ASSIGNMENTS FOR ACTIVE YEAR ==========
-    teachers_list = []
-    if active_year:
-        # Get all enrollments where teacher is assigned in active year
-        teacher_assignments = Enrollment.objects.filter(
-            academic_year=active_year,
-            class_teacher__isnull=False
-        ).select_related('class_teacher__user', 'classroom', 'stream')
+    try:
+        # Get active academic year
+        active_year = AcademicYear.objects.filter(is_active=True).first()
         
-        for assignment in teacher_assignments:
-            teacher = assignment.class_teacher
-            teachers_list.append({
-                'id': teacher.id,
-                'name': teacher.user.get_full_name(),
-                'username': teacher.user.username,
-                'classroom': assignment.classroom.name if assignment.classroom else '—',
-                'stream': assignment.stream.name if assignment.stream else '—',
-            })
-    
-    # Get recent activities (optional - last 5 registered students)
-    recent_students = []
-    if active_year:
-        recent_enrollments = Enrollment.objects.filter(
-            academic_year=active_year,
-            status='Active',
-            student__isnull=False
-        ).select_related('student__user').order_by('-id')[:5]
+        # ========== COUNT STUDENTS IN ACTIVE YEAR ONLY ==========
+        if active_year:
+            total_students = Enrollment.objects.filter(
+                academic_year=active_year,
+                status='Active',
+                student__isnull=False
+            ).values('student').distinct().count()
+        else:
+            total_students = 0
         
-        for enrollment in recent_enrollments:
-            if enrollment.student and enrollment.student.user:
-                recent_students.append({
-                    'name': enrollment.student.user.get_full_name(),
-                    'admission_number': enrollment.student.admission_number,
-                    'date': enrollment.enrollment_date if hasattr(enrollment, 'enrollment_date') else enrollment.academic_year.created_at,
+        # ========== COUNT TEACHERS IN ACTIVE YEAR ONLY ==========
+        if active_year:
+            total_teachers = Enrollment.objects.filter(
+                academic_year=active_year,
+                class_teacher__isnull=False
+            ).values('class_teacher').distinct().count()
+        else:
+            total_teachers = 0
+        
+        # ========== COUNT CLASSROOMS IN ACTIVE YEAR ONLY ==========
+        if active_year:
+            classrooms_count = Classroom.objects.filter(year=active_year).count()
+        else:
+            classrooms_count = 0
+        
+        # ========== GET TEACHERS WITH THEIR ASSIGNMENTS ==========
+        teachers_list = []
+        if active_year:
+            teacher_assignments = Enrollment.objects.filter(
+                academic_year=active_year,
+                class_teacher__isnull=False
+            ).select_related('class_teacher__user', 'classroom', 'stream')
+            
+            for assignment in teacher_assignments:
+                teacher = assignment.class_teacher
+                teachers_list.append({
+                    'id': teacher.id,
+                    'name': teacher.user.get_full_name(),
+                    'username': teacher.user.username,
+                    'classroom': assignment.classroom.name if assignment.classroom else '—',
+                    'stream': assignment.stream.name if assignment.stream else '—',
                 })
-    
-    context = {
-        'active_year': active_year,
-        'total_students': total_students,
-        'total_teachers': total_teachers,
-        'classrooms_count': classrooms_count,
-        'teachers': teachers_list,
-        'recent_students': recent_students,
-    }
-    
-    return render(request, 'attendance_app/admin_dashboard.html', context)
+        
+        # Get recent activities
+        recent_students = []
+        if active_year:
+            recent_enrollments = Enrollment.objects.filter(
+                academic_year=active_year,
+                status='Active',
+                student__isnull=False
+            ).select_related('student__user').order_by('-id')[:5]
+            
+            for enrollment in recent_enrollments:
+                if enrollment.student and enrollment.student.user:
+                    recent_students.append({
+                        'name': enrollment.student.user.get_full_name(),
+                        'admission_number': enrollment.student.admission_number,
+                        'date': enrollment.enrollment_date if hasattr(enrollment, 'enrollment_date') else enrollment.academic_year.created_at,
+                    })
+        
+        context = {
+            'active_year': active_year,
+            'total_students': total_students,
+            'total_teachers': total_teachers,
+            'classrooms_count': classrooms_count,
+            'teachers': teachers_list,
+            'recent_students': recent_students,
+        }
+        
+        return render(request, 'attendance_app/admin_dashboard.html', context)
+        
+    except Exception as e:
+        logger.error(f"Error in admin_dashboard: {e}")
+        messages.error(request, f"An error occurred while loading dashboard: {str(e)}")
+        return redirect('login')
 
 
 # ================= TEACHER MANAGEMENT VIEWS =================
@@ -437,177 +441,187 @@ def admin_dashboard(request):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def manage_teacher(request):
-    academic_years = AcademicYear.objects.all().order_by('-year_start')
-    selected_year_id = request.GET.get('year')
-    
-    if selected_year_id:
-        selected_academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
-    else:
-        selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    teachers_list = []
-    
-    if selected_academic_year:
-        # CHANGE: Get ONLY teachers with enrollment in selected year
-        enrollments = Enrollment.objects.filter(
-            academic_year=selected_academic_year,
-            student__isnull=True  # Teacher assignments only
-        ).select_related(
-            'class_teacher__user', 
-            'classroom', 
-            'stream', 
-            'academic_year'
-        )
+    try:
+        academic_years = AcademicYear.objects.all().order_by('-year_start')
+        selected_year_id = request.GET.get('year')
         
-        for enrollment in enrollments:
-            teacher = enrollment.class_teacher
-            if teacher:
-                teachers_list.append({
-                    'teacher_id': teacher.id,
-                    'username': teacher.user.username,
-                    'full_name': teacher.user.get_full_name(),
-                    'gender': teacher.user.gender if teacher.user.gender else '—',
-                    'phone': teacher.user.phone_number or '—',
-                    'classroom': enrollment.classroom.name if enrollment.classroom else None,
-                    'stream': enrollment.stream.name if enrollment.stream else None,
-                    'academic_year': str(selected_academic_year),
-                    'is_active': selected_academic_year.is_active,
-                    'teacher_status': enrollment.status,  # 'Active' or 'Inactive'
-                })
-    
-    # Pagination
-    paginator = Paginator(teachers_list, 25)
-    page_number = request.GET.get('page')
-    teachers = paginator.get_page(page_number)
-    
-    return render(request, 'attendance_app/manage_teacher.html', {
-        'teachers': teachers,
-        'academic_years': academic_years,
-        'selected_academic_year': selected_academic_year,
-    })
+        if selected_year_id:
+            selected_academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
+        else:
+            selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        teachers_list = []
+        
+        if selected_academic_year:
+            enrollments = Enrollment.objects.filter(
+                academic_year=selected_academic_year,
+                student__isnull=True
+            ).select_related(
+                'class_teacher__user', 
+                'classroom', 
+                'stream', 
+                'academic_year'
+            )
+            
+            for enrollment in enrollments:
+                teacher = enrollment.class_teacher
+                if teacher:
+                    teachers_list.append({
+                        'teacher_id': teacher.id,
+                        'username': teacher.user.username,
+                        'full_name': teacher.user.get_full_name(),
+                        'gender': teacher.user.gender if teacher.user.gender else '—',
+                        'phone': teacher.user.phone_number or '—',
+                        'classroom': enrollment.classroom.name if enrollment.classroom else None,
+                        'stream': enrollment.stream.name if enrollment.stream else None,
+                        'academic_year': str(selected_academic_year),
+                        'is_active': selected_academic_year.is_active,
+                        'teacher_status': enrollment.status,
+                    })
+        
+        paginator = Paginator(teachers_list, 25)
+        page_number = request.GET.get('page')
+        teachers = paginator.get_page(page_number)
+        
+        return render(request, 'attendance_app/manage_teacher.html', {
+            'teachers': teachers,
+            'academic_years': academic_years,
+            'selected_academic_year': selected_academic_year,
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in manage_teacher: {e}")
+        messages.error(request, f"An error occurred while loading teachers: {str(e)}")
+        return redirect('admin_dashboard')
+
+
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def register_teacher(request):
-    # Get active academic year
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    if not active_year:
-        messages.error(request, "No active academic year found. Please activate an academic year first.")
-        return redirect('academic_years')
-    
-    # Get ONLY classrooms for the active academic year
-    classrooms = Classroom.objects.filter(year=active_year).order_by('name')
+    try:
+        # Get active academic year
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_year:
+            messages.error(request, "No active academic year found. Please activate an academic year first.")
+            return redirect('academic_years')
+        
+        # Get ONLY classrooms for the active academic year
+        classrooms = Classroom.objects.filter(year=active_year).order_by('name')
 
-    if request.method == 'POST':
-        email = request.POST.get('email', '').strip()
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        gender = request.POST.get('gender')
-        phone_number = request.POST.get('phone_number', '').strip()
-        classroom_id = request.POST.get('classroom')
-        stream_id = request.POST.get('stream')
+        if request.method == 'POST':
+            email = request.POST.get('email', '').strip()
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            gender = request.POST.get('gender')
+            phone_number = request.POST.get('phone_number', '').strip()
+            classroom_id = request.POST.get('classroom')
+            stream_id = request.POST.get('stream')
 
-        # ===== EMAIL VALIDATION =====
-        if not email or '@' not in email:
-            messages.error(request, "Please enter a valid email.")
-            return redirect('register_teacher')
+            # ===== EMAIL VALIDATION =====
+            if not email or '@' not in email:
+                messages.error(request, "Please enter a valid email.")
+                return redirect('register_teacher')
 
-        # ===== CLASSROOM =====
-        try:
-            classroom = Classroom.objects.get(id=classroom_id, year=active_year)
-        except Classroom.DoesNotExist:
-            messages.error(request, "Classroom not found for the active academic year.")
-            return redirect('register_teacher')
-
-        # ===== STREAM =====
-        stream = None
-        if stream_id:
+            # ===== CLASSROOM =====
             try:
-                stream = Stream.objects.get(id=stream_id, classroom=classroom)
-                # Check if stream already has a teacher for active year
-                if Enrollment.objects.filter(stream=stream, academic_year=active_year, class_teacher__isnull=False).exists():
-                    messages.warning(request, "This stream already has a teacher assigned for the active academic year.")
+                classroom = Classroom.objects.get(id=classroom_id, year=active_year)
+            except Classroom.DoesNotExist:
+                messages.error(request, "Classroom not found for the active academic year.")
+                return redirect('register_teacher')
+
+            # ===== STREAM =====
+            stream = None
+            if stream_id:
+                try:
+                    stream = Stream.objects.get(id=stream_id, classroom=classroom)
+                    if Enrollment.objects.filter(stream=stream, academic_year=active_year, class_teacher__isnull=False).exists():
+                        messages.warning(request, "This stream already has a teacher assigned for the active academic year.")
+                        return redirect('register_teacher')
+                except Stream.DoesNotExist:
+                    messages.error(request, "Stream not found.")
                     return redirect('register_teacher')
-            except Stream.DoesNotExist:
-                messages.error(request, "Stream not found.")
+
+            # ===== USER EXISTS =====
+            if User.objects.filter(email=email).exists():
+                messages.error(request, "An account with this email already exists.")
                 return redirect('register_teacher')
 
-        # ===== USER EXISTS =====
-        if User.objects.filter(email=email).exists():
-            messages.error(request, "An account with this email already exists.")
-            return redirect('register_teacher')
+            # ===== PHONE NORMALIZATION =====
+            if phone_number:
+                formatted_phone = format_phone_number(phone_number)
+                if not formatted_phone:
+                    messages.error(request, "Invalid phone number format! Use: 0712345678 or 712345678")
+                    return redirect('register_teacher')
+                phone_number = formatted_phone
 
-        # ===== PHONE NORMALIZATION =====
-        if phone_number:
-            formatted_phone = format_phone_number(phone_number)
-            if not formatted_phone:
-                messages.error(request, "Invalid phone number format! Use: 0712345678 or 712345678")
-                return redirect('register_teacher')
-            phone_number = formatted_phone
-
-        # ===== CREATE USER =====
-        try:
-            user = User.objects.create(
-                username=email,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-                password=make_password(DEFAULT_PASSWORD),
-                role='teacher',
-                gender=gender,
-                phone_number=phone_number
-            )
-
-            teacher = TeacherProfile.objects.create(user=user)
-
-            # Assign teacher via Enrollment for the active year
-            Enrollment.objects.create(
-                classroom=classroom,
-                stream=stream,
-                class_teacher=teacher,
-                academic_year=active_year
-            )
-
-        except IntegrityError:
-            messages.error(request, "Database error occurred.")
-            return redirect('register_teacher')
-
-        # ===== SEND SMS =====
-        if phone_number:
+            # ===== CREATE USER =====
             try:
-                africastalking.initialize(
-                    username=settings.AFRICASTALKING_USERNAME,
-                    api_key=settings.AFRICASTALKING_API_KEY
+                user = User.objects.create(
+                    username=email,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    password=make_password(DEFAULT_PASSWORD),
+                    role='teacher',
+                    gender=gender,
+                    phone_number=phone_number
                 )
-                sms = africastalking.SMS
-                sms.send(
-                    message=(
-                        f"Habari {first_name}, account yako ya Mwalimu "
-                        f"imesajiliwa.\nEmail: {email}\nPassword: {DEFAULT_PASSWORD}"
-                    ),
-                    recipients=[phone_number],
-                    sender_id='School_SMS'
-                )
-            except Exception as e:
-                logger.error(f"SMS failed: {e}")
 
-        messages.success(
+                teacher = TeacherProfile.objects.create(user=user)
+
+                Enrollment.objects.create(
+                    classroom=classroom,
+                    stream=stream,
+                    class_teacher=teacher,
+                    academic_year=active_year
+                )
+
+            except IntegrityError as e:
+                messages.error(request, f"Database error: {str(e)}")
+                return redirect('register_teacher')
+
+            # ===== SEND SMS =====
+            if phone_number:
+                try:
+                    africastalking.initialize(
+                        username=settings.AFRICASTALKING_USERNAME,
+                        api_key=settings.AFRICASTALKING_API_KEY
+                    )
+                    sms = africastalking.SMS
+                    sms.send(
+                        message=(
+                            f"Habari {first_name}, account yako "
+                            f"imesajiliwa kwa .\nEmail: {email}\nPassword: {DEFAULT_PASSWORD}"
+                        ),
+                        recipients=[phone_number],
+                        sender_id='School_SMS'
+                    )
+                except Exception as e:
+                    logger.error(f"SMS failed: {e}")
+
+            messages.success(
+                request,
+                f"Teacher {first_name} {last_name} registered successfully for {active_year.year_start}/{active_year.year_end}!"
+            )
+            return redirect('register_teacher')
+
+        return render(
             request,
-            f"Teacher {first_name} {last_name} registered successfully for {active_year.year_start}/{active_year.year_end}!"
+            'attendance_app/register_teacher.html',
+            {
+                'classrooms': classrooms,
+                'active_year': active_year,
+            }
         )
-        return redirect('register_teacher')
-
-    return render(
-        request,
-        'attendance_app/register_teacher.html',
-        {
-            'classrooms': classrooms,
-            'active_year': active_year,
-        }
-    )
-
+        
+    except Exception as e:
+        logger.error(f"Error in register_teacher: {e}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('manage_teacher')
+    
 
 def get_streams(request, classroom_id):
     streams = Stream.objects.filter(classroom_id=classroom_id)
@@ -627,146 +641,154 @@ def get_streams(request, classroom_id):
 @login_required
 @user_passes_test(lambda u: u.role == 'admin')
 def edit_teacher(request, id):
-    # Optimize: include user in same query
-    teacher = get_object_or_404(
-        TeacherProfile.objects.select_related('user'),
-        id=id
-    )
-
-    # Get active academic year
-    active_year = AcademicYear.objects.filter(is_active=True).only(
-        'id', 'year_start', 'year_end'
-    ).first()
-
-    if not active_year:
-        messages.error(request, "No active academic year found. Please activate an academic year first.")
-        return redirect('manage_teacher')
-
-    # Optimized classrooms query (limit fields)
-    classrooms = Classroom.objects.filter(
-        year=active_year
-    ).only('id', 'name').order_by('name')
-
-    # Get current enrollment (optimized)
-    enrollment = teacher.class_enrollments.filter(
-        academic_year=active_year
-    ).select_related('classroom', 'stream').first()
-
-    current_classroom = enrollment.classroom if enrollment else None
-    current_stream = enrollment.stream if enrollment else None
-
-    if request.method == 'POST':
-        email = request.POST.get('email', '').strip()
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        password = request.POST.get('password', '').strip()
-        phone_number = request.POST.get('phone_number', '').strip()
-        gender = request.POST.get('gender')
-        classroom_id = request.POST.get('classroom')
-        stream_id = request.POST.get('stream')
-        
-        if phone_number:
-           formatted_phone = format_phone_number(phone_number)
-           if not formatted_phone:
-                messages.error(request, "Invalid phone number format!")
-                return redirect('edit_teacher', id=teacher.id)
-           phone_number = formatted_phone
-
-        try:
-            with transaction.atomic():
-                # Update user (already fetched via select_related)
-                user = teacher.user
-                user.email = email
-                user.username = email
-                user.first_name = first_name
-                user.last_name = last_name
-                user.phone_number = phone_number
-                user.gender = gender
-                if password:
-                   user.set_password(password)
-                user.full_clean()
-                user.save()
-
-                # Optimized classroom fetch (no exception)
-                classroom = None
-                if classroom_id:
-                    classroom = Classroom.objects.filter(
-                        id=classroom_id,
-                        year=active_year
-                    ).only('id').first()
-
-                    if not classroom:
-                        messages.error(request, "Selected classroom is not available for the active academic year.")
-                        return redirect('edit_teacher', id=teacher.id)
-
-                # Optimized stream fetch
-                stream = None
-                if stream_id and classroom:
-                    stream = Stream.objects.filter(
-                        id=stream_id,
-                        classroom=classroom
-                    ).only('id').first()
-
-                    if not stream:
-                        messages.warning(request, "Selected stream not found for this classroom.")
-
-                # Update or create enrollment
-                if enrollment:
-                    enrollment.classroom = classroom
-                    enrollment.stream = stream
-                    enrollment.save(update_fields=['classroom', 'stream'])
-                else:
-                    Enrollment.objects.create(
-                        classroom=classroom,
-                        stream=stream,
-                        class_teacher=teacher,
-                        academic_year=active_year,
-                        student=None
-                    )
-
-            messages.success(
-                request,
-                f"Teacher {user.get_full_name()} updated successfully for "
-                f"{active_year.year_start}/{active_year.year_end}!"
-            )
-            return redirect('manage_teacher')
-
-        except ValidationError as e:
-            messages.error(request, f"Validation Error: {e}")
-        except Exception as e:
-            messages.error(request, f"An unexpected error occurred: {str(e)}")
-
-    # ---------------------------
-    # STREAMS (OPTIMIZED QUERY)
-    # ---------------------------
-    streams = Stream.objects.none()
-
-    if current_classroom:
-        # Subquery instead of heavy JOIN
-        assigned_stream_ids = Enrollment.objects.filter(
-            academic_year=active_year,
-            class_teacher__isnull=False
-        ).values_list('stream_id', flat=True)
-
-        streams = Stream.objects.filter(
-            classroom=current_classroom
-        ).exclude(
-            id__in=assigned_stream_ids
+    try:
+        # Optimize: include user in same query
+        teacher = get_object_or_404(
+            TeacherProfile.objects.select_related('user'),
+            id=id
         )
 
-        # Ensure current stream is included
-        if current_stream:
-            streams = (streams | Stream.objects.filter(id=current_stream.id)).distinct()
+        # Get active academic year
+        active_year = AcademicYear.objects.filter(is_active=True).only(
+            'id', 'year_start', 'year_end'
+        ).first()
 
-    return render(request, 'attendance_app/edit_teacher.html', {
-        'teacher': teacher,
-        'classrooms': classrooms,
-        'streams': streams,
-        'current_classroom': current_classroom,
-        'current_stream': current_stream,
-        'active_year': active_year,
-        'enrollment': enrollment,
-    })
+        if not active_year:
+            messages.error(request, "No active academic year found. Please activate an academic year first.")
+            return redirect('manage_teacher')
+
+        # Optimized classrooms query (limit fields)
+        classrooms = Classroom.objects.filter(
+            year=active_year
+        ).only('id', 'name').order_by('name')
+
+        # Get current enrollment (optimized)
+        enrollment = teacher.class_enrollments.filter(
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
+
+        current_classroom = enrollment.classroom if enrollment else None
+        current_stream = enrollment.stream if enrollment else None
+
+        if request.method == 'POST':
+            email = request.POST.get('email', '').strip()
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            password = request.POST.get('password', '').strip()
+            phone_number = request.POST.get('phone_number', '').strip()
+            gender = request.POST.get('gender')
+            classroom_id = request.POST.get('classroom')
+            stream_id = request.POST.get('stream')
+            
+            if phone_number:
+               formatted_phone = format_phone_number(phone_number)
+               if not formatted_phone:
+                    messages.error(request, "Invalid phone number format!")
+                    return redirect('edit_teacher', id=teacher.id)
+               phone_number = formatted_phone
+
+            try:
+                with transaction.atomic():
+                    # Update user (already fetched via select_related)
+                    user = teacher.user
+                    user.email = email
+                    user.username = email
+                    user.first_name = first_name
+                    user.last_name = last_name
+                    user.phone_number = phone_number
+                    user.gender = gender
+                    if password:
+                       user.set_password(password)
+                    user.full_clean()
+                    user.save()
+
+                    # Optimized classroom fetch (no exception)
+                    classroom = None
+                    if classroom_id:
+                        classroom = Classroom.objects.filter(
+                            id=classroom_id,
+                            year=active_year
+                        ).only('id').first()
+
+                        if not classroom:
+                            messages.error(request, "Selected classroom is not available for the active academic year.")
+                            return redirect('edit_teacher', id=teacher.id)
+
+                    # Optimized stream fetch
+                    stream = None
+                    if stream_id and classroom:
+                        stream = Stream.objects.filter(
+                            id=stream_id,
+                            classroom=classroom
+                        ).only('id').first()
+
+                        if not stream:
+                            messages.warning(request, "Selected stream not found for this classroom.")
+
+                    # Update or create enrollment
+                    if enrollment:
+                        enrollment.classroom = classroom
+                        enrollment.stream = stream
+                        enrollment.save(update_fields=['classroom', 'stream'])
+                    else:
+                        Enrollment.objects.create(
+                            classroom=classroom,
+                            stream=stream,
+                            class_teacher=teacher,
+                            academic_year=active_year,
+                            student=None
+                        )
+
+                messages.success(
+                    request,
+                    f"Teacher {user.get_full_name()} updated successfully for "
+                    f"{active_year.year_start}/{active_year.year_end}!"
+                )
+                return redirect('manage_teacher')
+
+            except ValidationError as e:
+                messages.error(request, f"Validation Error: {e}")
+                return redirect('edit_teacher', id=teacher.id)
+            except Exception as e:
+                messages.error(request, f"An unexpected error occurred: {str(e)}")
+                return redirect('edit_teacher', id=teacher.id)
+
+        # ---------------------------
+        # STREAMS (OPTIMIZED QUERY)
+        # ---------------------------
+        streams = Stream.objects.none()
+
+        if current_classroom:
+            # Subquery instead of heavy JOIN
+            assigned_stream_ids = Enrollment.objects.filter(
+                academic_year=active_year,
+                class_teacher__isnull=False
+            ).values_list('stream_id', flat=True)
+
+            streams = Stream.objects.filter(
+                classroom=current_classroom
+            ).exclude(
+                id__in=assigned_stream_ids
+            )
+
+            # Ensure current stream is included
+            if current_stream:
+                streams = (streams | Stream.objects.filter(id=current_stream.id)).distinct()
+
+        return render(request, 'attendance_app/edit_teacher.html', {
+            'teacher': teacher,
+            'classrooms': classrooms,
+            'streams': streams,
+            'current_classroom': current_classroom,
+            'current_stream': current_stream,
+            'active_year': active_year,
+            'enrollment': enrollment,
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in edit_teacher: {e}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('manage_teacher')
 
 
 
@@ -809,19 +831,19 @@ def delete_teacher(request, teacher_id):
                 enrollment.save()
                 messages.success(
                     request,
-                    f"✅ Teacher {teacher_name} has been REACTIVATED in {academic_year.year_start}/{academic_year.year_end}!"
+                    f"Teacher {teacher_name} has been REACTIVATED in {academic_year.year_start}/{academic_year.year_end}!"
                 )
             else:  # deactivate
                 enrollment.status = 'Inactive'
                 enrollment.save()
                 messages.success(
                     request,
-                    f"✅ Teacher {teacher_name} has been DEACTIVATED in {academic_year.year_start}/{academic_year.year_end}."
+                    f"Teacher {teacher_name} has been DEACTIVATED in {academic_year.year_start}/{academic_year.year_end}."
                 )
         else:
             messages.warning(
                 request,
-                f"⚠️ No assignment found for {teacher_name} in {academic_year.year_start}/{academic_year.year_end}."
+                f"No assignment found for {teacher_name} in {academic_year.year_start}/{academic_year.year_end}."
             )
         
         return redirect('manage_teacher')
@@ -837,8 +859,8 @@ def delete_teacher(request, teacher_id):
                 
                 messages.success(
                     request,
-                    f"✅ Teacher {teacher_name} PERMANENTLY deleted!\n"
-                    f"📊 Removed from {enrollment_count} class assignment(s)."
+                    f"Teacher {teacher_name} PERMANENTLY deleted!\n"
+                    f"Removed from {enrollment_count} class assignment(s)."
                 )
                 
                 if request.user == user_to_delete:
@@ -847,7 +869,7 @@ def delete_teacher(request, teacher_id):
                     
         except Exception as e:
             logger.error(f"Error permanently deleting teacher {teacher_id}: {e}")
-            messages.error(request, f"❌ Failed to permanently delete teacher: {str(e)}")
+            messages.error(request, f" Failed to permanently delete teacher: {str(e)}")
             
         return redirect('manage_teacher')
     
@@ -868,13 +890,13 @@ def delete_teacher(request, teacher_id):
         if deleted_count > 0:
             messages.success(
                 request,
-                f"✅ Teacher {teacher_name} removed from "
+                f"Teacher {teacher_name} removed from "
                 f"{academic_year.year_start}/{academic_year.year_end} successfully."
             )
         else:
             messages.warning(
                 request,
-                f"⚠️ Teacher {teacher_name} has no assignment in {academic_year.year_start}/{academic_year.year_end}."
+                f"Teacher {teacher_name} has no assignment in {academic_year.year_start}/{academic_year.year_end}."
             )
         
         return redirect('manage_teacher')
@@ -886,131 +908,137 @@ def delete_teacher(request, teacher_id):
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def register_student_admin(request):
+    try:
 
-    # ONLY ACTIVE YEAR
-    active_year = AcademicYear.objects.filter(is_active=True).first()
+            # ONLY ACTIVE YEAR
+            active_year = AcademicYear.objects.filter(is_active=True).first()
 
-    if not active_year:
-        messages.error(request, "No active academic year found!")
-        return redirect('register_student_admin')
-
-    # ONLY CLASSROOMS OF ACTIVE YEAR
-    classrooms = Classroom.objects.filter(year=active_year).order_by('name')
-
-    if request.method == 'POST':
-
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        gender = request.POST.get('gender')
-        password = request.POST.get('password') or "Student@123"
-        admission_number = request.POST.get('admission_number', '').strip()
-        classroom_id = request.POST.get('classroom')
-        stream_id = request.POST.get('stream')
-        parent_full_name = request.POST.get('parent_full_name', '').strip()
-        parent_phone = request.POST.get('parent_phone', '').strip()
-
-        # VALIDATIONS
-        if not all([first_name, last_name, admission_number, classroom_id, stream_id, parent_full_name, parent_phone]):
-            messages.error(request, "All fields are required!")
-            return redirect('register_student_admin')
-
-        # Format parent phone
-        parent_phone = format_phone_number(parent_phone)
-        if not parent_phone:
-            messages.error(request, "Invalid parent phone number format! Use: 0712345678 or 712345678")
-            return redirect('register_student_admin')
-
-        # Check if admission number exists
-        if User.objects.filter(username=admission_number).exists():
-            messages.error(request, "Admission number already exists.")
-            return redirect('register_student_admin')
-
-        try:
-            with transaction.atomic():
-                # Get classroom and stream
-                classroom = Classroom.objects.get(id=classroom_id, year=active_year)
-                stream = Stream.objects.get(id=stream_id, classroom=classroom)
-
-                # CREATE STUDENT USER
-                student_user = User.objects.create(
-                    username=admission_number,
-                    first_name=first_name,
-                    last_name=last_name,
-                    gender=gender,
-                    role='student',
-                    password=make_password(password)
-                )
-
-                # CREATE STUDENT PROFILE
-                student_profile = StudentProfile.objects.create(
-                    user=student_user,
-                    admission_number=admission_number
-                )
-
-                # CREATE ENROLLMENT
-                Enrollment.objects.create(
-                    student=student_profile,
-                    classroom=classroom,
-                    stream=stream,
-                    academic_year=active_year,
-                    status='Active'
-                )
-
-                # CREATE OR GET PARENT
-                parent_names = parent_full_name.split(' ', 1)
-                parent_first = parent_names[0]
-                parent_last = parent_names[1] if len(parent_names) > 1 else ''
-
-                # Get or create parent user
-                parent_user, created = User.objects.get_or_create(
-                    username=parent_phone,
-                    defaults={
-                        'first_name': parent_first,
-                        'last_name': parent_last,
-                        'phone_number': parent_phone,
-                        'role': 'parent',
-                        'password': make_password(parent_phone)
-                    }
-                )
-
-                # If user already exists, update their info
-                if not created:
-                    parent_user.first_name = parent_first
-                    parent_user.last_name = parent_last
-                    parent_user.phone_number = parent_phone
-                    parent_user.save()
-
-                # Create parent profile
-                ParentProfile.objects.get_or_create(
-                    user=parent_user,
-                    student=student_profile
-                )
-
-                messages.success(
-                    request,
-                    f"Student {first_name} {last_name} registered successfully for {active_year.year_start}/{active_year.year_end}!\n"
-                    f"Login: {admission_number} | Password: {password}"
-                )
+            if not active_year:
+                messages.error(request, "No active academic year found!")
                 return redirect('register_student_admin')
 
-        except Classroom.DoesNotExist:
-            messages.error(request, "Classroom not found for the active academic year.")
-            return redirect('register_student_admin')
-        except Stream.DoesNotExist:
-            messages.error(request, "Stream not found.")
-            return redirect('register_student_admin')
-        except IntegrityError as e:
-            messages.error(request, f"Database error: {str(e)}")
-            return redirect('register_student_admin')
-        except Exception as e:
-            logger.error(f"Error registering student: {e}")
-            messages.error(request, f"Error: {str(e)}")
-            return redirect('register_student_admin')
+            # ONLY CLASSROOMS OF ACTIVE YEAR
+            classrooms = Classroom.objects.filter(year=active_year).order_by('name')
 
-    return render(request, 'attendance_app/register_student_admin.html', {
-        'classrooms': classrooms,
-        'active_year': active_year,
-    })
+            if request.method == 'POST':
+
+                first_name = request.POST.get('first_name', '').strip()
+                last_name = request.POST.get('last_name', '').strip()
+                gender = request.POST.get('gender')
+                password = request.POST.get('password') or "Student@123"
+                admission_number = request.POST.get('admission_number', '').strip()
+                classroom_id = request.POST.get('classroom')
+                stream_id = request.POST.get('stream')
+                parent_full_name = request.POST.get('parent_full_name', '').strip()
+                parent_phone = request.POST.get('parent_phone', '').strip()
+
+                # VALIDATIONS
+                if not all([first_name, last_name, admission_number, classroom_id, stream_id, parent_full_name, parent_phone]):
+                    messages.error(request, "All fields are required!")
+                    return redirect('register_student_admin')
+
+                # Format parent phone
+                parent_phone = format_phone_number(parent_phone)
+                if not parent_phone:
+                    messages.error(request, "Invalid parent phone number format! Use: 0712345678 or 712345678")
+                    return redirect('register_student_admin')
+
+                # Check if admission number exists
+                if User.objects.filter(username=admission_number).exists():
+                    messages.error(request, "Admission number already exists.")
+                    return redirect('register_student_admin')
+
+                try:
+                    with transaction.atomic():
+                        # Get classroom and stream
+                        classroom = Classroom.objects.get(id=classroom_id, year=active_year)
+                        stream = Stream.objects.get(id=stream_id, classroom=classroom)
+
+                        # CREATE STUDENT USER
+                        student_user = User.objects.create(
+                            username=admission_number,
+                            first_name=first_name,
+                            last_name=last_name,
+                            gender=gender,
+                            role='student',
+                            password=make_password(password)
+                        )
+
+                        # CREATE STUDENT PROFILE
+                        student_profile = StudentProfile.objects.create(
+                            user=student_user,
+                            admission_number=admission_number
+                        )
+
+                        # CREATE ENROLLMENT
+                        Enrollment.objects.create(
+                            student=student_profile,
+                            classroom=classroom,
+                            stream=stream,
+                            academic_year=active_year,
+                            status='Active'
+                        )
+
+                        # CREATE OR GET PARENT
+                        parent_names = parent_full_name.split(' ', 1)
+                        parent_first = parent_names[0]
+                        parent_last = parent_names[1] if len(parent_names) > 1 else ''
+
+                        # Get or create parent user
+                        parent_user, created = User.objects.get_or_create(
+                            username=parent_phone,
+                            defaults={
+                                'first_name': parent_first,
+                                'last_name': parent_last,
+                                'phone_number': parent_phone,
+                                'role': 'parent',
+                                'password': make_password(parent_phone)
+                            }
+                        )
+
+                        # If user already exists, update their info
+                        if not created:
+                            parent_user.first_name = parent_first
+                            parent_user.last_name = parent_last
+                            parent_user.phone_number = parent_phone
+                            parent_user.save()
+
+                        # Create parent profile
+                        ParentProfile.objects.get_or_create(
+                            user=parent_user,
+                            student=student_profile
+                        )
+
+                        messages.success(
+                            request,
+                            f"Student {first_name} {last_name} registered successfully for {active_year.year_start}/{active_year.year_end}!\n"
+                            f"Login: {admission_number} | Password: {password}"
+                        )
+                        return redirect('register_student_admin')
+
+                except Classroom.DoesNotExist:
+                    messages.error(request, "Classroom not found for the active academic year.")
+                    return redirect('register_student_admin')
+                except Stream.DoesNotExist:
+                    messages.error(request, "Stream not found.")
+                    return redirect('register_student_admin')
+                except IntegrityError as e:
+                    messages.error(request, f"Database error: {str(e)}")
+                    return redirect('register_student_admin')
+                except Exception as e:
+                    logger.error(f"Error registering student: {e}")
+                    messages.error(request, f"Error: {str(e)}")
+                    return redirect('register_student_admin')
+
+            return render(request, 'attendance_app/register_student_admin.html', {
+                'classrooms': classrooms,
+                'active_year': active_year,
+            })
+            
+    except Exception as e:
+        logger.error(f"Error in register_student_admin: {e}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('admin_dashboard')
     
     
     
@@ -1018,113 +1046,118 @@ def register_student_admin(request):
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher', 'admin'])
 def manage_student(request):
-    # Get all academic years for dropdown
-    academic_years = AcademicYear.objects.all().order_by('-year_start')
-    
-    # Get selected academic year from request
-    selected_year_id = request.GET.get('year')
-    selected_academic_year = None
-    
-    if selected_year_id:
-        try:
-            selected_academic_year = AcademicYear.objects.get(id=selected_year_id)
-        except AcademicYear.DoesNotExist:
-            selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
-    else:
-        selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    # Get selected classroom
-    selected_classroom_id = request.GET.get('classroom')
-    selected_classroom = None
-    students_data = []
-    available_streams = []
-    search_query = request.GET.get('search', '')
-    selected_stream_id = request.GET.get('stream', '')
-    students = []
-    
-    if selected_academic_year:
-        # Get classrooms for selected academic year only
-        classrooms = Classroom.objects.filter(year=selected_academic_year).order_by('name')
+    try:
+        # Get all academic years for dropdown
+        academic_years = AcademicYear.objects.all().order_by('-year_start')
         
-        # Add student count to each classroom (include ALL statuses for counting)
-# Count ONLY students for this academic year
-        for classroom in classrooms:
-            classroom.student_count = Enrollment.objects.filter(
-                classroom=classroom,
-                academic_year=selected_academic_year,
-                student__isnull=False
-            ).count()
+        # Get selected academic year from request
+        selected_year_id = request.GET.get('year')
+        selected_academic_year = None
         
-        # If a classroom is selected, get its students
-        if selected_classroom_id:
+        if selected_year_id:
             try:
-                selected_classroom = Classroom.objects.get(id=selected_classroom_id, year=selected_academic_year)
-                
-                # Get available streams for this classroom
-                available_streams = Stream.objects.filter(classroom=selected_classroom)
-                
-                # IMPORTANT FIX: Get ALL enrollments for this classroom and year (NOT just Active)
-                enrollments = Enrollment.objects.filter(
-                    classroom=selected_classroom,
+                selected_academic_year = AcademicYear.objects.get(id=selected_year_id)
+            except AcademicYear.DoesNotExist:
+                selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
+        else:
+            selected_academic_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        # Get selected classroom
+        selected_classroom_id = request.GET.get('classroom')
+        selected_classroom = None
+        students_data = []
+        available_streams = []
+        search_query = request.GET.get('search', '')
+        selected_stream_id = request.GET.get('stream', '')
+        students = []
+        
+        if selected_academic_year:
+            # Get classrooms for selected academic year only
+            classrooms = Classroom.objects.filter(year=selected_academic_year).order_by('name')
+            
+            # Add student count to each classroom (include ALL statuses for counting)
+    # Count ONLY students for this academic year
+            for classroom in classrooms:
+                classroom.student_count = Enrollment.objects.filter(
+                    classroom=classroom,
                     academic_year=selected_academic_year,
                     student__isnull=False
-                    # REMOVED: status='Active' - This was hiding past data!
-                ).select_related('student__user', 'stream')
-                
-                # Apply stream filter if selected
-                if selected_stream_id:
-                    enrollments = enrollments.filter(stream_id=selected_stream_id)
-                
-                # Build student data
-                for enrollment in enrollments:
-                    student = enrollment.student
+                ).count()
+            
+            # If a classroom is selected, get its students
+            if selected_classroom_id:
+                try:
+                    selected_classroom = Classroom.objects.get(id=selected_classroom_id, year=selected_academic_year)
                     
-                    # Skip if student or user is None
-                    if not student or not student.user:
-                        continue
+                    # Get available streams for this classroom
+                    available_streams = Stream.objects.filter(classroom=selected_classroom)
                     
-                    full_name = f"{student.user.first_name} {student.user.last_name}".strip()
-                    if not full_name or not student.user.first_name:
-                        full_name = student.user.username or "Unknown Student"
+                    # IMPORTANT FIX: Get ALL enrollments for this classroom and year (NOT just Active)
+                    enrollments = Enrollment.objects.filter(
+                        classroom=selected_classroom,
+                        academic_year=selected_academic_year,
+                        student__isnull=False
+                        # REMOVED: status='Active' - This was hiding past data!
+                    ).select_related('student__user', 'stream')
                     
-                    # Apply search filter
-                    if search_query:
-                        search_lower = search_query.lower()
-                        if search_lower not in full_name.lower() and search_lower not in student.admission_number.lower():
+                    # Apply stream filter if selected
+                    if selected_stream_id:
+                        enrollments = enrollments.filter(stream_id=selected_stream_id)
+                    
+                    # Build student data
+                    for enrollment in enrollments:
+                        student = enrollment.student
+                        
+                        # Skip if student or user is None
+                        if not student or not student.user:
                             continue
+                        
+                        full_name = f"{student.user.first_name} {student.user.last_name}".strip()
+                        if not full_name or not student.user.first_name:
+                            full_name = student.user.username or "Unknown Student"
+                        
+                        # Apply search filter
+                        if search_query:
+                            search_lower = search_query.lower()
+                            if search_lower not in full_name.lower() and search_lower not in student.admission_number.lower():
+                                continue
+                        
+                        students_data.append({
+                            'id': student.id,
+                            'admission_number': student.admission_number,
+                            'full_name': full_name,
+                            'gender': student.user.gender or '—',
+                            'stream': enrollment.stream.name if enrollment.stream else '—',
+                            'status': enrollment.status,  # This will show 'Promoted', 'Graduated', or 'Active'
+                        })
                     
-                    students_data.append({
-                        'id': student.id,
-                        'admission_number': student.admission_number,
-                        'full_name': full_name,
-                        'gender': student.user.gender or '—',
-                        'stream': enrollment.stream.name if enrollment.stream else '—',
-                        'status': enrollment.status,  # This will show 'Promoted', 'Graduated', or 'Active'
-                    })
-                
-                # Pagination
-                if students_data:
-                    paginator = Paginator(students_data, 25)
-                    page_number = request.GET.get('page')
-                    students = paginator.get_page(page_number)
-                
-            except Classroom.DoesNotExist:
-                pass
-    else:
-        classrooms = []
+                    # Pagination
+                    if students_data:
+                        paginator = Paginator(students_data, 25)
+                        page_number = request.GET.get('page')
+                        students = paginator.get_page(page_number)
+                    
+                except Classroom.DoesNotExist:
+                    pass
+        else:
+            classrooms = []
 
-    context = {
-        'academic_years': academic_years,
-        'selected_academic_year': selected_academic_year,
-        'classrooms': classrooms,
-        'selected_classroom': selected_classroom,
-        'students': students,
-        'available_streams': available_streams,
-        'search_query': search_query,
-        'selected_stream_id': selected_stream_id,
-    }
-    
-    return render(request, 'attendance_app/manage_student.html', context)
+        context = {
+            'academic_years': academic_years,
+            'selected_academic_year': selected_academic_year,
+            'classrooms': classrooms,
+            'selected_classroom': selected_classroom,
+            'students': students,
+            'available_streams': available_streams,
+            'search_query': search_query,
+            'selected_stream_id': selected_stream_id,
+        }
+        
+        return render(request, 'attendance_app/manage_student.html', context)
+    except Exception as e:
+        logger.error(f"Error in manage_student: {e}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('admin_dashboard')
     
 
 
@@ -1134,313 +1167,325 @@ def manage_student(request):
 def classroom_students(request, classroom_id):
     """View students in a specific classroom"""
     
-    # Get the classroom
-    classroom = get_object_or_404(Classroom, id=classroom_id)
-    
-    # Get academic year from URL or use classroom's year
-    selected_year_id = request.GET.get('year')
-    if selected_year_id:
-        academic_year = get_object_or_404(AcademicYear, id=selected_year_id)
-    else:
-        academic_year = classroom.year
-    
-    # Get streams for this classroom
-    streams = Stream.objects.filter(classroom=classroom)
-    
-    # Get filter parameters
-    search_query = request.GET.get('search', '')
-    selected_stream_id = request.GET.get('stream', '')
-    
-    # Get ALL enrollments for this classroom and year
-    enrollments = Enrollment.objects.filter(
-        classroom=classroom,
-        academic_year=academic_year,
-        student__isnull=False
-    ).select_related('student__user', 'stream')
-    
-    # Apply stream filter
-    if selected_stream_id:
-        enrollments = enrollments.filter(stream_id=selected_stream_id)
-    
-    # Build student data with parent info
-    students_data = []
-    for enrollment in enrollments:
-        student = enrollment.student
-        if not student or not student.user:
-            continue
+    try:
+        # Get the classroom
+        classroom = get_object_or_404(Classroom, id=classroom_id)
         
-        full_name = f"{student.user.first_name} {student.user.last_name}".strip()
-        if not full_name or not student.user.first_name:
-            full_name = student.user.username or "Unknown Student"
+        # Get academic year from URL or use classroom's year
+        selected_year_id = request.GET.get('year')
+        if selected_year_id:
+            academic_year = get_object_or_404(AcademicYear, id=selected_year_id)
+        else:
+            academic_year = classroom.year
         
-        # Get parent info
-        parent = student.parents.first()
-        parent_name = f"{parent.user.first_name} {parent.user.last_name}".strip() if parent and parent.user else '—'
-        parent_phone = parent.user.phone_number if parent and parent.user and parent.user.phone_number else '—'
+        # Get streams for this classroom
+        streams = Stream.objects.filter(classroom=classroom)
         
-        # Apply search filter
-        if search_query:
-            search_lower = search_query.lower()
-            if search_lower not in full_name.lower() and search_lower not in student.admission_number.lower():
+        # Get filter parameters
+        search_query = request.GET.get('search', '')
+        selected_stream_id = request.GET.get('stream', '')
+        
+        # Get ALL enrollments for this classroom and year
+        enrollments = Enrollment.objects.filter(
+            classroom=classroom,
+            academic_year=academic_year,
+            student__isnull=False
+        ).select_related('student__user', 'stream')
+        
+        # Apply stream filter
+        if selected_stream_id:
+            enrollments = enrollments.filter(stream_id=selected_stream_id)
+        
+        # Build student data with parent info
+        students_data = []
+        for enrollment in enrollments:
+            student = enrollment.student
+            if not student or not student.user:
                 continue
+            
+            full_name = f"{student.user.first_name} {student.user.last_name}".strip()
+            if not full_name or not student.user.first_name:
+                full_name = student.user.username or "Unknown Student"
+            
+            # Get parent info
+            parent = student.parents.first()
+            parent_name = f"{parent.user.first_name} {parent.user.last_name}".strip() if parent and parent.user else '—'
+            parent_phone = parent.user.phone_number if parent and parent.user and parent.user.phone_number else '—'
+            
+            # Apply search filter
+            if search_query:
+                search_lower = search_query.lower()
+                if search_lower not in full_name.lower() and search_lower not in student.admission_number.lower():
+                    continue
+            
+            students_data.append({
+                'id': student.id,
+                'admission_number': student.admission_number,
+                'full_name': full_name,
+                'gender': student.user.gender or '—',
+                'stream': enrollment.stream.name if enrollment.stream else '—',
+                'status': enrollment.status,
+                'email': student.user.email or '—',
+                'phone': student.user.phone_number or '—',
+                'parent_name': parent_name,
+                'parent_phone': parent_phone,
+            })
         
-        students_data.append({
-            'id': student.id,
-            'admission_number': student.admission_number,
-            'full_name': full_name,
-            'gender': student.user.gender or '—',
-            'stream': enrollment.stream.name if enrollment.stream else '—',
-            'status': enrollment.status,
-            'email': student.user.email or '—',
-            'phone': student.user.phone_number or '—',
-            'parent_name': parent_name,
-            'parent_phone': parent_phone,
-        })
+        # Pagination
+        paginator = Paginator(students_data, 25)
+        page_number = request.GET.get('page')
+        students = paginator.get_page(page_number)
+        
+        context = {
+            'classroom': classroom,
+            'academic_year': academic_year,
+            'streams': streams,
+            'students': students,
+            'search_query': search_query,
+            'selected_stream_id': selected_stream_id,
+            'selected_academic_year': academic_year,
+        }
+        
+        return render(request, 'attendance_app/classroom_students.html', context)
+
+    except Exception as e:
+        logger.error(f"Error in classroom_students: {e}")
+        messages.error(request, f"An error occurred while loading students: {str(e)}")
+        return redirect('manage_student')
     
-    # Pagination
-    paginator = Paginator(students_data, 25)
-    page_number = request.GET.get('page')
-    students = paginator.get_page(page_number)
-    
-    context = {
-        'classroom': classroom,
-        'academic_year': academic_year,
-        'streams': streams,
-        'students': students,
-        'search_query': search_query,
-        'selected_stream_id': selected_stream_id,
-        'selected_academic_year': academic_year,  # For modal
-    }
-    
-    return render(request, 'attendance_app/classroom_students.html', context)
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role in ['teacher'])
 def register_student_teacher(request):
-    teacher = get_object_or_404(TeacherProfile, user=request.user)
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    if not active_year:
-        messages.error(request, "No active academic year found. Please contact admin.")
-        return redirect('teacher_dashboard')
-    
-    teacher_enrollment = Enrollment.objects.filter(
-        class_teacher=teacher,
-        academic_year=active_year
-    ).select_related('classroom', 'stream').first()
-    
-    if not teacher_enrollment:
-        messages.error(request, "You are not assigned to any classroom for the current academic year.")
-        return redirect('teacher_dashboard')
-    
-    classroom = teacher_enrollment.classroom
-    stream = teacher_enrollment.stream
-    
-    if not classroom:
-        messages.error(request, "You are not properly assigned to a classroom.")
-        return redirect('teacher_dashboard')
-    
-    academic_years = AcademicYear.objects.all()
-
-    students = StudentProfile.objects.filter(
-        enrollments__classroom=classroom,
-        enrollments__academic_year=active_year
-    ).distinct()
-    
-    if stream:
-        students = students.filter(enrollments__stream=stream)
-
-    if request.method == 'POST':
-        if 'import_excel' in request.POST and request.FILES.get('excel_file'):
-            try:
-                # Read Excel file
-                excel_file = request.FILES['excel_file']
-                df = pd.read_excel(excel_file)
-                
-                # Required columns validation
-                required_columns = ['first_name', 'last_name', 'gender', 'admission_number']
-                missing_columns = [col for col in required_columns if col not in df.columns]
-                
-                if missing_columns:
-                    messages.error(request, f"Missing required columns: {', '.join(missing_columns)}")
-                    return redirect('register_student_teacher')
-                
-                success_count = 0
-                error_count = 0
-                error_messages = []
-                
-                # Use transaction for data integrity
-                with transaction.atomic():
-                    for index, row in df.iterrows():
-                        try:
-                            admission_number = str(row['admission_number']).strip()
-                            
-                            # Check if user exists
-                            if User.objects.filter(username=admission_number).exists():
-                                error_count += 1
-                                error_messages.append(f"Row {index+2}: Admission number {admission_number} already exists")
-                                continue
-                            
-                            # Get gender and validate
-                            gender = row.get('gender', '').strip()
-                            if gender not in ['Male', 'Female']:
-                                error_count += 1
-                                error_messages.append(f"Row {index+2}: Invalid gender '{gender}'. Must be 'Male' or 'Female'")
-                                continue
-                            
-                            # Create student user
-                            student_user = User.objects.create(
-                                username=admission_number,
-                                first_name=str(row['first_name']).strip(),
-                                last_name=str(row['last_name']).strip(),
-                                gender=gender,
-                                role='student',
-                                password=make_password("Student@123")
-                            )
-                            
-                            # Create student profile
-                            student_profile = StudentProfile.objects.create(
-                                user=student_user,
-                                admission_number=admission_number
-                            )
-                            
-                            # Create enrollment
-                            Enrollment.objects.create(
-                                student=student_profile,
-                                classroom=classroom,
-                                stream=stream,
-                                academic_year=active_year,
-                                status='Active'
-                            )
-                            
-                            # Handle parent if provided
-                            parent_full_name = str(row.get('parent_full_name', '')).strip()
-                            parent_phone = str(row.get('parent_phone', '')).strip()
-                            
-                            if parent_full_name and parent_phone:
-                                # TUMIA FORMAT_PHONE_NUMBER ILIYOPO KWENYE HELPER FUNCTIONS
-                                parent_phone_clean = format_phone_number(parent_phone)
-                                
-                                if parent_phone_clean:
-                                    parent_names = parent_full_name.split(' ', 1)
-                                    parent_first = parent_names[0]
-                                    parent_last = parent_names[1] if len(parent_names) > 1 else ''
-                                    
-                                    parent_user, created = User.objects.get_or_create(
-                                        username=parent_phone_clean,
-                                        defaults={
-                                            'first_name': parent_first,
-                                            'last_name': parent_last,
-                                            'phone_number': parent_phone_clean,
-                                            'role': 'parent',
-                                            'password': make_password(parent_phone_clean)
-                                        }
-                                    )
-                                    
-                                    ParentProfile.objects.get_or_create(
-                                        user=parent_user,
-                                        student=student_profile
-                                    )
-                                else:
-                                    error_messages.append(f"Row {index+2}: Invalid parent phone format for {parent_full_name}")
-                            
-                            success_count += 1
-                            
-                        except Exception as e:
-                            error_count += 1
-                            error_messages.append(f"Row {index+2}: {str(e)}")
-                
-                # Show results
-                if success_count > 0:
-                    messages.success(request, f"Successfully imported {success_count} student(s)!")
-                
-                if error_messages:
-                    # Limit to first 5 errors to avoid overwhelming
-                    for msg in error_messages[:5]:
-                        messages.warning(request, msg)
-                    if len(error_messages) > 5:
-                        messages.warning(request, f"... and {len(error_messages) - 5} more errors")
-                
-                return redirect('register_student_teacher')
-                
-            except Exception as e:
-                messages.error(request, f"Error reading Excel file: {str(e)}")
-                return redirect('register_student_teacher')
-
-        # Manual registration code
-        admission_number = request.POST.get('admission_number')
+    try:
+        teacher = get_object_or_404(TeacherProfile, user=request.user)
+        active_year = AcademicYear.objects.filter(is_active=True).first()
         
-        if not admission_number:
-            messages.error(request, "Admission number is required.")
-            return redirect('register_student_teacher')
+        if not active_year:
+            messages.error(request, "No active academic year found. Please contact admin.")
+            return redirect('teacher_dashboard')
+        
+        teacher_enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
+        
+        if not teacher_enrollment:
+            messages.error(request, "You are not assigned to any classroom for the current academic year.")
+            return redirect('teacher_dashboard')
+        
+        classroom = teacher_enrollment.classroom
+        stream = teacher_enrollment.stream
+        
+        if not classroom:
+            messages.error(request, "You are not properly assigned to a classroom.")
+            return redirect('teacher_dashboard')
+        
+        academic_years = AcademicYear.objects.all()
 
-        if User.objects.filter(username=admission_number).exists():
-            messages.error(request, "Admission number already exists.")
-            return redirect('register_student_teacher')
+        students = StudentProfile.objects.filter(
+            enrollments__classroom=classroom,
+            enrollments__academic_year=active_year
+        ).distinct()
+        
+        if stream:
+            students = students.filter(enrollments__stream=stream)
 
-        student_user = User.objects.create(
-            username=admission_number,
-            first_name=request.POST.get('first_name'),
-            last_name=request.POST.get('last_name'),
-            gender=request.POST.get('gender'),
-            role='student',
-            password=make_password(request.POST.get('password') or "Student@123")
-        )
+        if request.method == 'POST':
+            if 'import_excel' in request.POST and request.FILES.get('excel_file'):
+                try:
+                    # Read Excel file
+                    excel_file = request.FILES['excel_file']
+                    df = pd.read_excel(excel_file)
+                    
+                    # Required columns validation
+                    required_columns = ['first_name', 'last_name', 'gender', 'admission_number']
+                    missing_columns = [col for col in required_columns if col not in df.columns]
+                    
+                    if missing_columns:
+                        messages.error(request, f"Missing required columns: {', '.join(missing_columns)}")
+                        return redirect('register_student_teacher')
+                    
+                    success_count = 0
+                    error_count = 0
+                    error_messages = []
+                    
+                    # Use transaction for data integrity
+                    with transaction.atomic():
+                        for index, row in df.iterrows():
+                            try:
+                                admission_number = str(row['admission_number']).strip()
+                                
+                                # Check if user exists
+                                if User.objects.filter(username=admission_number).exists():
+                                    error_count += 1
+                                    error_messages.append(f"Row {index+2}: Admission number {admission_number} already exists")
+                                    continue
+                                
+                                # Get gender and validate
+                                gender = row.get('gender', '').strip()
+                                if gender not in ['Male', 'Female']:
+                                    error_count += 1
+                                    error_messages.append(f"Row {index+2}: Invalid gender '{gender}'. Must be 'Male' or 'Female'")
+                                    continue
+                                
+                                # Create student user
+                                student_user = User.objects.create(
+                                    username=admission_number,
+                                    first_name=str(row['first_name']).strip(),
+                                    last_name=str(row['last_name']).strip(),
+                                    gender=gender,
+                                    role='student',
+                                    password=make_password("Student@123")
+                                )
+                                
+                                # Create student profile
+                                student_profile = StudentProfile.objects.create(
+                                    user=student_user,
+                                    admission_number=admission_number
+                                )
+                                
+                                # Create enrollment
+                                Enrollment.objects.create(
+                                    student=student_profile,
+                                    classroom=classroom,
+                                    stream=stream,
+                                    academic_year=active_year,
+                                    status='Active'
+                                )
+                                
+                                # Handle parent if provided
+                                parent_full_name = str(row.get('parent_full_name', '')).strip()
+                                parent_phone = str(row.get('parent_phone', '')).strip()
+                                
+                                if parent_full_name and parent_phone:
+                                    # TUMIA FORMAT_PHONE_NUMBER ILIYOPO KWENYE HELPER FUNCTIONS
+                                    parent_phone_clean = format_phone_number(parent_phone)
+                                    
+                                    if parent_phone_clean:
+                                        parent_names = parent_full_name.split(' ', 1)
+                                        parent_first = parent_names[0]
+                                        parent_last = parent_names[1] if len(parent_names) > 1 else ''
+                                        
+                                        parent_user, created = User.objects.get_or_create(
+                                            username=parent_phone_clean,
+                                            defaults={
+                                                'first_name': parent_first,
+                                                'last_name': parent_last,
+                                                'phone_number': parent_phone_clean,
+                                                'role': 'parent',
+                                                'password': make_password(parent_phone_clean)
+                                            }
+                                        )
+                                        
+                                        ParentProfile.objects.get_or_create(
+                                            user=parent_user,
+                                            student=student_profile
+                                        )
+                                    else:
+                                        error_messages.append(f"Row {index+2}: Invalid parent phone format for {parent_full_name}")
+                                
+                                success_count += 1
+                                
+                            except Exception as e:
+                                error_count += 1
+                                error_messages.append(f"Row {index+2}: {str(e)}")
+                    
+                    # Show results
+                    if success_count > 0:
+                        messages.success(request, f"Successfully imported {success_count} student(s)!")
+                    
+                    if error_messages:
+                        # Limit to first 5 errors to avoid overwhelming
+                        for msg in error_messages[:5]:
+                            messages.warning(request, msg)
+                        if len(error_messages) > 5:
+                            messages.warning(request, f"... and {len(error_messages) - 5} more errors")
+                    
+                    return redirect('register_student_teacher')
+                    
+                except Exception as e:
+                    messages.error(request, f"Error reading Excel file: {str(e)}")
+                    return redirect('register_student_teacher')
 
-        student_profile = StudentProfile.objects.create(
-            user=student_user,
-            admission_number=admission_number
-        )
-
-        Enrollment.objects.create(
-            student=student_profile,
-            classroom=classroom,
-            stream=stream,
-            academic_year=active_year,
-            status='Active'
-        )
-
-        parent_full_name = request.POST.get('parent_full_name', '').strip()
-        parent_phone = request.POST.get('parent_phone', '').strip()
-
-        if parent_full_name and parent_phone:
-            # phone number format
-            parent_phone_clean = format_phone_number(parent_phone)
+            # Manual registration code
+            admission_number = request.POST.get('admission_number')
             
-            if parent_phone_clean:
-                parent_names = parent_full_name.split(' ', 1)
-                parent_first = parent_names[0]
-                parent_last = parent_names[1] if len(parent_names) > 1 else ''
+            if not admission_number:
+                messages.error(request, "Admission number is required.")
+                return redirect('register_student_teacher')
 
-                parent_user, created = User.objects.get_or_create(
-                    username=parent_phone_clean,
-                    defaults={
-                        'first_name': parent_first,
-                        'last_name': parent_last,
-                        'phone_number': parent_phone_clean,
-                        'role': 'parent',
-                        'password': make_password(parent_phone_clean)
-                    }
-                )
+            if User.objects.filter(username=admission_number).exists():
+                messages.error(request, "Admission number already exists.")
+                return redirect('register_student_teacher')
 
-                ParentProfile.objects.get_or_create(
-                    user=parent_user,
-                    student=student_profile
-                )
-            else:
-                messages.warning(request, 'Invalid parent phone number format. Use: 0712345678 or 712345678. Student saved, but parent not linked.')
+            student_user = User.objects.create(
+                username=admission_number,
+                first_name=request.POST.get('first_name'),
+                last_name=request.POST.get('last_name'),
+                gender=request.POST.get('gender'),
+                role='student',
+                password=make_password(request.POST.get('password') or "Student@123")
+            )
 
-        messages.success(request, f"Student {student_user.get_full_name()} registered successfully.")
-        return redirect('register_student_teacher')
+            student_profile = StudentProfile.objects.create(
+                user=student_user,
+                admission_number=admission_number
+            )
 
-    return render(request, 'attendance_app/register_student_teacher.html', {
-        'students': students,
-        'active_year': active_year,
-        'academic_years': academic_years,
-        'teacher_classroom': classroom,
-        'teacher_stream': stream,
-    })
+            Enrollment.objects.create(
+                student=student_profile,
+                classroom=classroom,
+                stream=stream,
+                academic_year=active_year,
+                status='Active'
+            )
+
+            parent_full_name = request.POST.get('parent_full_name', '').strip()
+            parent_phone = request.POST.get('parent_phone', '').strip()
+
+            if parent_full_name and parent_phone:
+                # phone number format
+                parent_phone_clean = format_phone_number(parent_phone)
+                
+                if parent_phone_clean:
+                    parent_names = parent_full_name.split(' ', 1)
+                    parent_first = parent_names[0]
+                    parent_last = parent_names[1] if len(parent_names) > 1 else ''
+
+                    parent_user, created = User.objects.get_or_create(
+                        username=parent_phone_clean,
+                        defaults={
+                            'first_name': parent_first,
+                            'last_name': parent_last,
+                            'phone_number': parent_phone_clean,
+                            'role': 'parent',
+                            'password': make_password(parent_phone_clean)
+                        }
+                    )
+
+                    ParentProfile.objects.get_or_create(
+                        user=parent_user,
+                        student=student_profile
+                    )
+                else:
+                    messages.warning(request, 'Invalid parent phone number format. Use: 0712345678 or 712345678. Student saved, but parent not linked.')
+
+            messages.success(request, f"Student {student_user.get_full_name()} registered successfully.")
+            return redirect('register_student_teacher')
+
+        return render(request, 'attendance_app/register_student_teacher.html', {
+            'students': students,
+            'active_year': active_year,
+            'academic_years': academic_years,
+            'teacher_classroom': classroom,
+            'teacher_stream': stream,
+        })
+    except Exception as e:
+        logger.error(f"Error in register_student_teacher: {e}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('teacher_dashboard')
 
 
 @login_required
@@ -1712,6 +1757,9 @@ def delete_student(request, student_id):
         
         # Redirect back to where the request came from
         referer = request.META.get('HTTP_REFERER', 'manage_student')
+        # Prevent redirect loop
+        if referer and 'delete_student' in referer:
+            referer = 'manage_student'
         return redirect(referer)
     
     # ================= PERMANENT DELETE (Remove all data) =================
@@ -1874,321 +1922,336 @@ def my_students(request):
 @never_cache
 @login_required
 def teacher_dashboard(request):
-    """OPTIMIZED - Single query version"""
-    teacher_profile = TeacherProfile.objects.select_related('user').get(user=request.user)
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    if not active_year:
-        return render(request, 'attendance_app/teacher_dashboard.html', {'error': 'No active academic year'})
-    
-    # OPTIMIZED: Single query with all needed relations
-    enrollment = Enrollment.objects.filter(
-        class_teacher=teacher_profile,
-        academic_year=active_year
-    ).select_related('classroom', 'stream').first()
+    try:
+        """OPTIMIZED - Single query version"""
+        teacher_profile = TeacherProfile.objects.select_related('user').get(user=request.user)
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_year:
+            return render(request, 'attendance_app/teacher_dashboard.html', {'error': 'No active academic year'})
+        
+        # OPTIMIZED: Single query with all needed relations
+        enrollment = Enrollment.objects.filter(
+            class_teacher=teacher_profile,
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
 
-    classroom = enrollment.classroom if enrollment else None
-    stream = enrollment.stream if enrollment else None
+        classroom = enrollment.classroom if enrollment else None
+        stream = enrollment.stream if enrollment else None
 
-    # OPTIMIZED: Get all students in one query
-    students = StudentProfile.objects.filter(
-        enrollments__classroom=classroom,
-        enrollments__academic_year=active_year
-    ).select_related('user').distinct()
-    
-    if stream:
-        students = students.filter(enrollments__stream=stream)
-    
-    total_students = students.count()
-    student_ids = list(students.values_list('id', flat=True))
-    
-    # OPTIMIZED: Get attendance counts in one query using aggregation
-    from django.db.models import Count, Q, Case, When, IntegerField, Sum
-    
-    attendance_counts = Attendance.objects.filter(
-        student_id__in=student_ids
-    ).aggregate(
-        total=Count('id'),
-        present=Sum(Case(When(status='present', then=1), default=0, output_field=IntegerField())),
-        absent=Sum(Case(When(status='absent', then=1), default=0, output_field=IntegerField())),
-        sick=Sum(Case(When(status='sick', then=1), default=0, output_field=IntegerField()))
-    )
-    
-    # OPTIMIZED: Get parents in one query
-    parents = ParentProfile.objects.filter(student_id__in=student_ids).select_related('user')
-    
-    # OPTIMIZED: Get recent SMS logs in one query
-    sms_logs = SMSLog.objects.filter(student_id__in=student_ids).select_related(
-        'student__user', 'parent__user'
-    ).order_by('-timestamp')[:10]
+        # OPTIMIZED: Get all students in one query
+        students = StudentProfile.objects.filter(
+            enrollments__classroom=classroom,
+            enrollments__academic_year=active_year
+        ).select_related('user').distinct()
+        
+        if stream:
+            students = students.filter(enrollments__stream=stream)
+        
+        total_students = students.count()
+        student_ids = list(students.values_list('id', flat=True))
+        
+        # OPTIMIZED: Get attendance counts in one query using aggregation
+        from django.db.models import Count, Q, Case, When, IntegerField, Sum
+        
+        attendance_counts = Attendance.objects.filter(
+            student_id__in=student_ids
+        ).aggregate(
+            total=Count('id'),
+            present=Sum(Case(When(status='present', then=1), default=0, output_field=IntegerField())),
+            absent=Sum(Case(When(status='absent', then=1), default=0, output_field=IntegerField())),
+            sick=Sum(Case(When(status='sick', then=1), default=0, output_field=IntegerField()))
+        )
+        
+        # OPTIMIZED: Get parents in one query
+        parents = ParentProfile.objects.filter(student_id__in=student_ids).select_related('user')
+        
+        # OPTIMIZED: Get recent SMS logs in one query
+        sms_logs = SMSLog.objects.filter(student_id__in=student_ids).select_related(
+            'student__user', 'parent__user'
+        ).order_by('-timestamp')[:10]
 
-    context = {
-        'teacher': teacher_profile,
-        'classroom': classroom,
-        'stream': stream,
-        'students': students,
-        'parents': parents,
-        'total_students': total_students,
-        'total_attendance': attendance_counts['total'] or 0,
-        'present_count': attendance_counts['present'] or 0,
-        'absent_count': attendance_counts['absent'] or 0,
-        'sick_count': attendance_counts['sick'] or 0,
-        'sms_logs': sms_logs,
-    }
+        context = {
+            'teacher': teacher_profile,
+            'classroom': classroom,
+            'stream': stream,
+            'students': students,
+            'parents': parents,
+            'total_students': total_students,
+            'total_attendance': attendance_counts['total'] or 0,
+            'present_count': attendance_counts['present'] or 0,
+            'absent_count': attendance_counts['absent'] or 0,
+            'sick_count': attendance_counts['sick'] or 0,
+            'sms_logs': sms_logs,
+        }
 
-    return render(request, 'attendance_app/teacher_dashboard.html', context)
+        return render(request, 'attendance_app/teacher_dashboard.html', context)
+    except Exception as e:
+        logger.error(f"Error in teacher_dashboard: {e}")
+        messages.error(request, "An error occurred loading dashboard")
+        return redirect('login')
 
 
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.role == 'teacher')
 def mark_attendance(request):
-    teacher = get_object_or_404(TeacherProfile, user=request.user)
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    if not active_year:
-        messages.error(request, "No active academic year found.")
-        return redirect('teacher_dashboard')
-    
-    teacher_enrollment = Enrollment.objects.filter(
-        class_teacher=teacher,
-        academic_year=active_year
-    ).select_related('classroom', 'stream').first()
-
-    if not teacher_enrollment or not teacher_enrollment.classroom:
-        messages.error(request, "You are not assigned to a classroom or stream.")
-        return redirect('teacher_dashboard')
-    
-    classroom = teacher_enrollment.classroom
-    stream = teacher_enrollment.stream
-
-    students_list = get_students_by_teacher_scope(classroom, stream, academic_year=active_year).order_by('admission_number')
-    paginator = Paginator(students_list, 25)
-    page_number = request.GET.get('page')
-    students = paginator.get_page(page_number)
-
-    if request.method == "POST":
-        today = timezone.localdate()
+    try:
+        teacher = get_object_or_404(TeacherProfile, user=request.user)
+        active_year = AcademicYear.objects.filter(is_active=True).first()
         
-        # Track SMS results
-        total_sms_sent = 0
-        total_sms_failed = 0
-        sms_errors = []
-        low_balance_detected = False
+        if not active_year:
+            messages.error(request, "No active academic year found.")
+            return redirect('teacher_dashboard')
+        
+        teacher_enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
 
-        for student in students:
-            status = request.POST.get(f'attendance_{student.id}', 'present')
-            student_enrollment = Enrollment.objects.filter(student=student, academic_year=active_year).first()
+        if not teacher_enrollment or not teacher_enrollment.classroom:
+            messages.error(request, "You are not assigned to a classroom or stream.")
+            return redirect('teacher_dashboard')
+        
+        classroom = teacher_enrollment.classroom
+        stream = teacher_enrollment.stream
 
-            # Save attendance
-            Attendance.objects.update_or_create(
-                student=student,
-                date=today,
-                enrollment=student_enrollment,
-                defaults={'status': status, 'marked_by': teacher}
-            )
+        students_list = get_students_by_teacher_scope(classroom, stream, academic_year=active_year).order_by('admission_number')
+        paginator = Paginator(students_list, 25)
+        page_number = request.GET.get('page')
+        students = paginator.get_page(page_number)
 
-            # Send SMS only for absent students
-            if status == 'absent':
-                # Check if SMS already sent today
-                start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
-                sms_exists = SMSLog.objects.filter(student=student, timestamp__range=(start, end)).exists()
+        if request.method == "POST":
+            today = timezone.localdate()
+            
+            # Track SMS results
+            total_sms_sent = 0
+            total_sms_failed = 0
+            sms_errors = []
+            low_balance_detected = False
 
-                if not sms_exists:
-                    try:
-                        success_count, failed_count, error_msgs = send_absent_sms(student, teacher=teacher)
-                        total_sms_sent += success_count
-                        total_sms_failed += failed_count
-                        
-                        # Check for low balance error
-                        for msg in error_msgs:
-                            if 'salio' in msg.lower() or 'balance' in msg.lower():
-                                low_balance_detected = True
-                            sms_errors.append(f"{student.user.get_full_name()}: {msg}")
+            for student in students:
+                status = request.POST.get(f'attendance_{student.id}', 'present')
+                student_enrollment = Enrollment.objects.filter(student=student, academic_year=active_year).first()
+
+                # Save attendance
+                Attendance.objects.update_or_create(
+                    student=student,
+                    date=today,
+                    enrollment=student_enrollment,
+                    defaults={'status': status, 'marked_by': teacher}
+                )
+
+                # Send SMS only for absent students
+                if status == 'absent':
+                    # Check if SMS already sent today
+                    start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                    end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+                    sms_exists = SMSLog.objects.filter(student=student, timestamp__range=(start, end)).exists()
+
+                    if not sms_exists:
+                        try:
+                            success_count, failed_count, error_msgs = send_absent_sms(student, teacher=teacher)
+                            total_sms_sent += success_count
+                            total_sms_failed += failed_count
                             
-                    except Exception as e:
-                        total_sms_failed += 1
-                        logger.error(f"Error sending absent SMS for {student.id}: {e}")
-                        sms_errors.append(f"{student.user.get_full_name()}: System error")
+                            # Check for low balance error
+                            for msg in error_msgs:
+                                if 'salio' in msg.lower() or 'balance' in msg.lower():
+                                    low_balance_detected = True
+                                sms_errors.append(f"{student.user.get_full_name()}: {msg}")
+                                
+                        except Exception as e:
+                            total_sms_failed += 1
+                            logger.error(f"Error sending absent SMS for {student.id}: {e}")
+                            sms_errors.append(f"{student.user.get_full_name()}: System error")
 
-        # Prepare feedback message
-        feedback_parts = [f" Attendance marked successfully for {today.strftime('%d/%m/%Y')}"]
-        
-        if total_sms_sent > 0:
-            feedback_parts.append(f" SMS sent: {total_sms_sent} parent(s)")
-        
-        if total_sms_failed > 0:
-            feedback_parts.append(f" SMS failed: {total_sms_failed}")
-        
-        if low_balance_detected:
-            feedback_parts.append(" ONYO: Salio la SMS limepungua au halipo!")
-        
-        # Show main success message
-        messages.success(request, " | ".join(feedback_parts))
-        
-        # Show individual error details (max 3)
-        for error in sms_errors[:3]:
-            messages.warning(request, f"{error}")
-        
-        if len(sms_errors) > 3:
-            messages.info(request, f"... na {len(sms_errors) - 3} errors nyingine")
-        
-        # Special alert for low balance
-        if low_balance_detected:
-            messages.error(request, " TAHADHARI: Salio la SMS halipo! Wasiliana na Admin kuongeza salio.")
-        
-        return redirect('view_attendance')
+            # Prepare feedback message
+            feedback_parts = [f" Attendance marked successfully for {today.strftime('%d/%m/%Y')}"]
+            
+            if total_sms_sent > 0:
+                feedback_parts.append(f" SMS sent: {total_sms_sent} parent(s)")
+            
+            if total_sms_failed > 0:
+                feedback_parts.append(f" SMS failed: {total_sms_failed}")
+            
+            if low_balance_detected:
+                feedback_parts.append(" ONYO: Salio la SMS limepungua au halipo!")
+            
+            # Show main success message
+            messages.success(request, " | ".join(feedback_parts))
+            
+            # Show individual error details (max 3)
+            for error in sms_errors[:3]:
+                messages.warning(request, f"{error}")
+            
+            if len(sms_errors) > 3:
+                messages.info(request, f"... na {len(sms_errors) - 3} errors nyingine")
+            
+            # Special alert for low balance
+            if low_balance_detected:
+                messages.error(request, " TAHADHARI: Salio la SMS halipo! Wasiliana na Admin kuongeza salio.")
+            
+            return redirect('view_attendance')
 
-    context = {
-        'students': students,
-        'classroom': classroom,
-        'stream': stream,
-        'teacher': teacher,
-    }
-    return render(request, 'attendance_app/mark_attendance.html', context)
+        context = {
+            'students': students,
+            'classroom': classroom,
+            'stream': stream,
+            'teacher': teacher,
+        }
+        return render(request, 'attendance_app/mark_attendance.html', context)
+    except Exception as e:
+        logger.error(f"Error in mark_attendance: {e}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('teacher_dashboard')
 
 
 
 @never_cache
 @login_required
 def view_attendance(request):
-    """OPTIMIZED - Single query with aggregation"""
-    teacher = get_object_or_404(TeacherProfile.objects.select_related('user'), user=request.user)
-    active_year = AcademicYear.objects.filter(is_active=True).first()
-    
-    if not active_year:
-        messages.error(request, "No active academic year found.")
-        return redirect('teacher_dashboard')
-    
-    teacher_enrollment = Enrollment.objects.filter(
-        class_teacher=teacher,
-        academic_year=active_year
-    ).select_related('classroom', 'stream').first()
-    
-    if not teacher_enrollment or not teacher_enrollment.classroom:
-        messages.error(request, "You are not assigned to any classroom.")
-        return redirect('teacher_dashboard')
-    
-    classroom = teacher_enrollment.classroom
-    stream = teacher_enrollment.stream
+    try:
+        """OPTIMIZED - Single query with aggregation"""
+        teacher = get_object_or_404(TeacherProfile.objects.select_related('user'), user=request.user)
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_year:
+            messages.error(request, "No active academic year found.")
+            return redirect('teacher_dashboard')
+        
+        teacher_enrollment = Enrollment.objects.filter(
+            class_teacher=teacher,
+            academic_year=active_year
+        ).select_related('classroom', 'stream').first()
+        
+        if not teacher_enrollment or not teacher_enrollment.classroom:
+            messages.error(request, "You are not assigned to any classroom.")
+            return redirect('teacher_dashboard')
+        
+        classroom = teacher_enrollment.classroom
+        stream = teacher_enrollment.stream
 
-    raw_date = request.GET.get("date")
-    if raw_date:
-        try:
-            selected_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
-        except ValueError:
+        raw_date = request.GET.get("date")
+        if raw_date:
+            try:
+                selected_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+            except ValueError:
+                selected_date = timezone.localdate()
+        else:
             selected_date = timezone.localdate()
-    else:
-        selected_date = timezone.localdate()
 
-    # GET ALL STUDENTS in the class (for total counts)
-    all_students_qs = StudentProfile.objects.filter(
-        enrollments__classroom=classroom,
-        enrollments__academic_year=active_year
-    ).select_related('user').distinct()
-    
-    if stream:
-        all_students_qs = all_students_qs.filter(enrollments__stream=stream)
-    
-    # Get ALL student IDs
-    all_student_ids = list(all_students_qs.values_list('id', flat=True))
-    students_count = len(all_student_ids)
-    
-    # Get gender counts from ALL students
-    male_student_ids = list(all_students_qs.filter(user__gender__iexact='Male').values_list('id', flat=True))
-    female_student_ids = list(all_students_qs.filter(user__gender__iexact='Female').values_list('id', flat=True))
-    male_count = len(male_student_ids)
-    female_count = len(female_student_ids)
-    
-    # Get attendance for selected date
-    attendance_qs = Attendance.objects.filter(
-        student_id__in=all_student_ids,
-        date=selected_date
-    ).select_related('student__user', 'marked_by__user')
-    
-    # Calculate totals from attendance records
-    total_present = attendance_qs.filter(status='present').count()
-    total_absent = attendance_qs.filter(status='absent').count()
-    total_sick = attendance_qs.filter(status='sick').count()
-    total_records = total_present + total_absent + total_sick
-    
-    # Calculate percentages based on students who have attendance records
-    if total_records > 0:
-        present_percentage = round((total_present / total_records) * 100, 2)
-        absent_percentage = round((total_absent / total_records) * 100, 2)
-        sick_percentage = round((total_sick / total_records) * 100, 2)
-    else:
-        present_percentage = absent_percentage = sick_percentage = 0
-    
-    # Calculate Male attendance from attendance records
-    male_attendance = attendance_qs.filter(student_id__in=male_student_ids)
-    male_present = male_attendance.filter(status='present').count()
-    male_absent = male_attendance.filter(status='absent').count()
-    male_sick = male_attendance.filter(status='sick').count()
-    male_total = male_present + male_absent + male_sick
-    
-    # Calculate Male percentages
-    if male_total > 0:
-        male_present_pct = round((male_present / male_total) * 100, 2)
-        male_absent_pct = round((male_absent / male_total) * 100, 2)
-        male_sick_pct = round((male_sick / male_total) * 100, 2)
-    else:
-        male_present_pct = male_absent_pct = male_sick_pct = 0
-    
-    # Calculate Female attendance from attendance records
-    female_attendance = attendance_qs.filter(student_id__in=female_student_ids)
-    female_present = female_attendance.filter(status='present').count()
-    female_absent = female_attendance.filter(status='absent').count()
-    female_sick = female_attendance.filter(status='sick').count()
-    female_total = female_present + female_absent + female_sick
-    
-    # Calculate Female percentages
-    if female_total > 0:
-        female_present_pct = round((female_present / female_total) * 100, 2)
-        female_absent_pct = round((female_absent / female_total) * 100, 2)
-        female_sick_pct = round((female_sick / female_total) * 100, 2)
-    else:
-        female_present_pct = female_absent_pct = female_sick_pct = 0
+        # GET ALL STUDENTS in the class (for total counts)
+        all_students_qs = StudentProfile.objects.filter(
+            enrollments__classroom=classroom,
+            enrollments__academic_year=active_year
+        ).select_related('user').distinct()
+        
+        if stream:
+            all_students_qs = all_students_qs.filter(enrollments__stream=stream)
+        
+        # Get ALL student IDs
+        all_student_ids = list(all_students_qs.values_list('id', flat=True))
+        students_count = len(all_student_ids)
+        
+        # Get gender counts from ALL students
+        male_student_ids = list(all_students_qs.filter(user__gender__iexact='Male').values_list('id', flat=True))
+        female_student_ids = list(all_students_qs.filter(user__gender__iexact='Female').values_list('id', flat=True))
+        male_count = len(male_student_ids)
+        female_count = len(female_student_ids)
+        
+        # Get attendance for selected date
+        attendance_qs = Attendance.objects.filter(
+            student_id__in=all_student_ids,
+            date=selected_date
+        ).select_related('student__user', 'marked_by__user')
+        
+        # Calculate totals from attendance records
+        total_present = attendance_qs.filter(status='present').count()
+        total_absent = attendance_qs.filter(status='absent').count()
+        total_sick = attendance_qs.filter(status='sick').count()
+        total_records = total_present + total_absent + total_sick
+        
+        # Calculate percentages based on students who have attendance records
+        if total_records > 0:
+            present_percentage = round((total_present / total_records) * 100, 2)
+            absent_percentage = round((total_absent / total_records) * 100, 2)
+            sick_percentage = round((total_sick / total_records) * 100, 2)
+        else:
+            present_percentage = absent_percentage = sick_percentage = 0
+        
+        # Calculate Male attendance from attendance records
+        male_attendance = attendance_qs.filter(student_id__in=male_student_ids)
+        male_present = male_attendance.filter(status='present').count()
+        male_absent = male_attendance.filter(status='absent').count()
+        male_sick = male_attendance.filter(status='sick').count()
+        male_total = male_present + male_absent + male_sick
+        
+        # Calculate Male percentages
+        if male_total > 0:
+            male_present_pct = round((male_present / male_total) * 100, 2)
+            male_absent_pct = round((male_absent / male_total) * 100, 2)
+            male_sick_pct = round((male_sick / male_total) * 100, 2)
+        else:
+            male_present_pct = male_absent_pct = male_sick_pct = 0
+        
+        # Calculate Female attendance from attendance records
+        female_attendance = attendance_qs.filter(student_id__in=female_student_ids)
+        female_present = female_attendance.filter(status='present').count()
+        female_absent = female_attendance.filter(status='absent').count()
+        female_sick = female_attendance.filter(status='sick').count()
+        female_total = female_present + female_absent + female_sick
+        
+        # Calculate Female percentages
+        if female_total > 0:
+            female_present_pct = round((female_present / female_total) * 100, 2)
+            female_absent_pct = round((female_absent / female_total) * 100, 2)
+            female_sick_pct = round((female_sick / female_total) * 100, 2)
+        else:
+            female_present_pct = female_absent_pct = female_sick_pct = 0
 
-    # Pagination for attendance records
-    paginator = Paginator(attendance_qs, 25)
-    page_number = request.GET.get('page')
-    attendance_records = paginator.get_page(page_number)
+        # Pagination for attendance records
+        paginator = Paginator(attendance_qs, 25)
+        page_number = request.GET.get('page')
+        attendance_records = paginator.get_page(page_number)
 
-    context = {
-        "classroom": classroom,
-        "stream": stream,
-        "teacher": teacher,
-        "attendance_records": attendance_records,
-        "selected_date": selected_date.strftime("%Y-%m-%d"),
-        "today": timezone.localdate(),
-        "students_count": students_count,
-        "total_present": total_present,
-        "total_absent": total_absent,
-        "total_sick": total_sick,
-        "present_percentage": present_percentage,
-        "absent_percentage": absent_percentage,
-        "sick_percentage": sick_percentage,
-        # Male counts
-        "male_count": male_count,
-        "male_present": male_present,
-        "male_absent": male_absent,
-        "male_sick": male_sick,
-        "male_present_pct": male_present_pct,
-        "male_absent_pct": male_absent_pct,
-        "male_sick_pct": male_sick_pct,
-        # Female counts
-        "female_count": female_count,
-        "female_present": female_present,
-        "female_absent": female_absent,
-        "female_sick": female_sick,
-        "female_present_pct": female_present_pct,
-        "female_absent_pct": female_absent_pct,
-        "female_sick_pct": female_sick_pct,
-    }
+        context = {
+            "classroom": classroom,
+            "stream": stream,
+            "teacher": teacher,
+            "attendance_records": attendance_records,
+            "selected_date": selected_date.strftime("%Y-%m-%d"),
+            "today": timezone.localdate(),
+            "students_count": students_count,
+            "total_present": total_present,
+            "total_absent": total_absent,
+            "total_sick": total_sick,
+            "present_percentage": present_percentage,
+            "absent_percentage": absent_percentage,
+            "sick_percentage": sick_percentage,
+            # Male counts
+            "male_count": male_count,
+            "male_present": male_present,
+            "male_absent": male_absent,
+            "male_sick": male_sick,
+            "male_present_pct": male_present_pct,
+            "male_absent_pct": male_absent_pct,
+            "male_sick_pct": male_sick_pct,
+            # Female counts
+            "female_count": female_count,
+            "female_present": female_present,
+            "female_absent": female_absent,
+            "female_sick": female_sick,
+            "female_present_pct": female_present_pct,
+            "female_absent_pct": female_absent_pct,
+            "female_sick_pct": female_sick_pct,
+        }
 
-    return render(request, "attendance_app/view_attendance.html", context)
+        return render(request, "attendance_app/view_attendance.html", context)
+    except Exception as e:
+        logger.error(f"Error in view_attendance: {e}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('teacher_dashboard')
 
 @never_cache
 @login_required
@@ -3741,52 +3804,6 @@ def send_absent_sms(student, teacher=None):
 
 # ================= ACADEMIC YEAR PROMOTION VIEWS =================
 
-import re
-
-def get_next_form_name(current_name):
-    """
-    Reliable promotion: Form I → Form VI
-    """
-
-    if not current_name:
-        return None
-
-    name = str(current_name).strip().lower()
-
-    # normalize common formats
-    mapping = {
-        "form i": "Form II",
-        "form 1": "Form II",
-        "form ii": "Form III",
-        "form 2": "Form III",
-        "form iii": "Form IV",
-        "form 3": "Form IV",
-        "form iv": "Form V",
-        "form 4": "Form V",
-        "form v": "Form VI",
-        "form 5": "Form VI",
-        "form vi": None,
-        "form 6": None,
-    }
-
-    if name in mapping:
-        return mapping[name]
-
-    # fallback: extract number
-    match = re.search(r'(\d+)', name)
-    if match:
-        num = int(match.group(1))
-        if num >= 6:
-            return None
-        return f"Form {num + 1}"
-
-    return None
-
-
-import re
-from django.db import transaction
-from django.utils import timezone
-from django.contrib import messages
 
 def get_next_form_name(current_name):
     """

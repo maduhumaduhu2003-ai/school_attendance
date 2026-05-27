@@ -4,7 +4,7 @@
 
 {% block content %}
 
-<!-- Global Loading and Status Popup (Same as Register Student Page) -->
+<!-- Global Loading and Status Popup -->
 <div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
     <div class="d-flex justify-content-center align-items-center h-100">
         <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 380px; border: 1px solid #dee2e6;">
@@ -14,9 +14,9 @@
             </div>
             
             <div class="text-start">
-                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Tafadhali subiri...</h6>
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Processing...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
-                    Inasindika taarifa...
+                    Please wait, processing your request...
                 </p>
             </div>
 
@@ -67,9 +67,7 @@
 
                         <div class="col-12 col-md-7">
                             <div class="d-flex gap-2 justify-content-md-end flex-wrap">
-                                <button type="submit" class="btn btn-primary px-4 loading-btn" 
-                                        data-title="Inatafuta Wanafunzi" 
-                                        data-text="Tafadhali subiri, mfumo unatafuta wanafunzi wanaolingana na taarifa zako...">
+                                <button type="submit" class="btn btn-primary px-4 filter-btn">
                                     <i class="bi bi-funnel-fill"></i> Filter
                                 </button>
                                 
@@ -81,7 +79,7 @@
                                 </a>
 
                                 {% if search %}
-                                <a href="{% url 'my_students' %}" class="btn btn-outline-secondary">
+                                <a href="{% url 'my_students' %}" class="btn btn-outline-secondary clear-btn">
                                     <i class="bi bi-x-circle"></i> Clear
                                 </a>
                                 {% endif %}
@@ -122,7 +120,8 @@
                                 {% else %}
                                     <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-1">—</span>
                                 {% endif %}
-                             </td>
+                              </div>
+                            </td>
                             <td>
                                 {% if student.phone and student.phone != '—' %}
                                     <i class="bi bi-telephone-fill text-success small me-1"></i>
@@ -132,11 +131,13 @@
                                         <i class="bi bi-telephone-x"></i> No phone
                                     </span>
                                 {% endif %}
-                             </td>
+                              </div>
+                            </div>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-2">
                                     <a href="{% url 'edit_student_teacher' student.id %}" 
-                                       class="btn btn-sm btn-warning" 
+                                       class="btn btn-sm btn-warning edit-student-btn" 
+                                       data-student-name="{{ student.full_name }}"
                                        title="Edit Student">
                                         <i class="bi bi-pencil"></i> Edit
                                     </a>
@@ -149,10 +150,10 @@
                                         <i class="bi bi-trash"></i> Delete
                                     </button>
                                 </div>
-                            </td>
-                        </tr>
+                             </div>
+                         </tr>
                         {% empty %}
-                        <tr>
+                         <tr>
                             <td colspan="6" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox" style="font-size: 3rem;"></i><br>
                                 {% if search %}
@@ -163,8 +164,8 @@
                                         <i class="bi bi-plus-circle"></i> Register First Student
                                     </a>
                                 {% endif %}
-                            </td>
-                        </tr>
+                             </div>
+                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -272,22 +273,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const statusTitle = document.getElementById('statusTitle');
     const statusText = document.getElementById('statusText');
     
-    // Function to show loading
+    // Function to show loading spinner
     function showLoading(title, text) {
         if (loadingOverlay) {
             // Reset to spinner state
             statusIcon.className = "spinner-border text-danger";
-            statusIcon.removeAttribute('role');
             statusIcon.style.width = "2rem";
             statusIcon.style.height = "2rem";
             statusIcon.innerHTML = "";
-            statusIcon.style.fontSize = "";
-            
             statusTitle.className = "mb-1 fw-bold text-dark";
-            statusTitle.innerText = title || "Tafadhali subiri...";
-            
-            statusText.innerText = text || "Inasindika taarifa...";
-            
+            statusTitle.innerText = title || "Processing...";
+            statusText.innerText = text || "Please wait, processing your request...";
             loadingOverlay.classList.remove('d-none');
             loadingOverlay.style.opacity = '1';
         }
@@ -302,14 +298,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
                 statusTitle.className = "mb-1 fw-bold text-success";
-                statusTitle.innerText = title || "Umefanikiwa!";
+                statusTitle.innerText = title || "Success!";
             } else {
                 // Error state
                 statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
                 statusTitle.className = "mb-1 fw-bold text-danger";
-                statusTitle.innerText = title || "Imegoma!";
+                statusTitle.innerText = title || "Error!";
             }
             statusText.innerText = message;
             
@@ -328,14 +324,28 @@ document.addEventListener('DOMContentLoaded', function () {
     const filterForm = document.getElementById('filterForm');
     if (filterForm) {
         filterForm.addEventListener('submit', function(e) {
-            showLoading('Inatafuta Wanafunzi', 'Tafadhali subiri, mfumo unatafuta wanafunzi wanaolingana na taarifa zako...');
+            showLoading('Filtering Data...', 'Please wait, searching for students...');
         });
     }
+    
+    // ================= FILTER BUTTON =================
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            showLoading('Filtering Data...', 'Please wait, applying filters...');
+        });
+    });
+    
+    // ================= CLEAR BUTTON =================
+    document.querySelectorAll('.clear-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            showLoading('Clearing Filters...', 'Please wait, resetting filters...');
+        });
+    });
     
     // ================= PAGINATION LINKS =================
     document.querySelectorAll('.paginate-link').forEach(link => {
         link.addEventListener('click', function(e) {
-            showLoading('Inapakia Ukurasa', 'Tafadhali subiri, mfumo unaleta wanafunzi wa ukurasa uliochagua...');
+            showLoading('Loading Page...', 'Please wait, loading students...');
         });
     });
     
@@ -343,7 +353,16 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.export-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             const fileName = this.getAttribute('href').split('/').pop();
-            showLoading('Inaandaa Ripoti', 'Tafadhali subiri, mfumo unatayarisha faili ya ' + (fileName.includes('excel') ? 'Excel' : 'PDF') + '...');
+            const fileType = fileName.includes('excel') ? 'Excel' : 'PDF';
+            showLoading('Preparing Export...', `Please wait, generating ${fileType} file...`);
+        });
+    });
+    
+    // ================= EDIT STUDENT BUTTONS =================
+    document.querySelectorAll('.edit-student-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const studentName = this.getAttribute('data-student-name');
+            showLoading('Preparing Edit...', `Please wait, loading edit form for ${studentName}...`);
         });
     });
     
@@ -357,6 +376,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const deleteBtn = document.getElementById('deleteStudentBtn');
     let currentDeleteUrl = null;
     let currentRowId = null;
+    let currentStudentName = null;
     
     // Delete button clicks
     document.querySelectorAll('.deleteStudentBtn').forEach(button => {
@@ -364,10 +384,10 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             currentDeleteUrl = this.getAttribute('data-href');
             currentRowId = 'student-row-' + this.getAttribute('data-id');
-            const studentName = this.getAttribute('data-name');
+            currentStudentName = this.getAttribute('data-name');
             const modalBody = document.getElementById('deleteModalBody');
             if (modalBody) {
-                modalBody.innerHTML = `Are you sure you want to remove <strong>${studentName}</strong> from the current class?`;
+                modalBody.innerHTML = `Are you sure you want to remove <strong>${currentStudentName}</strong> from the current class?`;
             }
             if (deleteModal) {
                 deleteModal.show();
@@ -385,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             
             // Show loading
-            showLoading('Inafuta Mwanafunzi', 'Tafadhali subiri, mfumo unamwondoa mwanafunzi darasani...');
+            showLoading('Deleting Student...', `Please wait, removing ${currentStudentName} from class...`);
             
             fetch(currentDeleteUrl, {
                 method: 'POST',
@@ -403,24 +423,21 @@ document.addEventListener('DOMContentLoaded', function () {
                         row.remove();
                     }
                     // Update total count
-                    const totalSpan = document.querySelector('.text-muted .bi-person-arms-up');
-                    if (totalSpan) {
-                        const totalElement = totalSpan.parentElement;
-                        if (totalElement) {
-                            const currentTotal = parseInt(totalElement.innerText.match(/\d+/)?.[0] || 0);
-                            totalElement.innerText = totalElement.innerText.replace(currentTotal, currentTotal - 1);
-                        }
+                    const totalElement = document.querySelector('.text-muted .bi-person-arms-up')?.parentElement;
+                    if (totalElement) {
+                        const currentTotal = parseInt(totalElement.innerText.match(/\d+/)?.[0] || 0);
+                        totalElement.innerText = totalElement.innerText.replace(currentTotal, currentTotal - 1);
                     }
-                    showResultAndHide(true, data.message || 'Mwanafunzi ameondolewa kwenye darasa kwa mafanikio!', 'Imefanikiwa!');
+                    showResultAndHide(true, data.message || 'Student removed successfully!', 'Success!');
                     // Reload after 1.5 seconds to refresh pagination
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showResultAndHide(false, data.message || 'Imeshindikana kumwondoa mwanafunzi.', 'Imeshindikana!');
+                    showResultAndHide(false, data.message || 'Failed to delete student.', 'Error!');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showResultAndHide(false, 'Tatizo la mfumo limejitokeza. Jaribu tena.', 'Kosa la Mfumo!');
+                showResultAndHide(false, 'System error occurred. Please try again.', 'System Error!');
             });
         });
     }
@@ -440,6 +457,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return cookieValue;
     }
+    
+    // ================= DISPLAY DJANGO MESSAGES AS TOASTS =================
+    // Django messages will be handled by teacher_base.html
 });
 </script>
 

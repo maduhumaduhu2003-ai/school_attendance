@@ -13,9 +13,9 @@
             </div>
             
             <div class="text-start">
-                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Inahifadhi...</h6>
+                <h6 id="statusTitle" class="mb-1 fw-bold text-dark">saving...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
-                    Tafadhali subiri, attendance inahifadhiwa...
+                    please wait, saving attendance...
                 </p>
             </div>
 
@@ -439,9 +439,9 @@ function showLoading(title, text) {
         statusIcon.innerHTML = "";
         
         statusTitle.className = "mb-1 fw-bold text-dark";
-        statusTitle.innerText = title || "Inahifadhi...";
+        statusTitle.innerText = title || "saving...";
         
-        statusText.innerText = text || "Tafadhali subiri, attendance inahifadhiwa...";
+        statusText.innerText = text || "please wait, saving attendance...";
         
         loadingOverlay.classList.remove('d-none');
         loadingOverlay.style.opacity = '1';
@@ -455,13 +455,13 @@ function showResultAndHide(isSuccess, message, title, redirectUrl) {
             statusIcon.style.fontSize = "2rem";
             statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
             statusTitle.className = "mb-1 fw-bold text-success";
-            statusTitle.innerText = title || "Umefanikiwa!";
+            statusTitle.innerText = title || "successfull!";
         } else {
             statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
             statusIcon.style.fontSize = "2rem";
             statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
             statusTitle.className = "mb-1 fw-bold text-danger";
-            statusTitle.innerText = title || "Imeshindikana!";
+            statusTitle.innerText = title || "error!";
         }
         statusText.innerText = message;
         
@@ -553,7 +553,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (confirmModal) confirmModal.hide();
         
         // Show loading popup
-        showLoading("Inahifadhi Attendance...", "Tafadhali subiri, attendance inahifadhiwa kwenye mfumo...");
+        showLoading("saving attendance...", "please wait, saving attendance...");
         
         const btn = document.getElementById('submitBtn');
         if (btn) {
@@ -572,14 +572,14 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => {
             if (response.ok || response.redirected) {
-                showResultAndHide(true, "Attendance imehifadhiwa kwa mafanikio!", "Umefanikiwa!", "{% url 'view_attendance' %}");
+                showResultAndHide(true, "attendance marked!", "successfull!", "{% url 'view_attendance' %}");
             } else {
                 throw new Error('Server error occurred');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showResultAndHide(false, "Tatizo la mfumo limejitokeza. Jaribu tena.", "Imeshindikana!", null);
+            showResultAndHide(false, "system error please try again later.", "error!", null);
             if (btn) {
                 btn.innerHTML = '<i class="bi bi-save"></i> Submit Attendance';
                 btn.classList.remove('btn-loading');

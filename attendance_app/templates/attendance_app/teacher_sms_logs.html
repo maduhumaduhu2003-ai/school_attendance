@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
             statusIcon.style.height = "2rem";
             statusIcon.innerHTML = "";
             statusText.className = "mb-0 text-dark fw-bold";
-            statusText.innerText = "Tafadhali subiri...";
+            statusText.innerText = "please wait...";
             loadingOverlay.classList.remove('d-none');
             loadingOverlay.style.opacity = '1';
         }
@@ -483,14 +483,14 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showStatusResult(true, "Imefutwa kikamilifu!", true);
+                showStatusResult(true, "successfull!", true);
             } else {
-                showStatusResult(false, data.message || "Imeshindikana kufuta!");
+                showStatusResult(false, data.message || "unable to delete!");
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showStatusResult(false, "Hitilafu imetokea kwenye mfumo!");
+            showStatusResult(false, "system error..!");
         });
     });
     
@@ -523,14 +523,14 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showStatusResult(true, "Imetumwa kikamilifu!", true);
+                showStatusResult(true, "successfull!", true);
             } else {
-                showStatusResult(false, data.message || "Imeshindikana kutuma!");
+                showStatusResult(false, data.message || "unable to send!");
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showStatusResult(false, "Hitilafu imetokea wakati wa kutuma!");
+            showStatusResult(false, "error during sending!");
         });
     });
     

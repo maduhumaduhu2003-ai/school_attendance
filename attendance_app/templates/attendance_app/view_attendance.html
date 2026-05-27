@@ -457,9 +457,9 @@ document.addEventListener('DOMContentLoaded', function() {
             statusIcon.innerHTML = "";
             
             statusTitle.className = "mb-1 fw-bold text-dark";
-            statusTitle.innerText = title || "Tafadhali subiri...";
+            statusTitle.innerText = title || "please wait...";
             
-            statusText.innerText = text || "Inasindika taarifa...";
+            statusText.innerText = text || "preparing report...";
             
             loadingOverlay.classList.remove('d-none');
             loadingOverlay.style.opacity = '1';
@@ -473,13 +473,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
                 statusTitle.className = "mb-1 fw-bold text-success";
-                statusTitle.innerText = title || "Umefanikiwa!";
+                statusTitle.innerText = title || "successfull!";
             } else {
                 statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
                 statusTitle.className = "mb-1 fw-bold text-danger";
-                statusTitle.innerText = title || "Imegoma!";
+                statusTitle.innerText = title || "error!";
             }
             statusText.innerText = message;
             
@@ -526,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 let currentEditModal = bootstrap.Modal.getInstance(editModalEl);
                                 if (currentEditModal) currentEditModal.hide();
 
-                                showLoading("Inahifadhi...", "Tafadhali subiri, mabadiliko yanahifadhiwa...");
+                                showLoading("saving...", "please wait, updating attendance...");
 
                                 const formData = new FormData(form);
                                 
@@ -540,14 +540,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                 .then(response => response.json())
                                 .then(data => {
                                     if (data.success) {
-                                        showResultAndHide(true, data.message, "Umefanikiwa!");
+                                        showResultAndHide(true, data.message, "successfull!");
                                     } else {
-                                        showResultAndHide(false, data.message, "Imeshindikana!");
+                                        showResultAndHide(false, data.message, "error!");
                                     }
                                 })
                                 .catch(error => {
                                     console.error('Error updating attendance:', error);
-                                    showResultAndHide(false, 'Tatizo la mfumo limejitokeza. Jaribu tena.', 'Kosa!');
+                                    showResultAndHide(false, 'system error. try again.', 'error!');
                                 });
                             });
                         }
@@ -573,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmBtn.addEventListener('click', function() {
             if (recordToDelete) {
                 bsDeleteModal.hide();
-                showLoading("Inafuta...", "Tafadhali subiri, rekodi inafutwa...");
+                showLoading("deleting...", "please wait, deleting attendance...");
 
                 fetch(`/delete_attendance/${recordToDelete}/`, {
                     method: 'POST',
@@ -585,14 +585,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showResultAndHide(true, data.message, "Imefutwa!");
+                        showResultAndHide(true, data.message, "deleted!");
                     } else {
-                        showResultAndHide(false, data.message, "Imeshindikana!");
+                        showResultAndHide(false, data.message, "error!");
                     }
                 })
                 .catch(error => {
                     console.error('Error deleting attendance:', error);
-                    showResultAndHide(false, 'Tatizo la mfumo limejitokeza. Jaribu tena.', 'Kosa!');
+                    showResultAndHide(false, 'system error. try again.', 'error!');
                 });
             }
         });
