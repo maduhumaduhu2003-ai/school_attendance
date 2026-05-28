@@ -99,7 +99,7 @@
                             <th style="width: 25%">Student Name</th>
                             <th style="width: 10%">Gender</th>
                             <th style="width: 15%">Parent Phone</th>
-                            <th style="width: 20%" class="text-center">Actions</th>
+                            <th style="width: 30%" class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -134,13 +134,34 @@
                               </div>
                             </div>
                             <td class="text-center">
-                                <div class="d-flex justify-content-center gap-2">
+                                <div class="d-flex justify-content-center gap-1 flex-wrap">
+                                    <!-- VIEW BUTTON -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-info view-student-btn"
+                                            data-student-id="{{ student.id }}"
+                                            data-student-name="{{ student.full_name }}"
+                                            data-admission-number="{{ student.admission_number }}"
+                                            data-gender="{{ student.gender }}"
+                                            data-parent-name="{{ student.parent_name|default:'N/A' }}"
+                                            data-parent-phone="{{ student.phone|default:'N/A' }}"
+                                            data-classroom="{{ classroom.name }}"
+                                            data-stream="{{ student.stream }}"
+                                            data-academic-year="{{ active_year.year_start }}/{{ active_year.year_end }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewStudentModal"
+                                            title="View Student Details">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    
+                                    <!-- EDIT BUTTON -->
                                     <a href="{% url 'edit_student_teacher' student.id %}" 
                                        class="btn btn-sm btn-warning edit-student-btn" 
                                        data-student-name="{{ student.full_name }}"
                                        title="Edit Student">
                                         <i class="bi bi-pencil"></i> Edit
                                     </a>
+                                    
+                                    <!-- DELETE BUTTON -->
                                     <button class="btn btn-sm btn-danger deleteStudentBtn" 
                                             type="button"
                                             data-id="{{ student.id }}"
@@ -151,9 +172,9 @@
                                     </button>
                                 </div>
                              </div>
-                         </tr>
+                          </tr>
                         {% empty %}
-                         <tr>
+                          <tr>
                             <td colspan="6" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox" style="font-size: 3rem;"></i><br>
                                 {% if search %}
@@ -165,7 +186,7 @@
                                     </a>
                                 {% endif %}
                              </div>
-                         </tr>
+                          </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -224,6 +245,69 @@
     </div>
 </div>
 
+<!-- ================= VIEW STUDENT DETAILS MODAL ================= -->
+<div class="modal fade" id="viewStudentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-person-badge"></i> Student Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-5 text-center">
+                        <div class="bg-light rounded-circle d-inline-flex p-3 mb-2">
+                            <i class="bi bi-person-circle" style="font-size: 3rem; color: #4f46e5;"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-7">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong><i class="bi bi-person"></i> Name:</strong></td>
+                                <td><span id="viewStudentName"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-upc-scan"></i> Admission No:</strong></td>
+                                <td><code id="viewAdmissionNumber"></code></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-gender-ambiguous"></i> Gender:</strong></td>
+                                <td><span id="viewStudentGender"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-people"></i> Parent:</strong></td>
+                                <td><span id="viewParentName"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-telephone"></i> Parent Phone:</strong></td>
+                                <td><span id="viewParentPhone"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-door-closed"></i> Classroom:</strong></td>
+                                <td><span id="viewClassroom"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-diagram-3"></i> Stream:</strong></td>
+                                <td><span id="viewStream"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong><i class="bi bi-calendar-week"></i> Academic Year:</strong></td>
+                                <td><span id="viewAcademicYear"></span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="editStudentFromModal" class="btn btn-primary">Edit Student</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ================= DELETE CONFIRMATION MODAL ================= -->
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -263,6 +347,15 @@
     .table-dark th {
         border: none;
     }
+    .btn-sm {
+        margin: 2px;
+    }
+    @media (max-width: 576px) {
+        .btn-sm {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+    }
 </style>
 
 <script>
@@ -276,7 +369,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // Function to show loading spinner
     function showLoading(title, text) {
         if (loadingOverlay) {
-            // Reset to spinner state
             statusIcon.className = "spinner-border text-danger";
             statusIcon.style.width = "2rem";
             statusIcon.style.height = "2rem";
@@ -293,14 +385,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function showResultAndHide(isSuccess, message, title) {
         if (loadingOverlay) {
             if (isSuccess) {
-                // Success state
                 statusIcon.className = "text-success d-flex align-items-center justify-content-center";
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
                 statusTitle.className = "mb-1 fw-bold text-success";
                 statusTitle.innerText = title || "Success!";
             } else {
-                // Error state
                 statusIcon.className = "text-danger d-flex align-items-center justify-content-center";
                 statusIcon.style.fontSize = "2rem";
                 statusIcon.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
@@ -309,7 +399,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             statusText.innerText = message;
             
-            // Hide after 2 seconds
             setTimeout(function() {
                 loadingOverlay.style.opacity = '0';
                 setTimeout(function() {
@@ -318,6 +407,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, 400);
             }, 2000);
         }
+    }
+
+    // ================= VIEW STUDENT MODAL =================
+    const viewStudentModal = document.getElementById('viewStudentModal');
+    
+    if (viewStudentModal) {
+        viewStudentModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            
+            document.getElementById('viewStudentName').textContent = button.getAttribute('data-student-name') || '—';
+            document.getElementById('viewAdmissionNumber').textContent = button.getAttribute('data-admission-number') || '—';
+            document.getElementById('viewStudentGender').textContent = button.getAttribute('data-gender') || '—';
+            document.getElementById('viewParentName').textContent = button.getAttribute('data-parent-name') || '—';
+            document.getElementById('viewParentPhone').textContent = button.getAttribute('data-parent-phone') || '—';
+            document.getElementById('viewClassroom').textContent = button.getAttribute('data-classroom') || '—';
+            document.getElementById('viewStream').textContent = button.getAttribute('data-stream') || '—';
+            document.getElementById('viewAcademicYear').textContent = button.getAttribute('data-academic-year') || '—';
+            
+            const editLink = document.getElementById('editStudentFromModal');
+            const studentId = button.getAttribute('data-student-id');
+            if (editLink && studentId) {
+                editLink.href = `/edit_student_teacher/${studentId}/`;
+            }
+        });
     }
 
     // ================= FILTER FORM SUBMIT =================
@@ -355,6 +468,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const fileName = this.getAttribute('href').split('/').pop();
             const fileType = fileName.includes('excel') ? 'Excel' : 'PDF';
             showLoading('Preparing Export...', `Please wait, generating ${fileType} file...`);
+            
+            // Safety timeout for export
+            setTimeout(function() {
+                if (loadingOverlay && !loadingOverlay.classList.contains('d-none')) {
+                    loadingOverlay.classList.add('d-none');
+                }
+            }, 5000);
         });
     });
     
@@ -365,6 +485,9 @@ document.addEventListener('DOMContentLoaded', function () {
             showLoading('Preparing Edit...', `Please wait, loading edit form for ${studentName}...`);
         });
     });
+    
+    // ================= VIEW STUDENT BUTTONS (No loading, just modal) =================
+    // No loading needed for view button since it just opens modal
     
     // ================= DELETE FUNCTIONALITY =================
     const deleteModalElement = document.getElementById('deleteConfirmModal');
@@ -378,7 +501,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentRowId = null;
     let currentStudentName = null;
     
-    // Delete button clicks
     document.querySelectorAll('.deleteStudentBtn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
@@ -395,7 +517,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
     
-    // Confirm Delete
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function(e) {
             e.preventDefault();
@@ -404,7 +525,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 deleteModal.hide();
             }
             
-            // Show loading
             showLoading('Deleting Student...', `Please wait, removing ${currentStudentName} from class...`);
             
             fetch(currentDeleteUrl, {
@@ -417,19 +537,16 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Remove row from table
                     const row = document.getElementById(currentRowId);
                     if (row) {
                         row.remove();
                     }
-                    // Update total count
                     const totalElement = document.querySelector('.text-muted .bi-person-arms-up')?.parentElement;
                     if (totalElement) {
                         const currentTotal = parseInt(totalElement.innerText.match(/\d+/)?.[0] || 0);
                         totalElement.innerText = totalElement.innerText.replace(currentTotal, currentTotal - 1);
                     }
                     showResultAndHide(true, data.message || 'Student removed successfully!', 'Success!');
-                    // Reload after 1.5 seconds to refresh pagination
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     showResultAndHide(false, data.message || 'Failed to delete student.', 'Error!');
@@ -442,7 +559,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
-    // ================= HELPER FUNCTION =================
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -457,9 +573,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return cookieValue;
     }
-    
-    // ================= DISPLAY DJANGO MESSAGES AS TOASTS =================
-    // Django messages will be handled by teacher_base.html
 });
 </script>
 

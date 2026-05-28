@@ -111,7 +111,7 @@
                                 <button class="btn btn-sm btn-danger delete-btn" data-bs-toggle="modal" data-bs-target="#deleteClassroomModal{{ c.id }}" data-classroom-name="{{ c.name }}">
                                     <i class="bi bi-trash"></i> Delete
                                 </button>
-                            </td>
+                            </tr>
                         </tr>
 
                         <!-- EDIT MODAL -->
@@ -153,6 +153,7 @@
                                             <div class="mb-2 border rounded p-2">
                                                 <label class="form-label">Stream</label>
                                                 <select name="stream_names[]" class="form-select mb-2">
+                                                    <option value="">-- Select Stream --</option>
                                                     {% for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" %}
                                                         <option value="{{ letter }}" {% if stream.name == letter %}selected{% endif %}>{{ letter }}</option>
                                                     {% endfor %}
@@ -183,25 +184,54 @@
                             </div>
                         </div>
 
-                        <!-- ADD STREAM MODAL -->
+                        <!-- ADD STREAM MODAL (IMPROVED - Using Dropdown) -->
                         <div class="modal fade" id="addStreamModal{{ c.id }}" tabindex="-1">
                             <div class="modal-dialog">
                                 <div class="modal-content">
                                     <form method="POST" action="{% url 'add_stream' c.id %}" class="action-form">
                                         {% csrf_token %}
                                         <div class="modal-header">
-                                            <h5 class="modal-title text-danger">Add Stream to {{ c.name }}</h5>
+                                            <h5 class="modal-title text-danger">
+                                                <i class="bi bi-plus-circle"></i> Add Stream to {{ c.name }}
+                                            </h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body">
                                             <div class="mb-3">
-                                                <label class="form-label">Stream Name</label>
-                                                <input type="text" name="stream_name" class="form-control" placeholder="e.g., A, B, Science, Arts" required>
+                                                <label class="form-label fw-bold">
+                                                    <i class="bi bi-diagram-3"></i> Stream Name
+                                                </label>
+                                                <!-- DROPDOWN - Replacing text input -->
+                                                <select name="stream_name" class="form-select" required>
+                                                    <option value="">-- Select Stream --</option>
+                                                    {% for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" %}
+                                                        <option value="{{ letter }}">Stream {{ letter }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted mt-1 d-block">
+                                                    <i class="bi bi-info-circle"></i> Select a stream letter from A to Z
+                                                </small>
                                             </div>
+                                            
+                                            <!-- Show existing streams to avoid duplicates -->
+                                            {% if c.streams.exists %}
+                                            <div class="mt-3 p-2 bg-light rounded">
+                                                <small class="text-secondary">
+                                                    <i class="bi bi-eye"></i> Existing streams in {{ c.name }}:
+                                                    {% for stream in c.streams.all %}
+                                                        <span class="badge bg-secondary">{{ stream.name }}</span>
+                                                    {% endfor %}
+                                                </small>
+                                            </div>
+                                            {% endif %}
                                         </div>
                                         <div class="modal-footer">
-                                            <button type="submit" class="btn btn-primary add-stream-confirm-btn">Add Stream</button>
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-primary add-stream-confirm-btn">
+                                                <i class="bi bi-save"></i> Add Stream
+                                            </button>
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                <i class="bi bi-x-circle"></i> Cancel
+                                            </button>
                                         </div>
                                     </form>
                                 </div>

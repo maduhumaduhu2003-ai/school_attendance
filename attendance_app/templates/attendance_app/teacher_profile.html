@@ -6,7 +6,7 @@
 
 {% block content %}
 
-<!-- GLOBAL LOADING / SUCCESS OVERLAY -->
+<!-- GLOBAL LOADING / SUCCESS OVERLAY - UMEBACHA KAMA ILIVYO -->
 <div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 {% if not profile_success and not password_success %}d-none{% endif %}" style="background: rgba(0, 0, 0, 0.3); z-index: 9999; transition: opacity 0.4s ease;">
     <div class="d-flex justify-content-center align-items-center h-100">
         <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 240px; max-width: 320px; border: 1px solid #dee2e6;">
@@ -76,8 +76,32 @@
 
                             <div class="mb-3">
                                 <label for="phone_number" class="form-label">Phone Number</label>
-                                <input type="text" name="phone_number" id="phone_number" class="form-control form-control-sm" value="{{ teacher.phone_number }}">
+                                <input type="text" name="phone_number" id="phone_number" class="form-control form-control-sm" value="{{ phone_number_display }}">
                             </div>
+
+                            <!-- CURRENT CLASSROOM & STREAM - DISPLAY ONLY (READONLY) -->
+                            {% if active_year %}
+                            <hr>
+                            <h6 class="text-primary mb-3">Current Assignment ({{ active_year.year_start }}/{{ active_year.year_end }})</h6>
+                            
+                            <div class="mb-3">
+                                <label for="current_classroom" class="form-label">Classroom</label>
+                                <input type="text" id="current_classroom" class="form-control form-control-sm bg-light" 
+                                       value="{{ current_classroom_name }}" readonly disabled>
+                                <small class="text-muted">Managed by administrator only</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="current_stream" class="form-label">Stream</label>
+                                <input type="text" id="current_stream" class="form-control form-control-sm bg-light" 
+                                       value="{{ current_stream_name }}" readonly disabled>
+                                <small class="text-muted">Managed by administrator only</small>
+                            </div>
+                            
+                            <!-- Hidden fields to maintain form compatibility (no actual update in view) -->
+                            <input type="hidden" name="classroom" value="{{ current_enrollment.classroom.id|default:'' }}">
+                            <input type="hidden" name="stream" value="{{ current_enrollment.stream.id|default:'' }}">
+                            {% endif %}
 
                             <button type="submit" name="update_profile" class="btn btn-primary w-100 btn-submit">
                                 Update Profile
@@ -87,20 +111,26 @@
 
                     <!-- PASSWORD TAB -->
                     <div class="tab-pane fade" id="password" role="tabpanel">
-                        <form method="POST" class="profile-form">
+                        <form method="POST" class="profile-form" id="passwordForm">
                             {% csrf_token %}
 
                             <div class="mb-3">
                                 <label for="old_password" class="form-label">Old Password</label>
-                                <input type="password" name="old_password" id="old_password" class="form-control form-control-sm">
+                                <input type="password" name="old_password" id="old_password" class="form-control form-control-sm" required>
+                                <div class="invalid-feedback">Please enter your old password</div>
                             </div>
+                            
                             <div class="mb-3">
                                 <label for="new_password1" class="form-label">New Password</label>
-                                <input type="password" name="new_password1" id="new_password1" class="form-control form-control-sm">
+                                <input type="password" name="new_password1" id="new_password1" class="form-control form-control-sm" required>
+                                <div class="invalid-feedback">Password must be at least 6 characters</div>
+                                <small class="text-muted">Password must be at least 6 characters long</small>
                             </div>
+                            
                             <div class="mb-3">
                                 <label for="new_password2" class="form-label">Confirm New Password</label>
-                                <input type="password" name="new_password2" id="new_password2" class="form-control form-control-sm">
+                                <input type="password" name="new_password2" id="new_password2" class="form-control form-control-sm" required>
+                                <div class="invalid-feedback">Passwords do not match</div>
                             </div>
 
                             <button type="submit" name="change_password" class="btn btn-warning w-100 btn-submit">
@@ -123,19 +153,143 @@
 .btn-primary:hover { background-color: #4338ca; }
 .btn-warning { background-color: #f59e0b; border: none; color: #fff; }
 .btn-warning:hover { background-color: #d97706; }
-img.rounded-circle { object-fit: cover; }
+input:disabled, input[readonly] {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+/* Password validation styles */
+.form-control.is-invalid {
+    border-color: #dc3545;
+    background-image: none;
+}
+.form-control.is-valid {
+    border-color: #198754;
+}
+.invalid-feedback {
+    font-size: 0.75rem;
+    display: none;
+    width: 100%;
+    margin-top: 0.25rem;
+    color: #dc3545;
+}
+.form-control.is-invalid ~ .invalid-feedback {
+    display: block;
+}
 </style>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const loadingOverlay = document.getElementById('globalLoading');
     const profileForms = document.querySelectorAll('.profile-form');
-
-    // 1. Unapobonyeza submit, onyesha popup ikiwa kwenye hali ya loading (Tafadhali subiri...)
-    profileForms.forEach(form => {
-        form.addEventListener('submit', function() {
+    
+    // ================= PASSWORD VALIDATION (FRONTEND) =================
+    const passwordForm = document.getElementById('passwordForm');
+    const oldPasswordInput = document.getElementById('old_password');
+    const newPassword1Input = document.getElementById('new_password1');
+    const newPassword2Input = document.getElementById('new_password2');
+    
+    function validatePasswordsMatch() {
+        let isValid = true;
+        
+        // Check old password
+        if (!oldPasswordInput.value.trim()) {
+            oldPasswordInput.classList.add('is-invalid');
+            oldPasswordInput.classList.remove('is-valid');
+            isValid = false;
+        } else {
+            oldPasswordInput.classList.remove('is-invalid');
+            oldPasswordInput.classList.add('is-valid');
+        }
+        
+        // Check new password length
+        if (!newPassword1Input.value.trim()) {
+            newPassword1Input.classList.add('is-invalid');
+            newPassword1Input.classList.remove('is-valid');
+            isValid = false;
+        } else if (newPassword1Input.value.length < 6) {
+            newPassword1Input.classList.add('is-invalid');
+            newPassword1Input.classList.remove('is-valid');
+            isValid = false;
+        } else {
+            newPassword1Input.classList.remove('is-invalid');
+            newPassword1Input.classList.add('is-valid');
+        }
+        
+        // Check if passwords match
+        if (!newPassword2Input.value.trim()) {
+            newPassword2Input.classList.add('is-invalid');
+            newPassword2Input.classList.remove('is-valid');
+            isValid = false;
+        } else if (newPassword1Input.value !== newPassword2Input.value) {
+            newPassword2Input.classList.add('is-invalid');
+            newPassword2Input.classList.remove('is-valid');
+            isValid = false;
+        } else {
+            newPassword2Input.classList.remove('is-invalid');
+            newPassword2Input.classList.add('is-valid');
+        }
+        
+        return isValid;
+    }
+    
+    // Real-time validation for confirm password
+    if (newPassword2Input) {
+        newPassword2Input.addEventListener('input', function() {
+            if (this.value && newPassword1Input && this.value === newPassword1Input.value) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+            }
+        });
+    }
+    
+    if (newPassword1Input) {
+        newPassword1Input.addEventListener('input', function() {
+            if (this.value.length >= 6) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+                // Re-check confirm password
+                if (newPassword2Input && newPassword2Input.value) {
+                    if (newPassword2Input.value === this.value) {
+                        newPassword2Input.classList.remove('is-invalid');
+                        newPassword2Input.classList.add('is-valid');
+                    } else {
+                        newPassword2Input.classList.remove('is-valid');
+                        newPassword2Input.classList.add('is-invalid');
+                    }
+                }
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+            }
+        });
+    }
+    
+    if (oldPasswordInput) {
+        oldPasswordInput.addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+            }
+        });
+    }
+    
+    // Password form submit with validation
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', function(e) {
+            if (!validatePasswordsMatch()) {
+                e.preventDefault();
+                alert("Please make sure:\n- Old password is entered\n- New password is at least 6 characters\n- Passwords match");
+                return false;
+            }
+            
+            // Show loading popup (same as before)
             if (loadingOverlay) {
-                // Kama ukurasa ulikuwa na success ya nyuma, isafishe kwanza kurudisha loading ya sasa
                 const statusIcon = document.getElementById('statusIcon');
                 const statusText = document.getElementById('statusText');
                 
@@ -147,7 +301,28 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
                 loadingOverlay.classList.remove('d-none');
             }
+            return true;
         });
+    }
+
+    // 1. Unapobonyeza submit, onyesha popup ikiwa kwenye hali ya loading (Tafadhali subiri...)
+    profileForms.forEach(form => {
+        if (form.id !== 'passwordForm') { // Skip password form because we already handled it
+            form.addEventListener('submit', function() {
+                if (loadingOverlay) {
+                    const statusIcon = document.getElementById('statusIcon');
+                    const statusText = document.getElementById('statusText');
+                    
+                    if (statusIcon && statusText) {
+                        statusIcon.className = "spinner-border text-danger";
+                        statusIcon.innerHTML = "";
+                        statusText.className = "mb-0 text-dark fw-bold";
+                        statusText.innerText = "please wait...";
+                    }
+                    loadingOverlay.classList.remove('d-none');
+                }
+            });
+        }
     });
 
     // 2. Kama ukurasa umefunguka ukiwa tayari una 'success tick', ifiche popup kiotomatiki baada ya sekunde 2.5
@@ -157,9 +332,9 @@ document.addEventListener("DOMContentLoaded", function() {
                 loadingOverlay.style.opacity = '0';
                 setTimeout(function() {
                     loadingOverlay.classList.add('d-none');
-                    loadingOverlay.style.opacity = '1'; // Inarudisha opacity tayari kwa ajili ya submit ijayo
-                }, 400); // Muda wa fade-out
-            }, 2500); // Muda ambao tick ya mafanikio itabaki skrini kabla ya kupotea
+                    loadingOverlay.style.opacity = '1';
+                }, 400);
+            }, 2500);
         }
     {% endif %}
 

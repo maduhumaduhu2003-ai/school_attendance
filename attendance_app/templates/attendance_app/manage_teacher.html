@@ -5,28 +5,24 @@
 
 {% block content %}
 
-<!-- Global Loading Popup (Spinner Only - No AJAX/JSON) -->
+<!-- Global Loading Popup -->
 <div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0, 0, 0, 0.5); z-index: 9999; transition: opacity 0.4s ease;">
     <div class="d-flex justify-content-center align-items-center h-100">
         <div class="bg-white p-4 rounded-3 shadow-lg text-center d-flex align-items-center gap-3" style="min-width: 280px; max-width: 360px; border: 1px solid #dee2e6;">
-            
             <div id="statusIcon" class="spinner-border text-danger" role="status" style="width: 2rem; height: 2rem; flex-shrink: 0;">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            
             <div class="text-start">
                 <h6 id="statusTitle" class="mb-1 fw-bold text-dark">Processing...</h6>
                 <p id="statusText" class="mb-0 small text-muted" style="line-height: 1.3;">
                     Please wait, processing your request...
                 </p>
             </div>
-
         </div>
     </div>
 </div>
 
 <div class="container-fluid p-3">
-
     <div class="card shadow-sm">
         <div class="card-body">
 
@@ -36,7 +32,6 @@
                     <h2 class="mb-1 text-danger">Manage Teachers</h2>
                     <p class="text-muted mb-0">View and manage teachers by academic year</p>
                 </div>
-
                 <div class="d-flex gap-2">
                     <a href="{% url 'register_teacher' %}" class="btn btn-primary btn-sm" id="registerTeacherBtn">
                         <i class="bi bi-person-plus-fill"></i> Register New Teacher
@@ -48,35 +43,23 @@
             <div class="card bg-light mb-4">
                 <div class="card-body py-2">
                     <div class="row align-items-center">
-                        
                         <div class="col-md-3">
                             <label for="academicYearFilter" class="form-label fw-bold mb-0">
-                                <i class="bi bi-calendar-week"></i>
-                                Filter by Academic Year:
+                                <i class="bi bi-calendar-week"></i> Filter by Academic Year:
                             </label>
                         </div>
-
                         <div class="col-md-4">
                             <select id="academicYearFilter" class="form-select">
                                 <option value="">-- All Years --</option>
                                 {% for year in academic_years %}
                                 <option value="{{ year.id }}"
-                                    {% if selected_academic_year and selected_academic_year.id == year.id %}
-                                        selected
-                                    {% endif %}>
+                                    {% if selected_academic_year and selected_academic_year.id == year.id %}selected{% endif %}>
                                     {{ year.year_start }}/{{ year.year_end }}
-                                    {% if year.is_active %}
-                                        (Active)
-                                    {% elif year.is_locked %}
-                                        (Locked)
-                                    {% else %}
-                                        (○ Inactive)
-                                    {% endif %}
+                                    {% if year.is_active %}(Active){% elif year.is_locked %}(Locked){% else %}(Inactive){% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
                         </div>
-
                         <div class="col-md-5">
                             <div class="d-flex gap-3 align-items-center flex-wrap">
                                 {% if selected_academic_year %}
@@ -85,26 +68,17 @@
                                         {{ selected_academic_year.year_start }}/{{ selected_academic_year.year_end }}
                                     </span>
                                     {% if selected_academic_year.is_active %}
-                                        <span class="badge bg-success">
-                                            <i class="bi bi-check-circle"></i> Active Year
-                                        </span>
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Active Year</span>
                                     {% elif selected_academic_year.is_locked %}
-                                        <span class="badge bg-danger">
-                                            <i class="bi bi-lock-fill"></i> Locked Year
-                                        </span>
+                                        <span class="badge bg-danger"><i class="bi bi-lock-fill"></i> Locked Year</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">
-                                            <i class="bi bi-circle"></i> Inactive Year
-                                        </span>
+                                        <span class="badge bg-secondary"><i class="bi bi-circle"></i> Inactive Year</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="badge bg-secondary">
-                                        <i class="bi bi-eye"></i> Showing all teachers
-                                    </span>
+                                    <span class="badge bg-secondary"><i class="bi bi-eye"></i> Showing all teachers</span>
                                 {% endif %}
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -132,16 +106,14 @@
                             <td class="text-center">{{ teacher_data.username }}</td>
                             <td>{{ teacher_data.full_name }}</td>
                             <td class="text-center">
-                                {% if teacher_data.gender %}
-                                    {% if teacher_data.gender == 'Male' %}
-                                        <span class="badge bg-primary bg-opacity-10 text-primary">
-                                            <i class="bi bi-gender-male"></i> Male
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-danger bg-opacity-10 text-danger">
-                                            <i class="bi bi-gender-female"></i> Female
-                                        </span>
-                                    {% endif %}
+                                {% if teacher_data.gender == 'Male' %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary">
+                                        <i class="bi bi-gender-male"></i> Male
+                                    </span>
+                                {% elif teacher_data.gender == 'Female' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger">
+                                        <i class="bi bi-gender-female"></i> Female
+                                    </span>
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}
@@ -173,8 +145,6 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            
-                            <!-- A/YEAR & STATUS COLUMN -->
                             <td class="text-center">
                                 {% if teacher_data.academic_year %}
                                     <div class="d-flex flex-column align-items-center gap-1">
@@ -202,8 +172,6 @@
                                     </div>
                                 {% endif %}
                             </td>
-                            
-                            <!-- ACTIONS COLUMN -->
                             <td class="text-center">
                                 <div class="d-flex flex-wrap justify-content-center gap-1">
                                     <button type="button"
@@ -214,8 +182,11 @@
                                             data-teacher-gender="{{ teacher_data.gender|default:'N/A' }}"
                                             data-teacher-phone="{{ teacher_data.phone|default:'N/A' }}"
                                             data-teacher-email="{{ teacher_data.email|default:'N/A' }}"
+                                            data-classroom="{{ teacher_data.classroom|default:'Not Assigned' }}"
+                                            data-stream="{{ teacher_data.stream|default:'Not Assigned' }}"
+                                            data-academic-year="{{ teacher_data.academic_year|default:'N/A' }}"
+                                            data-status="{{ teacher_data.teacher_status|default:'Inactive' }}"
                                             data-year="{{ selected_academic_year.id }}"
-                                            data-teacher-status="{{ teacher_data.teacher_status|default:'Inactive' }}"
                                             data-bs-toggle="modal"
                                             data-bs-target="#viewTeacherModal">
                                         <i class="bi bi-eye"></i> View
@@ -268,11 +239,9 @@
                         <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
                     </li>
                     {% endif %}
-
                     <li class="page-item active">
                         <span class="page-link">Page {{ teachers.number }} of {{ teachers.paginator.num_pages }}</span>
                     </li>
-
                     {% if teachers.has_next %}
                     <li class="page-item">
                         <a class="page-link paginate-link"
@@ -293,7 +262,7 @@
     </div>
 </div>
 
-<!-- VIEW TEACHER MODAL (POPUP) WITH ACTIVATE/DEACTIVATE BUTTON -->
+<!-- VIEW TEACHER MODAL (COMPLETE WITH ALL DETAILS) -->
 <div class="modal fade" id="viewTeacherModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -314,32 +283,40 @@
                     <div class="col-md-7">
                         <table class="table table-sm table-borderless">
                             <tr>
-                                <td><strong><i class="bi bi-person"></i> Name:</strong></td>
-                                <td><span id="viewTeacherName"></span></td>
+                                <td class="ps-0"><strong><i class="bi bi-person"></i> Name:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherName"></span></td>
                             </tr>
                             <tr>
-                                <td><strong><i class="bi bi-person-badge"></i> Username:</strong></td>
-                                <td><span id="viewTeacherUsername"></span></td>
+                                <td class="ps-0"><strong><i class="bi bi-person-badge"></i> Username:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherUsername"></span></td>
                             </tr>
                             <tr>
-                                <td><strong><i class="bi bi-gender-ambiguous"></i> Gender:</strong></td>
-                                <td><span id="viewTeacherGender"></span></td>
+                                <td class="ps-0"><strong><i class="bi bi-gender-ambiguous"></i> Gender:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherGender"></span></td>
                             </tr>
                             <tr>
-                                <td><strong><i class="bi bi-telephone"></i> Phone:</strong></td>
-                                <td><span id="viewTeacherPhone"></span></td>
+                                <td class="ps-0"><strong><i class="bi bi-telephone"></i> Phone:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherPhone"></span></td>
                             </tr>
                             <tr>
-                                <td><strong><i class="bi bi-envelope"></i> Email:</strong></td>
-                                <td><span id="viewTeacherEmail"></span></td>
+                                <td class="ps-0"><strong><i class="bi bi-envelope"></i> Email:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherEmail"></span></td>
                             </tr>
                             <tr>
-                                <td><strong><i class="bi bi-calendar-week"></i> Academic Year:</strong></td>
-                                <td><span id="viewTeacherYear"></span></td>
+                                <td class="ps-0"><strong><i class="bi bi-door-closed"></i> Classroom:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherClassroom"></span></td>
                             </tr>
                             <tr>
-                                <td><strong><i class="bi bi-flag"></i> Current Status:</strong></td>
-                                <td><span id="viewTeacherStatus"></span></td>
+                                <td class="ps-0"><strong><i class="bi bi-diagram-3"></i> Stream:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherStream"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="ps-0"><strong><i class="bi bi-calendar-week"></i> Academic Year:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherYear"></span></td>
+                            </tr>
+                            <tr>
+                                <td class="ps-0"><strong><i class="bi bi-flag"></i> Current Status:</strong></td>
+                                <td class="pe-0"><span id="viewTeacherStatus"></span></td>
                             </tr>
                         </table>
                     </div>
@@ -360,33 +337,23 @@
     </div>
 </div>
 
-<!-- DELETE MODAL - With Soft Delete and Permanent Delete Options -->
+<!-- DELETE MODAL -->
 <div class="modal fade" id="deleteTeacherModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    Confirm Action
-                </h5>
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill"></i> Confirm Action</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center py-4" id="deleteModalBody">
+            <div class="modal-body text-center py-4">
                 <i class="bi bi-person-x-fill text-danger" style="font-size:2.5rem;"></i>
-                <p class="mt-3 mb-1">
-                    Delete <strong id="teacherName"></strong>?
-                </p>
+                <p class="mt-3 mb-1">Delete <strong id="teacherName"></strong>?</p>
                 <small class="text-muted">This action cannot be undone.</small>
             </div>
-            
-            <!-- Admin Delete Options -->
             <div class="px-4 pb-2">
                 <hr class="my-2">
                 <div class="text-start">
-                    <label class="form-label text-primary fw-bold">
-                        <i class="bi bi-gear"></i> Delete Options:
-                    </label>
-                    
+                    <label class="form-label text-primary fw-bold"><i class="bi bi-gear"></i> Delete Options:</label>
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="radio" name="delete_type" id="softDeleteRadio" value="soft" checked>
                         <label class="form-check-label text-warning" for="softDeleteRadio">
@@ -394,7 +361,6 @@
                         </label>
                         <small class="d-block text-muted ms-4">Teacher can be reassigned to another class later.</small>
                     </div>
-                    
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="delete_type" id="permanentDeleteRadio" value="permanent">
                         <label class="form-check-label text-danger" for="permanentDeleteRadio">
@@ -402,14 +368,12 @@
                         </label>
                         <small class="d-block text-muted ms-4">This will delete ALL teacher records including assignments.</small>
                     </div>
-                    
                     <div id="permanentConfirmDiv" class="mt-2 p-2 bg-light rounded d-none">
                         <label class="form-label text-danger small">Type <strong>PERMANENT_DELETE</strong> to confirm:</label>
                         <input type="text" id="permanentConfirmInput" class="form-control form-control-sm" placeholder="PERMANENT_DELETE">
                     </div>
                 </div>
             </div>
-            
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Yes, Delete</button>
@@ -474,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 
-    // ================= VIEW TEACHER MODAL WITH ACTIVATE/DEACTIVATE =================
+    // ================= VIEW TEACHER MODAL =================
     const viewTeacherModal = document.getElementById('viewTeacherModal');
     let currentModalTeacherId = null;
     let currentModalTeacherName = null;
@@ -488,20 +452,17 @@ document.addEventListener('DOMContentLoaded', function() {
             currentModalTeacherName = button.getAttribute('data-teacher-name');
             currentModalYearId = button.getAttribute('data-year') || "{{ selected_academic_year.id|default:'' }}";
             
-            const teacherStatus = button.getAttribute('data-teacher-status') || 'Inactive';
+            const teacherStatus = button.getAttribute('data-status') || 'Inactive';
             currentModalStatus = teacherStatus === 'Active';
             
-            const teacherUsername = button.getAttribute('data-teacher-username');
-            const teacherGender = button.getAttribute('data-teacher-gender');
-            const teacherPhone = button.getAttribute('data-teacher-phone');
-            const teacherEmail = button.getAttribute('data-teacher-email');
-            
-            document.getElementById('viewTeacherName').textContent = currentModalTeacherName;
-            document.getElementById('viewTeacherUsername').textContent = teacherUsername;
-            document.getElementById('viewTeacherGender').textContent = teacherGender;
-            document.getElementById('viewTeacherPhone').textContent = teacherPhone;
-            document.getElementById('viewTeacherEmail').textContent = teacherEmail;
-            document.getElementById('viewTeacherYear').textContent = "{{ selected_academic_year.year_start }}/{{ selected_academic_year.year_end }}" || 'Not Assigned';
+            document.getElementById('viewTeacherName').textContent = button.getAttribute('data-teacher-name') || '—';
+            document.getElementById('viewTeacherUsername').textContent = button.getAttribute('data-teacher-username') || '—';
+            document.getElementById('viewTeacherGender').textContent = button.getAttribute('data-teacher-gender') || '—';
+            document.getElementById('viewTeacherPhone').textContent = button.getAttribute('data-teacher-phone') || '—';
+            document.getElementById('viewTeacherEmail').textContent = button.getAttribute('data-teacher-email') || '—';
+            document.getElementById('viewTeacherClassroom').textContent = button.getAttribute('data-classroom') || 'Not Assigned';
+            document.getElementById('viewTeacherStream').textContent = button.getAttribute('data-stream') || 'Not Assigned';
+            document.getElementById('viewTeacherYear').textContent = button.getAttribute('data-academic-year') || 'Not Assigned';
             
             const statusSpan = document.getElementById('viewTeacherStatus');
             const activateBtn = document.getElementById('activateDeactivateTeacherBtn');
@@ -524,14 +485,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ================= ACTIVATE/DEACTIVATE TEACHER FROM MODAL =================
+    // ================= ACTIVATE/DEACTIVATE TEACHER =================
     const activateDeactivateBtn = document.getElementById('activateDeactivateTeacherBtn');
     if (activateDeactivateBtn) {
         activateDeactivateBtn.addEventListener('click', function(e) {
             e.preventDefault();
             
             if (!currentModalTeacherId || !currentModalYearId) {
-                showToast(false, 'No academic year selected. Please select a year first.');
+                alert('No academic year selected. Please select a year first.');
                 return;
             }
             
@@ -653,7 +614,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (permanentDeleteRadio && permanentDeleteRadio.checked) {
                 if (permanentConfirmInput.value !== 'PERMANENT_DELETE') {
-                    showToast(false, 'Please type PERMANENT_DELETE to confirm permanent deletion');
+                    alert('Please type PERMANENT_DELETE to confirm permanent deletion');
                     return;
                 }
                 deleteUrl = currentDeleteUrl + '?permanent=true';
@@ -682,7 +643,6 @@ document.addEventListener('DOMContentLoaded', function() {
             form.submit();
         });
     }
-
 });
 </script>
 
