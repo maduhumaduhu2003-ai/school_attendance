@@ -350,84 +350,160 @@ const statusText = document.getElementById('statusText');
 const loginForm = document.getElementById('loginForm');
 const loginBtn = document.getElementById('loginBtn');
 
+let submitting = false;
+
 function showLoading(title, text) {
-    if (loadingOverlay) {
-        // Reset to spinner state
-        statusIcon.className = "spinner-border text-danger";
-        statusIcon.style.width = "2rem";
-        statusIcon.style.height = "2rem";
-        statusIcon.innerHTML = '<span class="visually-hidden">Loading...</span>';
-        statusTitle.className = "loading-title";
-        statusTitle.innerText = title || "loading...";
-        statusText.className = "loading-message";
-        statusText.innerText = text || "please wait validating data...";
-        
-        loadingOverlay.classList.remove('d-none');
-        loadingOverlay.style.opacity = '1';
-    }
+
+    statusIcon.className = "spinner-border text-danger";
+    statusIcon.innerHTML =
+        '<span class="visually-hidden">Loading...</span>';
+
+    statusTitle.innerText =
+        title || "Loading...";
+
+    statusText.innerText =
+        text || "Please wait validating data...";
+
+    loadingOverlay.classList.remove("d-none");
 }
 
 function hideLoading() {
-    if (loadingOverlay) {
-        loadingOverlay.style.opacity = '0';
-        setTimeout(function() {
-            loadingOverlay.classList.add('d-none');
-            loadingOverlay.style.opacity = '1';
-        }, 400);
-    }
+    loadingOverlay.classList.add("d-none");
 }
 
 function togglePassword() {
+
     const p = document.getElementById("password");
-    p.type = p.type === "password" ? "text" : "password";
+
+    if (p.type === "password") {
+        p.type = "text";
+    } else {
+        p.type = "password";
+    }
 }
 
-// ================= SHOW TOASTS IF MESSAGES EXIST =================
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize and show all toasts
-    const toastElList = document.querySelectorAll('.toast');
+// ================= SHOW DJANGO TOAST =================
+document.addEventListener("DOMContentLoaded", function () {
+
+    const toastElList = document.querySelectorAll(".toast");
+
     toastElList.forEach(function (toastEl) {
-        let t = new bootstrap.Toast(toastEl, { 
-            autohide: true, 
-            delay: 5000 
+
+        let toast = new bootstrap.Toast(toastEl, {
+            autohide: true,
+            delay: 5000
         });
-        t.show();
+
+        toast.show();
+
     });
-    
-    // Hide loading if it's showing
+
     hideLoading();
+
 });
 
-// ================= FORM SUBMISSION =================
-loginForm.addEventListener('submit', function(e){
-    // Show loading popup immediately
-    showLoading("loading...", "please wait validating data...");
-    
-    // Disable login button to prevent double submission
-    loginBtn.disabled = true;
-    loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> loading...';
-    loginBtn.classList.add('btn-loading');
-    
-    // Get geolocation and then submit
-    if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(function(position){
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            
-            document.getElementById('lat').value = lat;
-            document.getElementById('lng').value = lng;
-            
-            // Submit the form normally
-            loginForm.submit();
-        }, function(err){
-            // Geolocation error - still submit without location
-            console.warn("GPS error:", err);
-            loginForm.submit();
-        }, { enableHighAccuracy: true, timeout: 10000 });
-    } else {
-        // Geolocation not supported - submit anyway
-        loginForm.submit();
+// ================= LOGIN =================
+loginForm.addEventListener("submit", function (e) {
+
+    // kama tayari imeshasubmit usizuie
+    if (submitting) {
+        return;
     }
+
+    // zuia submit kwanza
+    e.preventDefault();
+
+    showLoading(
+        "Loading...",
+        "Please allow location access..."
+    );
+
+    loginBtn.disabled = true;
+    loginBtn.classList.add("btn-loading");
+
+    loginBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm"></span> Loading...';
+
+    // Browser haina geolocation
+    if (!navigator.geolocation) {
+
+        hideLoading();
+
+        loginBtn.disabled = false;
+        loginBtn.classList.remove("btn-loading");
+
+        loginBtn.innerHTML =
+            '<i class="bi bi-box-arrow-in-right"></i> Login';
+
+        alert("Your browser does not support location.");
+
+        return;
+    }
+
+    // HAPA browser itaonyesha popup ya ALLOW LOCATION
+    navigator.geolocation.getCurrentPosition(
+
+        function (position) {
+
+            document.getElementById("lat").value =
+                position.coords.latitude;
+
+            document.getElementById("lng").value =
+                position.coords.longitude;
+
+            submitting = true;
+
+            loginForm.submit();
+
+        },
+
+        function (error) {
+
+            hideLoading();
+
+            loginBtn.disabled = false;
+            loginBtn.classList.remove("btn-loading");
+
+            loginBtn.innerHTML =
+                '<i class="bi bi-box-arrow-in-right"></i> Login';
+
+            let message = "";
+
+            switch (error.code) {
+
+                case error.PERMISSION_DENIED:
+                    message =
+                        "Location permission denied.\n\nPlease click Allow Location and try again.";
+                    break;
+
+                case error.POSITION_UNAVAILABLE:
+                    message =
+                        "Location information is unavailable.";
+                    break;
+
+                case error.TIMEOUT:
+                    message =
+                        "Location request timed out.";
+                    break;
+
+                default:
+                    message =
+                        "Unable to get your location.";
+                    break;
+            }
+
+            alert(message);
+
+        },
+
+        {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+        }
+
+    );
+
 });
 </script>
 

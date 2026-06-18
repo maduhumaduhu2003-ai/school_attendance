@@ -147,123 +147,175 @@ def login_view(request):
     admin_exists = User.objects.filter(role='admin').exists()
 
     if request.method == 'POST':
-        # Get credentials
+
+        # ================= GET FORM DATA =================
         username = request.POST.get('username')
         password = request.POST.get('password')
         lat = request.POST.get('lat')
         lng = request.POST.get('lng')
 
-        # Validate location
-        try:
-            lat = float(lat) if lat else None
-            lng = float(lng) if lng else None
-        except (TypeError, ValueError):
-            messages.error(request, "Location error: allow GPS access.")
+        # ================= REQUIRE GPS LOCATION =================
+        if not lat or not lng:
+            messages.error(
+                request,
+                "Location access is required. Please allow GPS and try again."
+            )
             return redirect('login')
 
-        # Check distance if location provided
-        if lat and lng:
-            distance = distance_in_meters(lat, lng, SCHOOL_LAT, SCHOOL_LNG)
-            if distance is None:
-                messages.error(request, "Could not calculate distance.")
-                return redirect('login')
+        try:
+            lat = float(lat)
+            lng = float(lng)
+        except (TypeError, ValueError):
+            messages.error(
+                request,
+                "Invalid location detected. Please enable GPS and try again."
+            )
+            return redirect('login')
 
-            if distance > MAX_DISTANCE_METERS:
-                messages.error(request, "Access denied: you are outside school area.")
-                return redirect('login')
+        # ================= CHECK DISTANCE =================
+        distance = distance_in_meters(
+            lat,
+            lng,
+            SCHOOL_LAT,
+            SCHOOL_LNG
+        )
 
-        # Authenticate user
-        user = authenticate(request, username=username, password=password)
+        if distance is None:
+            messages.error(
+                request,
+                "Unable to determine your current location."
+            )
+            return redirect('login')
+
+        if distance > MAX_DISTANCE_METERS:
+            messages.error(
+                request,
+                "Access denied. You are outside the allowed school area."
+            )
+            return redirect('login')
+
+        # ================= AUTHENTICATE USER =================
+        user = authenticate(
+            request,
+            username=username,
+            password=password
+        )
 
         if not user:
-            messages.error(request, "Invalid email or password!")
+            messages.error(
+                request,
+                "Invalid email or password!"
+            )
             return redirect('login')
 
-        # ========== CHECK TEACHER STATUS (Active/Inactive) ==========
-        if user.role == 'teacher':
-            # Get active academic year
-            active_year = AcademicYear.objects.filter(is_active=True).first()
-            
-            if active_year:
-                # Get teacher profile
-                teacher_profile = TeacherProfile.objects.filter(user=user).first()
-                
-                if teacher_profile:
-                    # Check if teacher has an enrollment for the active year
-                    teacher_enrollment = Enrollment.objects.filter(
-                        class_teacher=teacher_profile,
-                        academic_year=active_year,
-                        student__isnull=True
-                    ).first()
-                    
-                    # If enrollment exists and status is Inactive, block login
-                    if teacher_enrollment and teacher_enrollment.status == 'Inactive':
-                        messages.error(
-                            request, 
-                            f" your account is INACTIVE for the current academic year "
-                            f"({active_year.year_start}/{active_year.year_end}).\n\n"
-                            f"contact school admin."
-                        )
-                        return redirect('login')
-                    
-                    # If no enrollment found for active year, also block login
-                    if not teacher_enrollment:
-                        messages.error(
-                            request,
-                            f" your account is not enrolled for the current academic year "
-                            f"({active_year.year_start}/{active_year.year_end}).\n\n"
-                            f"please contact admin"
-                        )
-                        return redirect('login')
-                else:
-                    messages.error(request, "your not registered yet contact admin for more information")
-                    return redirect('login')
-            else:
-                messages.error(request, "no active academic year found")
-                return redirect('login')
-        
-        # ========== CHECK STUDENT STATUS (Optional) ==========
-        # if user.role == 'student':
-        #     active_year = AcademicYear.objects.filter(is_active=True).first()
+        # ================= TEACHER STATUS CHECK =================
+        if user.role == "teacher":
+
+            active_year = AcademicYear.objects.filter(
+                is_active=True
+            ).first()
+
+            if not active_year:
+                messages.error(
+                    request,
+                    "No active academic year found."
+                )
+                return redirect("login")
+
+            teacher_profile = TeacherProfile.objects.filter(
+                user=user
+            ).first()
+
+            if not teacher_profile:
+                messages.error(
+                    request,
+                    "Teacher profile not found. Please contact administrator."
+                )
+                return redirect("login")
+
+            teacher_enrollment = Enrollment.objects.filter(
+                class_teacher=teacher_profile,
+                academic_year=active_year,
+                student__isnull=True
+            ).first()
+
+            if not teacher_enrollment:
+                messages.error(
+                    request,
+                    f"Your account is not enrolled for the current academic year "
+                    f"({active_year.year_start}/{active_year.year_end}). "
+                    f"Please contact administrator."
+                )
+                return redirect("login")
+
+            if teacher_enrollment.status == "Inactive":
+                messages.error(
+                    request,
+                    f"Your account is inactive for the current academic year "
+                    f"({active_year.year_start}/{active_year.year_end}). "
+                    f"Please contact administrator."
+                )
+                return redirect("login")
+
+        # ================= OPTIONAL STUDENT STATUS CHECK =================
+        # if user.role == "student":
+        #
+        #     active_year = AcademicYear.objects.filter(
+        #         is_active=True
+        #     ).first()
+        #
         #     if active_year:
-        #         student_profile = StudentProfile.objects.filter(user=user).first()
+        #
+        #         student_profile = StudentProfile.objects.filter(
+        #             user=user
+        #         ).first()
+        #
         #         if student_profile:
-        #             student_enrollment = Enrollment.objects.filter(
+        #
+        #             enrollment = Enrollment.objects.filter(
         #                 student=student_profile,
         #                 academic_year=active_year
         #             ).first()
-        #             if student_enrollment and student_enrollment.status == 'Inactive':
-        #                 messages.error(request, "Your account is inactive. Please contact the administrator.")
-        #                 return redirect('login')
+        #
+        #             if enrollment and enrollment.status == "Inactive":
+        #                 messages.error(
+        #                     request,
+        #                     "Your account is inactive."
+        #                 )
+        #                 return redirect("login")
 
-        # Update role if superuser
-        if user.is_superuser and user.role != 'admin':
-            user.role = 'admin'
+        # ================= SUPERUSER =================
+        if user.is_superuser and user.role != "admin":
+            user.role = "admin"
             user.save()
 
-        # Login user
+        # ================= LOGIN =================
         login(request, user)
 
-        # Determine redirect URL based on role
         role_redirects = {
-            'admin': 'admin_dashboard',
-            'teacher': 'teacher_dashboard',
-            'student': 'student_dashboard',
+            "admin": "admin_dashboard",
+            "teacher": "teacher_dashboard",
+            "student": "student_dashboard",
         }
 
         if user.role in role_redirects:
-            messages.success(request, f"your most welcome, {user.get_full_name() or user.username}!")
+            messages.success(
+                request,
+                f"Welcome, {user.get_full_name() or user.username}!"
+            )
             return redirect(role_redirects[user.role])
 
-        # Invalid role
         logout(request)
-        messages.error(request, "Invalid role!")
-        return redirect('login')
+        messages.error(request, "Invalid user role.")
+        return redirect("login")
 
-    # GET request - render login page
-    return render(request, 'attendance_app/login.html', {
-        'admin_exists': admin_exists
-    })
+    return render(
+        request,
+        "attendance_app/login.html",
+        {
+            "admin_exists": admin_exists
+        }
+    )
     
     
 def format_phone_number(phone):
